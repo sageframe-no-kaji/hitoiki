@@ -38,7 +38,7 @@ Coverage floor: **≥90% line coverage on IssokuCore**, enforced by `scripts/cov
 - The System Design's decisions are closed. A question it does not answer stops the work.
 - Every build ho from ho-01 is reviewed by an x ho. The reviewer is Codex, in a fresh session, from `ho-process/hos/ho-NNx-review-of-<title>.md`. No reviewer subagents run inside Claude Code.
 - The Kamae 5 skill authors `shape: x` documents from `ho-process/x-ho-template.md`; the template is the authority until it moves into the skill.
-- Tests never touch live hosts. The ho-01 spike runs against real hosts only with the practitioner driving and only the commands its spec lists.
+- Tests never touch live hosts. The ho-01 spike runs against real hosts only the commands its spec lists, every one read-only; the sudo password is typed by the practitioner and by no one else.
 - No AI attribution in commits, PRs, or code. No `Co-Authored-By`, no "Generated with". Strip any template that adds one.
 - No dependencies in `Package.swift` at v1. A dependency is an architectural question for the practitioner.
 - No secrets in the repository. `ho-process/` is public; only the State Memory (`kamae-6-issoku-state-memory.md`) is gitignored.

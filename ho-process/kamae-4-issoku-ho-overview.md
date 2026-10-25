@@ -418,3 +418,15 @@ Spec: `ho-process/hos/ho-00-orientation.md`. One Opus subagent wrote the scaffol
 - **NEXT** — ho-01, the spike.
 - **ACTION ITEMS / BLOCKS** — toolchain stays on Xcode; SwiftLint baseline template fix is practitioner-scope; `resources/messages.MD` untracked pending the practitioner's call; deferred items in the spec's Handoff.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-01 — The Spike — closed 2026-10-25
+
+Opening hash: `ee95ee71f25877574df7302f5e88e8908e6458eb`, ho-00's closing commit. Closing hash: the commit `ho-01: the spike — prove the pseudoterminal process model`, recorded as the opening hash of ho-01x's entry, by the convention ho-00's entry states.
+
+Spec: `ho-process/hos/ho-01-the-spike.md`. Findings: `ho-process/hos/ho-01-spike-findings.md`. Harness: `spike/`, its own package, deleted by ho-02. One Opus subagent built the harness and ran the run sheet; the practitioner typed every sudo password and judged readability; the orchestrator verified the stack, inspected every capture it cites, redacted host, address, user, key, pool and machine names to placeholders, and committed. Two Think decisions were amended during execution and both forms are recorded: the line-in-progress is capped at 1 MiB (Decision 6), and the rejected-key case uses `ssh -F /dev/null` so the user's config cannot supply a key (Decision 9).
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-01. `forkpty` from `import Darwin`, no shim, met the criterion on the first attempt; `posix_spawn` was never built. The sudo prompt arrives through the pseudoterminal, nothing typed reaches the capture, and sudo's exit status propagates (0 on success, 1 after three wrong passwords). Interrupt and force-kill are clean locally; with `ssh -tt` an interrupt reaches the remote even when INT is trapped, without `-tt` the remote survives. Return-to-first-byte medians: 14.5 ms local, 202.1 / 383.2 / 602.3 ms for the LAN, LAN and Tailscale hosts. Peak resident 9.7 MB at both one and fifty megabytes of output once the line cap landed. All 24 captures emitted SGR only; the non-SGR list is empty and every plain output is readable. The scrubbed launch loses `SSH_AUTH_SOCK`, `SHELL`, `TERM`, `TMPDIR`; ssh still authenticates from the key on disk.
+- **NEXT** — ho-01x: author `ho-process/hos/ho-01x-review-of-the-spike.md` from the x template with the findings document's path on the commit-range line, commit it, hand off to Codex (`gpt-6.1-sol`).
+- **ACTION ITEMS / BLOCKS** — for ho-02: set a real window size (the spike leaves 0×0); `forkpty` calls `fork`, so spawn from a place the app process can afford it; ssh status 255 covers both connection failure and interrupt; the 1 MiB line cap makes a 50 MB unbroken line take 1.8 s instead of 0.4 s. Replan checkpoint after ho-01x: spawn cost and the empty terminal-control list. A foreign `sleep 300` runs on the Proxmox host; never `pkill` it.
+- **PROJECT LIFECYCLE** — kamae

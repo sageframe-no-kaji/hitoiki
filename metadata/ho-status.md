@@ -5,3 +5,4 @@
 | Ho | Title | Shape | Status |
 |---|---|---|---|
 | 00 | Orientation — scaffold the package and the verification stack | orientation | complete |
+| 01 | The Spike — prove the pseudoterminal process model | ha | complete |
