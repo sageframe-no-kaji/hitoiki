@@ -2,21 +2,51 @@
   "schema": "ho-status/1",
   "project": "issoku",
   "generated_at": "2026-10-25",
-  "source": { "overview": "ho-process/kamae-4-issoku-ho-overview.md", "hos_dir": "ho-process/hos/" },
-  "summary": { "hos": 2, "drafted": 0, "complete": 2, "planned": 0 },
+  "source": {
+    "overview": "ho-process/kamae-4-issoku-ho-overview.md",
+    "hos_dir": "ho-process/hos/"
+  },
+  "summary": {
+    "hos": 3,
+    "drafted": 0,
+    "complete": 2,
+    "planned": 0,
+    "ready": 1
+  },
   "phases": [
     {
       "phase": 0,
       "title": "Foundation",
       "hos": [
-        { "ho": "00", "title": "Orientation — scaffold the package and the verification stack", "shape": "orientation", "status": "complete", "doc": "ho-process/hos/ho-00-orientation.md" }
+        {
+          "ho": "00",
+          "title": "Orientation — scaffold the package and the verification stack",
+          "shape": "orientation",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-00-orientation.md"
+        }
       ]
     },
     {
       "phase": 1,
       "title": "The Process Model",
       "hos": [
-        { "ho": "01", "title": "The Spike — prove the pseudoterminal process model", "shape": "ha", "status": "complete", "doc": "ho-process/hos/ho-01-the-spike.md" }
+        {
+          "ho": "01",
+          "title": "The Spike — prove the pseudoterminal process model",
+          "shape": "ha",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-01-the-spike.md"
+        },
+        {
+          "ho": "01x",
+          "title": "Review of The Spike — prove the pseudoterminal process model",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "01",
+          "run": 1,
+          "doc": "ho-process/hos/ho-01x-review-of-the-spike.md"
+        }
       ]
     }
   ]
