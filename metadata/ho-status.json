@@ -1,0 +1,16 @@
+{
+  "schema": "ho-status/1",
+  "project": "issoku",
+  "generated_at": "2026-10-25",
+  "source": { "overview": "ho-process/kamae-4-issoku-ho-overview.md", "hos_dir": "ho-process/hos/" },
+  "summary": { "hos": 1, "drafted": 0, "complete": 1, "planned": 0 },
+  "phases": [
+    {
+      "phase": 0,
+      "title": "Foundation",
+      "hos": [
+        { "ho": "00", "title": "Orientation — scaffold the package and the verification stack", "shape": "orientation", "status": "complete", "doc": "ho-process/hos/ho-00-orientation.md" }
+      ]
+    }
+  ]
+}
