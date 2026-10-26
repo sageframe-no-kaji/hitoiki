@@ -61,6 +61,7 @@ Canonical Ho documents for this project:
 - `ho-process/kamae-6-issoku-state-memory.md` — Kamae 6 (State Memory, gitignored)
 - `ho-process/agent-tasks/` — child agent task specs (dandori format)
 - `ho-process/reviews/` — x ho review reports
+- `ho-process/audits/` — supplementary review material outside an x verdict (Codex audits); input to a later ho's Think, never a decision
 - `ho-process/x-ho-template.md` — the template x ho documents are filled from
 
 ## References
