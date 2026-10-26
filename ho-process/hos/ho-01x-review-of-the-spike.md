@@ -8,7 +8,7 @@ kamae: 5
 shape: x
 phase: 1 — The Process Model
 reviews: ho-01
-run: 1
+run: 2
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
@@ -21,6 +21,8 @@ You are the antagonist for ho-01. You did not write this code. You review one bo
 
 ho-01 is the one x ho whose input is not a diff. The spike's code under `spike/` is discarded at ho-02, so the unit under review is the findings document: for each of the six decisions, whether the recorded answer is supported by something you can see. The commit-range line below names that document in place of a range; the commits are given so you can read the spike's harness and spec as they were closed.
 
+**Run 2.** Run 1 (`ho-process/reviews/ho-01x-report-1.md`) returned ho-01 with five Must-fix findings. The fix pass `ho-process/hos/ho-01.1-fix-pass.md` answers them, and its closing commit ends the range below. The whole unit is read again, not just the fix; the findings document carries a "Corrected in ho-01.1" section naming what changed and why, and the ho-01 spec marks its two corrected sentences in place. Rate any finding from run 1 that you judge unanswered as you would any other.
+
 **Goal**
 
 A written report at the path named under Files, answering every question in the brief with file and line references or the word "none", with each finding rated, ending in one verdict: Pass or Return.
@@ -28,15 +30,15 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-01-the-spike.md`
-- Commit range: `ho-process/hos/ho-01-spike-findings.md` (the findings document; ho-01 opened on `ee95ee71f25877574df7302f5e88e8908e6458eb` and closed on `1e532c22d1a9012948670d4140a511d5dd96e382`)
+- Commit range: `ho-process/hos/ho-01-spike-findings.md` (the findings document; ho-01 opened on `ee95ee71f25877574df7302f5e88e8908e6458eb` and closed on `8e0b8d1a96bf1647b279aa6cdc036338e51cb4f6`, the closing commit of the fix pass ho-01.1)
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: `ho-process/hos/ho-01-spike-findings.md`, and everything in `git diff ee95ee71f25877574df7302f5e88e8908e6458eb..1e532c22d1a9012948670d4140a511d5dd96e382` (the harness under `spike/`, the spec, the overview's build record) as context for whether the findings are reproducible
+- Read-only: `ho-process/hos/ho-01-spike-findings.md`, and everything in `git diff ee95ee71f25877574df7302f5e88e8908e6458eb..8e0b8d1a96bf1647b279aa6cdc036338e51cb4f6` (the harness under `spike/`, the spec, the overview's build record) as context for whether the findings are reproducible
 - Read-only: the three other inputs above
-- Create: `ho-process/reviews/ho-01x-report-1.md`
+- Create: `ho-process/reviews/ho-01x-report-2.md`
 
 No other file is created or modified. The findings name hosts, addresses, the ssh user, the key file, a pool and the machine by placeholder (`host-a`, `<lan-ip-a>`, `<user>`, `<key>`, `pool-a`, `<mac>`); that is deliberate redaction, not missing evidence, and the real values are not available to you. Do not run the spike against any host.
 
@@ -72,9 +74,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-01x report, run 1
+# ho-01x report, run 2
 
-Commit range: ho-process/hos/ho-01-spike-findings.md (ee95ee71f25877574df7302f5e88e8908e6458eb..1e532c22d1a9012948670d4140a511d5dd96e382)
+Commit range: ho-process/hos/ho-01-spike-findings.md (ee95ee71f25877574df7302f5e88e8908e6458eb..8e0b8d1a96bf1647b279aa6cdc036338e51cb4f6)
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -123,8 +125,8 @@ swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 scripts/coverage-floor.sh
 swift build -c release --package-path spike 2>&1 | tail -3
-git diff --stat ee95ee71f25877574df7302f5e88e8908e6458eb..1e532c22d1a9012948670d4140a511d5dd96e382
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-01x-report-1.md
+git diff --stat ee95ee71f25877574df7302f5e88e8908e6458eb..8e0b8d1a96bf1647b279aa6cdc036338e51cb4f6
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-01x-report-2.md
 ```
 
 **Do not**
@@ -142,7 +144,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-01x-report-1
 Commit only the report.
 
 ```
-ho-01x: review of ho-01, run 1 — <Pass | Return>
+ho-01x: review of ho-01, run 2 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.
