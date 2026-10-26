@@ -7,8 +7,8 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 4,
-    "drafted": 0,
+    "hos": 5,
+    "drafted": 1,
     "complete": 4,
     "planned": 0,
     "ready": 0
@@ -55,6 +55,13 @@
           "run": 2,
           "doc": "ho-process/hos/ho-01x-review-of-the-spike.md",
           "verdict": "Pass"
+        },
+        {
+          "ho": "02",
+          "title": "Run — the production process model",
+          "shape": "ha",
+          "status": "draft",
+          "doc": "ho-process/hos/ho-02-run.md"
         }
       ]
     }

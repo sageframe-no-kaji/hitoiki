@@ -8,3 +8,4 @@
 | 01 | The Spike — prove the pseudoterminal process model | ha | complete |
 | 01.1 | Fix pass for the spike — answer ho-01x run 1 | ri | complete |
 | 01x | Review of The Spike — prove the pseudoterminal process model | x | complete |
+| 02 | Run — the production process model | ha | draft |
