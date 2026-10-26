@@ -1,99 +1,69 @@
 # Issoku 一息
 
-*Run one shell command from a floating panel. Read the result. Dismiss it.*
+Issoku is a macOS utility for running a shell command from a floating panel. It runs short local commands and remote commands through `/usr/bin/ssh`, using your existing SSH configuration. The name, 一息 (*issoku*), means “one breath” in Japanese.
 
-*Runs local commands and `ssh` commands with your existing SSH keys, config, and agent. Remote `sudo` prompts work.*
+## Using Issoku
 
-> Issoku is a macOS utility that runs a single shell command without opening a terminal. Press a global shortcut, type a command, press Return. Output appears under the input as it arrives. When the command exits, press Escape or click away and the panel is gone. Commands run in your own shell with your own environment, so `ssh` uses your existing config, keys, and agent. Remote `sudo` works, including the password prompt. Nothing runs in the background after the panel closes.
+Press `Control-Command-Space` to open the panel, type a command, and press Return. Output appears below the input as the command runs, followed by its exit status. When it finishes, press Escape or click outside to dismiss the panel.
 
-**Status:** In design as of October 2026. The architecture is committed. No code yet. The build begins with a working experiment on the process model, then the panel.
+The shortcut is configurable in settings. Its default conflicts with macOS's Character Viewer shortcut, and Issoku reports when the key combination is unavailable. Settings also control the working directory: home, the last directory used, or a fixed path.
 
-## What Issoku does
+- Commands run one at a time in your shell, with the environment captured from your login shell when Issoku starts. Use Refresh Environment in settings to capture it again. Commands run non-interactively, so interactive aliases and functions are not available.
+- Output supports color and carriage-return updates, with a bounded buffer. `Command-C` copies the selection, or the retained output when nothing is selected. A Copy button provides the same actions.
+- While a command runs, keystrokes go to its pseudoterminal (PTY), the operating-system interface that gives a process terminal input and output. Password entry uses the running program's terminal echo settings.
+- Stop or `Control-C` sends `SIGINT` to the local process group; a second Stop sends `SIGKILL`. Escape and clicking outside are inactive while a command runs.
+- Open in Terminal opens a terminal at the command's working directory after completion. Terminal.app is the default; settings can select another installed terminal.
+- Nine macros, `Command-1` through `Command-9`, load saved command text into the input for editing and execution. History is optional, off by default, and stored in a text file that can be cleared from settings.
 
-- **Global shortcut.** Default `Control-Command-Space`, configurable. The panel appears over whatever you are doing and takes keyboard focus.
-- **One command.** Type a line, press Return. The line runs in your shell, non-interactively, with the environment your login shell would have. Local commands and complete `ssh` commands both work.
-- **Live output.** Output streams into the panel as the process writes it. Exit status is shown when the process ends. Non-zero exits are marked.
-- **Interactive input while running.** Keystrokes go to the running process. When remote `sudo` asks for a password, type or paste it. Issoku never echoes what you type; what appears is only what the process sends back. sudo does not echo passwords, so they do not appear anywhere.
-- **Retry with a terminal.** If a remote `sudo` fails because it has no terminal, Issoku offers a one-key retry that reruns the same `ssh` line with `-tt`. That is the only change it ever makes to a command, and only when you accept.
-- **Stop.** While a command runs, Escape and clicking away do nothing. Stop or `Control-C` interrupts the process and everything it started. A second Stop kills it.
-- **Copy.** Select text and press `Command-C`, or press `Command-C` with nothing selected to copy the whole transcript. A Copy button does the same.
-- **Open in Terminal.** When a command has finished, a button opens a terminal at the same working directory. Terminal.app by default; settings can select another installed terminal.
-- **Macros.** Nine slots, `Command-1` through `Command-9`. Each holds a command and an optional name. Pressing the key loads the command into the input. Nothing runs until you press Return, so a macro can be a host prefix or a path you finish typing.
-- **History.** Off by default. When on, previous commands are recalled in the input and the history is a plain text file you can read, search, or delete. A Clear button deletes it.
-- **Working directory.** Home by default. Settings can change it to the last directory used or a fixed path.
-- **Updates.** An optional check against GitHub Releases, on by default, with a manual Check for Updates. No other network traffic originates from the app.
+## Commands
 
-## Using it
+```sh
+uptime
+df -h
+ssh server 'uptime'
+ssh -tt server 'sudo true'
+```
 
-1. Press `Control-Command-Space`.
-2. Type `ssh koan 'sudo systemctl restart caddy'` and press Return.
-3. sudo asks for a password. Type it. It does not appear.
-4. The command finishes. Read the output.
-5. Press Escape.
+If remote sudo reports that it needs a terminal, Issoku offers to rerun the SSH command with `-tt`, which requests a remote terminal. You can also type `-tt` yourself, as in the example above. SSH configuration, keys, and agents are managed through the installed OpenSSH client.
 
-For a local command, steps 3 and 4 are shorter: `df -h`, read, Escape.
-
-## What Issoku is not
-
-- Not a terminal emulator. Full-screen programs such as vim, htop, and tmux do not belong in the panel. Use Open in Terminal.
-- Not a terminal multiplexer or session manager. Nothing persists after the panel closes.
-- Not an SSH client or connection manager. It runs `/usr/bin/ssh` with your configuration and stores no hosts or credentials.
-- Not a command library, launcher, or plugin platform.
-- Not a server dashboard, log viewer, or AI assistant.
-- Not a replacement for your terminal. It exists for the commands that do not need one.
-
-## Naming
-
-一息 (*issoku*) is Japanese for one breath. One command, one result, done.
+The output model handles text, color, and carriage returns. Use a terminal for full-screen applications such as Vim, htop, and tmux, or for persistent shell sessions. Interrupting the local SSH process can leave a remote command running when SSH has not allocated a remote terminal.
 
 ## Architecture
 
-| Part | Does |
+Issoku has four components:
+
+| Component | Responsibility |
 |---|---|
-| Panel | The floating window, the global shortcut, focus, the running and done states, dismissal |
-| Run | One command's life: a pseudoterminal, one child process in its own process group, streaming output, forwarding keystrokes, interrupt, kill, exit status |
-| Transcript | Rendering output as it arrives with colour and carriage-return handling, selection, copy, a fixed memory ceiling |
-| Memory | Settings and macros in user defaults, history in a text file |
+| Panel | Window, shortcut, focus, run state, and dismissal |
+| Run | PTY, child process, process group, captured environment, input, output, and exit status |
+| Transcript | Text rendering, retained-output limit, selection, and copying |
+| Memory | Settings, macros, and optional command history |
 
-Run is the only part that touches processes. It captures your login shell's environment once when the app starts and uses it for every command.
-
-## Tech stack
-
-Swift 6 with strict concurrency. AppKit for the panel and the global shortcut. SwiftUI inside AppKit for settings. POSIX for the pseudoterminal and process control. `/usr/bin/ssh` for SSH. Built with Swift Package Manager; the app bundle is assembled by script, no Xcode project. No third-party dependencies.
-
-## Current state
-
-| | |
-|---|---|
-| Now | System design complete. Project scaffold next. |
-| Next | A throwaway experiment proving the pseudoterminal process model: remote sudo with a password, interrupt and kill without orphans, bounded memory on large output, minimal terminal-control handling against real commands. Then Run, Panel, Transcript, Memory, in that order. |
-| Later | Signed and notarised release on GitHub Releases and Payhip. Icon. |
+Issoku uses Swift 6 with strict concurrency. AppKit provides the panel and shortcut handling, with SwiftUI for settings; process execution uses POSIX facilities and `/usr/bin/ssh`. Swift Package Manager builds the project, and the package has no third-party dependencies.
 
 ## Installation
 
-*Not yet. A signed and notarised `.dmg` will appear on the releases page when the first version ships.*
-
-The built app will be available on Payhip for about three dollars. The purchase unlocks nothing; it is a way to pay for the work. Building from source is free at every version.
-
-## Requirements
-
-- macOS 14 or later.
-- OpenSSH as shipped with macOS. Issoku uses your `~/.ssh/config`, keys, and agent as they are.
-
-Repeated commands to the same host are faster with `ControlMaster` and `ControlPersist` in your SSH config, which reuse one connection instead of opening a new one each time. This is an SSH setting, not an Issoku one.
+Issoku requires macOS 14 or later. The app is distributed as a signed and notarized `.dmg` through GitHub Releases and Payhip, with the Payhip download priced at about $3. Open the disk image, drag Issoku to Applications, and launch it.
 
 ## Development
 
-*Build instructions appear here with the first code.* The project builds with `swift build` and tests with `swift test`. Formatting is swift-format, linting is SwiftLint, both run as pre-commit hooks.
+Building from source requires Swift 6 on macOS. Formatting uses swift-format, linting uses SwiftLint, and pre-commit runs the configured checks. `IssokuCore`, the headless library, has a configured line-coverage floor of 90%.
+
+```sh
+swift build
+swift test
+swift test --enable-code-coverage
+scripts/coverage-floor.sh
+```
 
 ## Privacy
 
-No telemetry, analytics, accounts, or command reporting. The optional update check requests the latest release from GitHub and sends no command text, hostnames, or identifiers. Commands you run may use the network on their own.
+An optional update check reads the latest release information from GitHub. It is enabled by default and can be disabled in settings; Check for Updates runs it manually. Issoku does not collect telemetry or require an account, and transcripts stay in memory. Commands you run can make their own network requests.
 
 ## License
 
-MIT. The full source is public. Anyone can inspect, modify, fork, and compile it.
+[MIT](LICENSE).
 
 ---
 
-Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · [sageframe.net](https://sageframe.net). Developed using the [Ho System](https://github.com/sageframe-no-kaji/ho-system). Last meaningful update: 2026-10-24.
+Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · [sageframe.net](https://sageframe.net). Developed using the [Ho System](https://github.com/sageframe-no-kaji/ho-system). Last meaningful update: 2026-10-25.
