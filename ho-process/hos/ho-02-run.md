@@ -1,6 +1,6 @@
 ---
 created: 2026-10-26
-status: draft
+status: complete
 type: ho-document
 project: issoku
 ho: "02"
@@ -68,7 +68,7 @@ The bytes go into the test target verbatim as `Tests/IssokuCoreTests/Fixtures/su
 
 **Guards, all four required.** The exit is non-zero. The clause appeared. The typed line, after leading whitespace is dropped, begins with `ssh ` (the four bytes `s s h space`). No whitespace-separated word after `ssh` begins with `-` and contains the letter `t` before any character that is not a letter: `-t`, `-tt`, `-At`, `-tA` all count as carrying `-t`; `-o`, `-p`, `-4`, and anything not beginning with `-` do not. `-o RequestTTY=yes` is not recognised; a user who writes that has already asked for a terminal and gets the offer anyway, which relaunches harmlessly. The guard stops at the end of the line, not at the destination, because finding the destination would be a parser and the seed forbids one.
 
-**Transformation.** Insert the six bytes `-tt ` after the leading `ssh ` of the trimmed line, once. The rest of the line is untouched, byte for byte. There is no other transformation anywhere in Run.
+**Transformation.** Insert the four bytes `-tt ` after the leading `ssh ` of the trimmed line, once. The rest of the line is untouched, byte for byte. There is no other transformation anywhere in Run.
 
 **Shape.** One pure function, `Retry.offer(line:exit:sawSudoRefusal:) -> String?`, and one byte scanner that sets `sawSudoRefusal`. Run's Done state carries the result as `retry: String?`; Panel reads it and draws the offer. Run never knows Panel exists. A line typed with `-tt` by hand never produces an offer, by the fourth guard.
 
@@ -90,6 +90,8 @@ The bytes go into the test target verbatim as `Tests/IssokuCoreTests/Fixtures/su
 The two streams are created once with Run and live as long as it does; each has one consumer (Transcript, Panel). Values are plain `Sendable` types. No delegate, no protocol with one conformer, no callback registry.
 
 **Spawn.** The spike's `spawnUnderPTY` and `execInChild` are copied into `Sources/IssokuCore/Run/PTY.swift` with one change: `forkpty` receives a `winsize` built from `size` instead of nil, so the child sees a real terminal size from its first instruction. Everything else is as proven: argv and envp allocated before the fork; between fork and exec the child calls only `signal`, `sigemptyset`, `sigprocmask`, `execve`, `_exit`; every signal disposition reset to default and the mask cleared, because exec preserves an ignored disposition. The child is `<shell> -c <line>` with `shell` from the password database, exactly `environment` and nothing inherited, and the working directory from `cwd` (`chdir` in the child before `execve` is permitted; it is async-signal-safe).
+
+**Added during execution, practitioner's ruling 2026-10-26.** The child also inherits none of the app's open file descriptors: before exec it closes every descriptor from 3 upward (`close` is async-signal-safe; `forkpty` has already closed the primary in the child). The spike leaked them and nothing in the System Design spoke to it; the subagent raised it and the practitioner ruled to add it here rather than let ho-02x send it back. One test lists the child's descriptors.
 
 **Reading and reaping.** A dispatch read source on the master fd delivers chunks to `bytes`. A dispatch process source on the child's pid (`DispatchSource.makeProcessSource`, `.exit`) triggers `waitpid`; the exit status or terminating signal becomes `Exit`; the master is closed after the read source has drained; then `.done` is emitted with the retry offer from Decision 2. Done means the child Run spawned has been reaped. What the pseudoterminal's hang-up does to anything the child left behind is Discovery, below.
 
@@ -257,10 +259,99 @@ The practitioner pastes the transcripts; the orchestrator records them in Reflec
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution.*
+Filled 2026-10-26 after the subagent's return, the orchestrator's verification, and the practitioner's run sheet.
 
-- **Did the design hold?** Where did the real processes surface things the Think phase did not anticipate?
-- **The Discovery results.** The grandchild after a normal exit; the driver under `swift run`.
-- **The run sheet.** The practitioner's ten transcripts, redacted.
-- **Size.** Run's line count against the spike's, and what the difference is.
-- **For ho-03 and ho-04.** Facts only: what Panel must call and in what order; what Transcript receives and when `resize` should be called. ho-03's first commit deletes `Sources/IssokuRunCLI/` and the `issoku-run` product.
+**Did the design hold?** Yes. Run is the actor of Decision 3 on its serial queue, `forkpty` from `import Darwin` with a real window size, one dispatch read source on the primary and one process source for the exit, `waitpid`, two streams out. The real processes surfaced six things the Think phase did not have:
+
+1. **Two Runs spawning at once intermittently fail `forkpty` with errno −6.** Seen only when the test suite ran its cases in parallel. The design is one command at a time and the app never holds two Runs, so the suite is `.serialized` and nothing is built for it. Recorded for ho-02x, since the tests are the only place it can occur.
+2. **A child can exit before the exit watcher is registered.** A command that finishes in under a millisecond was reaped by nobody and Done never came. The process source's registration handler now reaps too, with a guard so the reap runs once.
+3. **The login shell reports an interrupted child as a status above 128, not as a signal exit.** The interrupt test asserts a non-zero status and an empty process table, not a particular number. Panel shows what Run reports either way.
+4. **macOS `ps` prints 0 for the `sess` column.** The controlling-terminal test reads `tty` instead; the terminal is `/dev/ttys…` and the pid, group and terminal agree.
+5. **Descriptors.** Added during execution on the practitioner's ruling (Decision 3): the child closes 3 up to `getdtablesize()` before `execve`, proven by `ls /dev/fd` showing exactly 0 through 4 (the last two are `ls`'s own). The cost is the limit's: 61,440 descriptors when the process was launched from a terminal, about 8 ms of `close` calls per spawn, and 256 under the GUI launch path, where it is not measurable. The tests and the driver pay it; the app will not.
+6. **Two behaviours recorded, no code.** A working directory that cannot be entered makes the child exit 127 with no message, since nothing can be written between `fork` and `exec`; ho-05 validates the directory it stores (practitioner: fix when needed). `write` can block if the child stops reading its terminal; the panel's keystrokes go through the actor's queue, so a stuck child would stall the actor, not the UI. Neither occurred.
+
+The subagent's recorded interpretations where the spec left room: a signal exit counts as "not `.status(0)`" for the offer; a word like `-4t` after `ssh` does not count as carrying `-t`, because its letters are read up to the first non-letter and there are none, so the offer would be `ssh -tt -4t …`, harmless; `capture` takes an optional `shell:` so the tests can hand it a fake shell; environment entries that are not UTF-8 are skipped; spawn failure is `RunError.spawnFailed(errno:)` rather than a separate type.
+
+**The Discovery results.**
+
+- *A backgrounded grandchild after a normal exit.* `sh -c 'sleep 300 & echo $!; exit 0'`: the shell exits 0, Run reaps it and closes the primary, and the `sleep` is gone when the test reads the process table for the group. The pseudoterminal's hang-up reaches it. No code, as ruled.
+- *The driver under `swift run`.* `swift run issoku-run -- 'ls /dev/fd'` behaves as the built binary does (tabs intact, exit 0); nothing is interposed on the terminal. The run sheet used the binary path regardless.
+
+**Size.** `Sources/IssokuCore/Run/` is four files, 392 nonblank lines, of which 291 are executable (the coverage report's line count) and the rest documentation comments. The spike harness was 432 nonblank lines across six files. The driver, 163 nonblank lines in one file, is not counted: it is deleted at ho-03.
+
+**Verification, orchestrator's run, 2026-10-26.** `swift-format lint --recursive --strict Sources Tests`: exit 0. `swiftlint lint --strict`: 0 violations in 13 files. `swift build`: complete. `swift test`: 31 tests in 4 suites passed (Run 17, Login environment 5, Retry offer 8, Smoke 1). `scripts/coverage-floor.sh`: IssokuCore 92.10% line coverage over 4 files, floor 90; `PTY.swift` is 70.31% and its 19 missed lines are the child side of the fork and `execInChild`, the intended gap. `swift build -c release`: 0 warnings. The subagent's own transcript of the same six commands matched.
+
+**The run sheet.** Run by the practitioner 2026-10-26 in Ghostty from the repository root with `R=.build/debug/issoku-run`, all twelve lines pasted at once and executed in order by the shell. Items 5 and 6 were performed in the other order, wrong password first; both outcomes are below. Redacted per the project's map.
+
+```
+$ $R --env
+BUN_INSTALL … TERM … SSH_AUTH_SOCK … (names)
+33 variables
+
+$ $R -- uptime
+12:16  up 10 days, 23:06, 20 users, load averages: 6.44 6.70 7.29
+issoku-run: exit 0
+
+$ $R -- 'ssh host-a uptime'
+ 12:16:29 up 3 days, 19:41,  0 user,  load average: 1.03, 0.94, 0.94
+issoku-run: exit 0
+
+$ $R -- 'ssh host-a "sudo true"'
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+issoku-run: exit 1
+retry: ssh -tt host-a "sudo true"
+
+$ ssh -tt host-a sudo -K; $R -- 'ssh -tt host-a "sudo true"'     (wrong password, three times)
+Connection to <lan-ip-a> closed.
+[sudo] password for <user>:
+Sorry, try again.
+[sudo] password for <user>:
+Sorry, try again.
+[sudo] password for <user>:
+sudo: 3 incorrect password attempts
+Connection to <lan-ip-a> closed.
+issoku-run: exit 1
+
+$ ssh -tt host-a sudo -K; $R -- 'ssh -tt host-a "sudo true"'     (right password)
+Connection to <lan-ip-a> closed.
+[sudo] password for <user>:
+Connection to <lan-ip-a> closed.
+issoku-run: exit 0
+
+$ $R -- 'ssh -tt host-a "sudo smartctl -H /dev/sdb"'
+smartctl 7.3 2022-02-28 r5338 [x86_64-linux-6.8.12-43-pve] (local build)
+Copyright (C) 2002-22, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+Connection to <lan-ip-a> closed.
+issoku-run: exit 0
+
+$ $R -- 'ssh -tt host-a "sleep 300"'     (Control-C once)
+Connection to <lan-ip-a> closed.
+issoku-run: exit 255
+
+$ ssh host-a 'pgrep -af "sleep 300"'
+1315887 sleep 300
+
+$ $R -- 'sh -c "trap \"\" INT; sleep 300"'     (Control-C twice)
+issoku-run: signal 9
+
+$ $R -- 'ssh -o ConnectTimeout=3 192.0.2.1 uptime'
+ssh: connect to host 192.0.2.1 port 22: Operation timed out
+issoku-run: exit 255
+```
+
+Read against the sheet: item 1 has `SSH_AUTH_SOCK` and `TERM` (33 variables from the terminal's login shell; the count differs by launcher, which is the point of capturing). Item 4 reproduced the fixture's 164 bytes and the offer is the one insertion. Items 5 and 6: nothing echoed at any prompt, sudo's status propagated both ways. Item 7: no prompt, as expected from host-a's NOPASSWD rule. Item 8: after the interrupt the only `sleep 300` on host-a is the foreign one, so the interrupt reached the remote through `-tt`. Item 9: the trap held the first Control-C and the second killed the group. Item 10: 255 with no offer, since sudo's clause never appeared. The first `Connection … closed.` line in items 5 and 6 is from the `sudo -K` that precedes the driver, not from the driver.
+
+**For ho-03 and ho-04.** Facts only.
+
+- ho-03's first commit deletes `Sources/IssokuRunCLI/`, the `issoku-run` product and target in `Package.swift`, and that path from the ignore pattern in `scripts/coverage-floor.sh`.
+- Panel's calls, in order: `Run(environment:)` once, with the environment from `LoginEnvironment.capture()` done at launch (it blocks up to five seconds; not on the main thread). Per command: `start(line:cwd:size:)`, which throws `RunError.alreadyRunning` while a command runs and `RunError.spawnFailed(errno:)` when `forkpty` fails; then `states` yields `.running(pid:)` and later `.done(exit, retry:)`. Keystrokes go to `write(_:)` as the bytes typed, including control bytes; Stop and the first `Control-C` call `interrupt()`, a second call `kill()`. The settings action calls `refreshEnvironment()`, which waits for Done before capturing again. `Run` is one instance per app; `bytes` and `states` are single-consumer streams.
+- Transcript receives `bytes` as chunks exactly as read from the pseudoterminal: no line framing, a prompt arrives without a trailing LF, and a chunk can end inside an escape sequence. The stream finishes after the last byte sent before Done, once Run is released; a consumer reads until the stream ends. `resize(_:)` takes `WindowSize(columns:rows:)` and sends `TIOCSWINSZ` to the running child; the size passed to `start` is the terminal's size from the first byte. Call `resize` when the panel's column count is known and again on every width change; nothing happens when no command runs.
+- `Exit` is `.status(Int32)` or `.signal(Int32)`. ssh's 255 covers connection failure, an interrupted `-tt` session, and a remote command's own 255; the login shell reports an interrupted child as a status above 128, not a signal. `retry` on Done is the full line to offer, with `-tt ` inserted after `ssh `; Panel offers it verbatim and makes no other change to any line.
+- `WindowSize`, `Exit`, `RunState`, `RunError`, `Run`, `LoginEnvironment`, `Retry.offer` are the public surface. Nothing in `Run/` names Panel, Transcript or Memory.
+
+**Closing this ho.** Reflect filled (above); `status: complete` in the frontmatter; the state-summary block refreshed at the top of `ho-process/kamae-6-issoku-state-memory.md`; the build-record entry appended to `ho-process/kamae-4-issoku-ho-overview.md` with the closing hash recorded by the convention ho-00's entry states; `metadata/ho-status.md` and `.json` regenerated. ho-02x is authored next from `ho-process/x-ho-template.md` over `0f2630b7ee6a2e820de43276b921d3afa8c81745..<closing hash>`.

@@ -8,8 +8,8 @@
   },
   "summary": {
     "hos": 5,
-    "drafted": 1,
-    "complete": 4,
+    "drafted": 0,
+    "complete": 5,
     "planned": 0,
     "ready": 0
   },
@@ -60,7 +60,7 @@
           "ho": "02",
           "title": "Run — the production process model",
           "shape": "ha",
-          "status": "draft",
+          "status": "complete",
           "doc": "ho-process/hos/ho-02-run.md"
         }
       ]
