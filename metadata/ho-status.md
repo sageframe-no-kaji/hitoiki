@@ -7,4 +7,4 @@
 | 00 | Orientation — scaffold the package and the verification stack | orientation | complete |
 | 01 | The Spike — prove the pseudoterminal process model | ha | complete |
 | 01.1 | Fix pass for the spike — answer ho-01x run 1 | ri | complete |
-| 01x | Review of The Spike — prove the pseudoterminal process model | x | ready (run 2) |
+| 01x | Review of The Spike — prove the pseudoterminal process model | x | complete |

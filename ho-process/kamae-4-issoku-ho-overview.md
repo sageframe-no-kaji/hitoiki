@@ -452,3 +452,15 @@ Found on the way: `smartctl` is permitted without a password on the Proxmox host
 - **NEXT** — ho-01x run 2 over `ee95ee71f25877574df7302f5e88e8908e6458eb..<ho-01.1 closing hash>`, report `ho-process/reviews/ho-01x-report-2.md`.
 - **ACTION ITEMS / BLOCKS** — none blocking. For ho-02: a remote sudo prompt is not guaranteed (NOPASSWD rules, 60-minute timestamps); a prompt without LF must render as it arrives. For ho-04: the 256-byte sequence bound covers OSC and DCS; the plain model's column store is a byte array per character (audit). The README rewrite and the efficiency audit stay uncommitted pending the practitioner.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-01x — run 2 — Pass — 2026-10-26
+
+Opening hash: `8e0b8d1a96bf1647b279aa6cdc036338e51cb4f6` (ho-01.1's closing commit, the end of the run-2 range). The run-2 x document was committed as `139d04dfae3967e20e6e1e4652ee6f354c6b024d`; Codex (`gpt-6.1-sol`) committed the report as `e10a46e6c069b51f1e13d8bd6d74da7f070ccb6d`. Report: `ho-process/reviews/ho-01x-report-2.md`. Verdict **Pass**: 0 Must-fix, 0 Should-fix, 7 Notes. Codex judged all five run-1 Must-fix findings answered, ran the build, the tests, the coverage script and the spike release build itself with the results the orchestrator had recorded, and evaluated the parser bounds and the line echo offline, getting the same bytes the orchestrator saw in ho-01.1. The orchestrator read the report against the range and accepts the verdict.
+
+The Notes record limits, not defects. N1: remote force-kill was never exercised, ho-01's own stated limitation. N2: the memory numbers do not cover large output through the amended plain renderer. N3: two unconsumed members in the throwaway harness. N4: the escape grammar and the line cap each exist in two places, both required by the spec. N5: descriptive comments. N6: five companion files are needed to follow `main.swift`. N7: ho-01's Reflect still carries three superseded sentences (the key read from disk, 24 captures, the status-255 rule); they stay as the historical record under the forward-only rule, and the findings' "Corrected in ho-01.1" section with ho-01.1's entry above is the supersession. ho-01 is closed for good. Its closing commit is the one that carries this entry.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-01x run 2, Pass. ho-01 closed: the pseudoterminal process model is proven and reviewed.
+- **NEXT** — the replan checkpoint after ho-01x. The practitioner rules on the two questions under Replan checkpoints, spawn cost against the seed and the terminal-control list; the ruling is appended here as a checkpoint entry before ho-02 opens.
+- **ACTION ITEMS / BLOCKS** — Checkpoint inputs: `forkpty` through `import Darwin` with no shim and no dependency, 14.5 ms median from spawn to first byte locally, 26 ms to exit for the probe; the terminal-control list is empty across 25 captures, so no ho-01.5 on that ground. N2 is a measurement for ho-02's tests to make, not a defect. The README rewrite and `ho-process/reviews/ho-01-efficiency-audit.md` stay uncommitted pending the practitioner.
+- **PROJECT LIFECYCLE** — kamae
