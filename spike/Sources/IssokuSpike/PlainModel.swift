@@ -13,6 +13,11 @@
 ///
 /// The current line keeps at most `lineByteLimit` bytes (Decision 6, amended). Past that,
 /// its oldest columns are dropped, whole characters at a time, once per `feed` call.
+///
+/// Two more bounds keep the parser's own state finite (ho-01.1): an escape or control
+/// sequence longer than `sequenceByteLimit` bytes is abandoned, its bytes dropped and the
+/// parser back at ground; and SGR not yet attached to a character keeps at most
+/// `pendingSGRByteLimit` bytes, oldest sequences dropped first.
 struct PlainModel {
     private enum State {
         case ground
@@ -27,11 +32,17 @@ struct PlainModel {
     private static let lineFeed: UInt8 = 0x0A
     private static let bell: UInt8 = 0x07
 
+    /// The longest escape or control sequence, ESC included, before it is abandoned.
+    static let sequenceByteLimit = 256
+    /// The most bytes of SGR held while no character has arrived to carry them.
+    static let pendingSGRByteLimit = 4_096
+
     /// The most bytes kept of the current line.
     let lineByteLimit: Int
 
     private var state = State.ground
     private var sequence: [UInt8] = []
+    private var sequenceLength = 0
     private var columns: [[UInt8]] = []
     private var cursor = 0
     private var lineBytes = 0
@@ -50,6 +61,13 @@ struct PlainModel {
         dropOldestColumnsOverLimit()
     }
 
+    /// The line in progress, rendered exactly as `takeLine` would commit it now.
+    ///
+    /// Every column, then any SGR still waiting for a character. Reading it changes nothing.
+    var lineInProgress: [UInt8] {
+        columns.flatMap { $0 } + pendingSGR
+    }
+
     /// The final partial line, if anything is on it.
     mutating func finish() -> [UInt8]? {
         guard !columns.isEmpty || !pendingSGR.isEmpty else { return nil }
@@ -57,6 +75,16 @@ struct PlainModel {
     }
 
     private mutating func step(_ byte: UInt8, emit: ([UInt8]) -> Void) {
+        if state != .ground {
+            sequenceLength += 1
+            // A sequence that never ends would otherwise hold the parser, and for CSI its bytes,
+            // forever; past the bound it is treated as noise and the stream reads as text again.
+            if sequenceLength > Self.sequenceByteLimit {
+                sequence.removeAll()
+                state = .ground
+                return
+            }
+        }
         switch state {
         case .ground:
             ground(byte, emit: emit)
@@ -86,6 +114,7 @@ struct PlainModel {
         switch byte {
         case Self.escapeByte:
             state = .escape
+            sequenceLength = 1
         case Self.carriageReturn:
             cursor = 0
         case Self.lineFeed:
@@ -107,7 +136,9 @@ struct PlainModel {
         case UInt8(ascii: "]"), UInt8(ascii: "P"), UInt8(ascii: "X"), UInt8(ascii: "^"), UInt8(ascii: "_"):
             state = .controlString
         case Self.escapeByte:
+            // ESC ESC: the first is abandoned and a new sequence starts here.
             state = .escape
+            sequenceLength = 1
         case 0x20...0x2F:
             state = .escapeIntermediate
         case 0x30...0x7E:
@@ -126,7 +157,7 @@ struct PlainModel {
             sequence.append(byte)
             let isSGR = byte == UInt8(ascii: "m") && !sequence.dropLast().contains(where: { $0 >= 0x20 && $0 <= 0x2F })
             if isSGR {
-                pendingSGR.append(contentsOf: sequence)
+                appendPendingSGR(sequence)
             }
             sequence.removeAll()
             state = .ground
@@ -134,6 +165,20 @@ struct PlainModel {
             sequence.removeAll()
             state = .ground
             ground(byte, emit: emit)
+        }
+    }
+
+    // SGR with no character after it (a run of colour changes, or a child that never prints)
+    // would otherwise accumulate without limit. Whole sequences go, oldest first; every
+    // sequence starts with ESC and holds no other, so the next ESC is the next boundary.
+    private mutating func appendPendingSGR(_ sgr: [UInt8]) {
+        pendingSGR.append(contentsOf: sgr)
+        while pendingSGR.count > Self.pendingSGRByteLimit {
+            if let next = pendingSGR.dropFirst().firstIndex(of: Self.escapeByte) {
+                pendingSGR.removeFirst(next)
+            } else {
+                pendingSGR.removeAll()
+            }
         }
     }
 
@@ -161,8 +206,7 @@ struct PlainModel {
     }
 
     private mutating func takeLine() -> [UInt8] {
-        var line = columns.flatMap { $0 }
-        line.append(contentsOf: pendingSGR)
+        let line = lineInProgress
         columns.removeAll()
         pendingSGR.removeAll()
         cursor = 0

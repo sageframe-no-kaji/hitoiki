@@ -7,9 +7,9 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 3,
+    "hos": 4,
     "drafted": 0,
-    "complete": 2,
+    "complete": 3,
     "planned": 0,
     "ready": 1
   },
@@ -39,12 +39,20 @@
           "doc": "ho-process/hos/ho-01-the-spike.md"
         },
         {
+          "ho": "01.1",
+          "title": "Fix pass for the spike — answer ho-01x run 1",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "01",
+          "doc": "ho-process/hos/ho-01.1-fix-pass.md"
+        },
+        {
           "ho": "01x",
           "title": "Review of The Spike — prove the pseudoterminal process model",
           "shape": "x",
           "status": "ready",
           "reviews": "01",
-          "run": 1,
+          "run": 2,
           "doc": "ho-process/hos/ho-01x-review-of-the-spike.md"
         }
       ]

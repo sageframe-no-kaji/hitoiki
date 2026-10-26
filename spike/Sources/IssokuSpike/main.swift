@@ -11,6 +11,9 @@ import Foundation
 //   spike: exit <n> | signal <n> · spawn→first-byte <ms> ms · spawn→exit <ms> ms
 //
 // SIGINT to the harness → killpg(group, SIGINT). SIGTERM to the harness → killpg(group, SIGKILL).
+//
+// Under --plain, stdout shows the line in progress as it grows, not only committed lines, so a
+// prompt that ends without LF (sudo's) is visible while the child waits for the answer.
 
 private struct Options {
     var plain = false
@@ -60,6 +63,34 @@ private func writeError(_ text: String) {
 private func milliseconds(_ duration: Duration) -> String {
     let (seconds, attoseconds) = duration.components
     return String(format: "%.1f", Double(seconds) * 1_000 + Double(attoseconds) / 1e15)
+}
+
+// What --plain has already written of the line in progress. Each update writes only what is
+// new; a line that no longer starts with what was written (a CR rewound it, or the cap cut its
+// front) is rewritten from column zero, and ESC [ K clears what the earlier rendering left past
+// its end.
+private struct LineEcho {
+    private var shown: [UInt8] = []
+
+    private mutating func update(to line: [UInt8]) -> [UInt8] {
+        let bytes: [UInt8]
+        if line.starts(with: shown) {
+            bytes = Array(line[shown.count...])
+        } else {
+            bytes = [0x0D] + line + [0x1B, UInt8(ascii: "["), UInt8(ascii: "K")]
+        }
+        shown = line
+        return bytes
+    }
+
+    mutating func show(_ line: [UInt8]) {
+        writeAll(1, update(to: line))
+    }
+
+    mutating func commit(_ line: [UInt8]) {
+        writeAll(1, update(to: line) + [0x0A])
+        shown.removeAll(keepingCapacity: true)
+    }
 }
 
 // Forwards the harness's stdin to the master, byte for byte, when stdin is a terminal.
@@ -135,6 +166,7 @@ private func run(_ arguments: [String]) -> Int32 {
     let lineByteLimit = 1_048_576
     var ring = LineRing(capacity: 10_000, lineByteLimit: lineByteLimit)
     var model = options.plain ? PlainModel(lineByteLimit: lineByteLimit) : nil
+    var echo = LineEcho()
     var firstByteInstant: ContinuousClock.Instant?
 
     while true {
@@ -144,10 +176,12 @@ private func run(_ arguments: [String]) -> Int32 {
             let chunk = readBuffer[0..<count]
             if capture >= 0 { writeAll(capture, chunk) }
             if model != nil {
+                // The ring takes committed lines whole; stdout has already shown most of each.
                 model?.feed(chunk) { line in
-                    writeAll(1, line + [0x0A])
+                    echo.commit(line)
                     ring.append(line: line)
                 }
+                if let line = model?.lineInProgress { echo.show(line) }
             } else {
                 writeAll(1, chunk)
                 ring.append(bytes: chunk)
@@ -160,7 +194,7 @@ private func run(_ arguments: [String]) -> Int32 {
         }
     }
     if let partial = model?.finish() {
-        writeAll(1, partial)
+        echo.show(partial)
         ring.append(line: partial)
     }
 

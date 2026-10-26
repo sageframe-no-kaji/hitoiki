@@ -430,3 +430,25 @@ Spec: `ho-process/hos/ho-01-the-spike.md`. Findings: `ho-process/hos/ho-01-spike
 - **NEXT** — ho-01x: author `ho-process/hos/ho-01x-review-of-the-spike.md` from the x template with the findings document's path on the commit-range line, commit it, hand off to Codex (`gpt-6.1-sol`).
 - **ACTION ITEMS / BLOCKS** — for ho-02: set a real window size (the spike leaves 0×0); `forkpty` calls `fork`, so spawn from a place the app process can afford it; ssh status 255 covers both connection failure and interrupt; the 1 MiB line cap makes a 50 MB unbroken line take 1.8 s instead of 0.4 s. Replan checkpoint after ho-01x: spawn cost and the empty terminal-control list. A foreign `sleep 300` runs on the Proxmox host; never `pkill` it.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-01x — run 1 — Return — 2026-10-25
+
+Opening hash: `1e532c22d1a9012948670d4140a511d5dd96e382` (ho-01's closing commit). The x document was committed as `c8b20a15c97d0eec0ad510b395c1822618073ec1`; Codex (`gpt-6.1-sol`) committed the report as `20777a1adcf85e8bf888f623785fbb3cb482c989`. Report: `ho-process/reviews/ho-01x-report-1.md`. Verdict **Return**: 5 Must-fix, 0 Should-fix, 6 Notes. The orchestrator checked each Must-fix against the spike code and the findings and confirms all five. M1: the plain model emits only at LF, so a sudo prompt is invisible under `--plain` until the password is typed, and the findings' claim that the raw captures settle the prompt question is wrong. M2: a remote command exiting 255 is indistinguishable from ssh's own 255. M3: the reproduction commands need `spike/captures/`, which nothing creates. M4 and M5: the fresh-connection and key-from-disk claims rest on inference, not a recorded `ssh -G`. Note N6 is also right: the capture count in ho-01's entry above is 23, not 24. ho-01.1 answers all five; ho-01x then runs again as run 2 over the whole range.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-01x run 1, Return.
+- **NEXT** — ho-01.1, the fix pass: `ho-process/hos/ho-01.1-fix-pass.md`.
+- **ACTION ITEMS / BLOCKS** — the practitioner reruns run 10 under `--plain` after `sudo -k` with the amended harness. Codex's efficiency audit (`ho-process/reviews/ho-01-efficiency-audit.md`, uncommitted) is input to ho-02 and ho-04 Think, not a decision; its one spike-level finding, unbounded SGR and control-sequence buffers, is folded into ho-01.1.
+- **PROJECT LIFECYCLE** — kamae
+
+### ho-01.1 — Fix pass for the spike — closed 2026-10-25
+
+Opening hash: `20777a1adcf85e8bf888f623785fbb3cb482c989` (the run-1 report commit). Closing hash: the commit `ho-01.1: fix pass for the spike — answer ho-01x run 1`, recorded as the range end of ho-01x run 2. Spec: `ho-process/hos/ho-01.1-fix-pass.md`. One Opus subagent amended the plain model and the findings; the practitioner ran `sudo true` under `--plain`; the orchestrator corrected the ho-01 spec's two wrong sentences with the corrections marked, verified the stack and every transcript it cites, and committed.
+
+Found on the way: `smartctl` is permitted without a password on the Proxmox host, so ho-01's run 10 could never prompt and its "credential cache" explanation was wrong; sudo's timestamp there lasts 60 minutes. ho-01's entry above says 24 captures; the count was 23, and is 25 after this ho.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-01.1. M1: the plain model renders the line in progress, proven with a visible sudo prompt under `--plain`; parser bounds of 256 bytes per sequence and 4,096 bytes of pending SGR. M2–M5 and N6: the findings corrected with recorded `ssh -G` configuration, the right status-255 rule, `mkdir -p` in every reproduction, and the capture count.
+- **NEXT** — ho-01x run 2 over `ee95ee71f25877574df7302f5e88e8908e6458eb..<ho-01.1 closing hash>`, report `ho-process/reviews/ho-01x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — none blocking. For ho-02: a remote sudo prompt is not guaranteed (NOPASSWD rules, 60-minute timestamps); a prompt without LF must render as it arrives. For ho-04: the 256-byte sequence bound covers OSC and DCS; the plain model's column store is a byte array per character (audit). The README rewrite and the efficiency audit stay uncommitted pending the practitioner.
+- **PROJECT LIFECYCLE** — kamae
