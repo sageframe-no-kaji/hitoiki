@@ -464,3 +464,13 @@ The Notes record limits, not defects. N1: remote force-kill was never exercised,
 - **NEXT** — the replan checkpoint after ho-01x. The practitioner rules on the two questions under Replan checkpoints, spawn cost against the seed and the terminal-control list; the ruling is appended here as a checkpoint entry before ho-02 opens.
 - **ACTION ITEMS / BLOCKS** — Checkpoint inputs: `forkpty` through `import Darwin` with no shim and no dependency, 14.5 ms median from spawn to first byte locally, 26 ms to exit for the probe; the terminal-control list is empty across 25 captures, so no ho-01.5 on that ground. N2 is a measurement for ho-02's tests to make, not a defect. The README rewrite and `ho-process/reviews/ho-01-efficiency-audit.md` stay uncommitted pending the practitioner.
 - **PROJECT LIFECYCLE** — kamae
+
+### Replan checkpoint — after ho-01x — passed 2026-10-26
+
+The practitioner ruled on the two questions under Replan checkpoints. Spawn cost: accepted as found; `forkpty` through `import Darwin` with no shim and no dependency, 14.5 ms median from spawn to first byte locally, is a cost the seed accepts, and ho-02 keeps the shape planned above. Terminal-control list: empty across the 25 captures, and the practitioner rules cursor movement a stated limit of the product rather than a case to support; Issoku is not for full-screen programs, and the README says to use a terminal for those. No ho-01.5, no emulator, no dependency; ho-04 builds the plain model. The cost of an emulator was weighed and recorded in the session: a dependency against the System Design, an inserted ho, and a panel that stops being a panel. Deferring costs nothing, because Run's pseudoterminal and keystroke forwarding are what an emulator would sit on, so the question can return at v2 without reopening ho-02.
+
+**STATE-SUMMARY**
+- **COMPLETED** — the Phase 1 midpoint checkpoint. Both questions ruled; the plan above is unchanged.
+- **NEXT** — ho-02, Run: author `ho-process/hos/ho-02-run.md` with the Kamae 5 skill, Think phase first.
+- **ACTION ITEMS / BLOCKS** — Think inputs for ho-02: the findings' followups, ho-01.1's facts (a remote sudo prompt is not guaranteed; a prompt without LF must render as it arrives), ho-01x run 2's N1 and N2 (remote force-kill unexercised; large output through the incremental renderer unmeasured), and `ho-process/audits/ho-01-efficiency-audit.md`.
+- **PROJECT LIFECYCLE** — kamae
