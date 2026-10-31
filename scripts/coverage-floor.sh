@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Enforces the line-coverage floor on IssokuCore. Assumes
+# Enforces the line-coverage floor on two sets. Assumes
 # `swift test --enable-code-coverage` has already run.
 #
 #   IssokuCore ≥ $1 (default 90) — the headless library: Run and the
 #   Transcript model. The truth lives in the core.
 #
-# Sources/Issoku, the surface, is excluded from the floor: its views cannot
-# be driven headless. The Theme palette in that target is tested regardless,
-# through its pure `resolved(dark:)` seam. Whether an application-logic floor
-# is added for Sources/Issoku is a ho-03 decision.
+#   Sources/Issoku ≥ $1 — the surface's logic (ho-03 Decision 14): Panel,
+#   Keystrokes, Hotkey and Theme. Four files are excluded by name, below.
+#
+# The exit is non-zero if either set is under the floor.
 
 set -euo pipefail
 
@@ -57,4 +57,31 @@ if not files:
 percent = data['totals']['lines']['percent']
 print(f'IssokuCore line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
 sys.exit(0 if percent >= $FLOOR else 1)
+"
+
+
+# The surface. Excluded by name: App.swift, because the delegate needs a running
+# application; PanelWindow.swift, TranscriptPlaceholder.swift and
+# SettingsWindow.swift, because they hold layout and event forwarding that
+# cannot be driven headless.
+APP_IGNORE='(Tests/|\.build/|Sources/IssokuCore/|Sources/Issoku/(App|PanelWindow|TranscriptPlaceholder|SettingsWindow)\.swift)'
+
+echo
+echo "== Sources/Issoku =="
+xcrun llvm-cov report "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
+    -instr-profile "$PROFDATA" \
+    -ignore-filename-regex="$APP_IGNORE"
+
+echo
+xcrun llvm-cov export "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
+    -instr-profile "$PROFDATA" \
+    -ignore-filename-regex="$APP_IGNORE" \
+    -summary-only \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)['data'][0]
+files = [f['filename'] for f in data['files']]
+percent = data['totals']['lines']['percent']
+print(f'Sources/Issoku line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
+sys.exit(0 if files and percent >= $FLOOR else 1)
 "
