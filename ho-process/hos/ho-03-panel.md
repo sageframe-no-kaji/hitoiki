@@ -40,7 +40,7 @@ This session builds Panel, the only visible surface: the global hotkey, the floa
 
 ## Phase 1 — Think
 
-Sixteen decisions, settled 2026-10-31 between the practitioner and the orchestrator. Decisions 11, 12 and 14 are the ones the System Design and the coverage script assigned here; the rest fix the shape of the work so the subagent has nothing architectural left to decide. Two facts were checked by a probe before authoring: `RegisterEventHotKey` from `Carbon.HIToolbox` compiles under Swift 6 with strict concurrency and returns `noErr` for the default combination, and registering the same combination a second time in the same process returns `eventHotKeyExistsErr` (−9878); an `NSPanel` with `[.borderless, .nonactivatingPanel]` constructs.
+Sixteen decisions, settled 2026-10-31 between the practitioner and the orchestrator, and two more (17, 18) added the same day from the practitioner's run sheet. Decisions 11, 12 and 14 are the ones the System Design and the coverage script assigned here; the rest fix the shape of the work so the subagent has nothing architectural left to decide. Two facts were checked by a probe before authoring: `RegisterEventHotKey` from `Carbon.HIToolbox` compiles under Swift 6 with strict concurrency and returns `noErr` for the default combination, and registering the same combination a second time in the same process returns `eventHotKeyExistsErr` (−9878); an `NSPanel` with `[.borderless, .nonactivatingPanel]` constructs.
 
 ### Decision 1 — The first commit deletes the driver
 
@@ -150,6 +150,14 @@ Tests/IssokuTests/HotkeyTests.swift
 ### Decision 16 — One Opus subagent, no agent-task files, no split
 
 The seams (entry, controller, keystrokes, hotkey, window, placeholder, settings) are real but share one controller and one test suite. One subagent builds them in the order of Decision 15, test first for each measured file, with this document as its whole instruction. The overview's reserve split (ho-03.1 panel and states; ho-03.2 hotkey, recorder, conflicts) is not taken: the recorder is ho-05's and the hotkey is forty lines. If the subagent halts on size or on a question this document does not answer, the orchestrator stops and the practitioner rules.
+
+### Decision 17 — Added at the run sheet: dismissing the panel clears it
+
+Practitioner's ruling 2026-10-31, from run-sheet item 4. The System Design's Composing state allowed "Transcript empty or showing the previous result"; the practitioner rules empty. `dismissIfAllowed()`, when it hides the panel, also returns Panel to Composing: `state` becomes nil, the transcript and the status line clear, and any retry offer goes with them. Every summons starts clean. `state` is still the one stored value; its meaning widens to "the last state Run reported, or nil before the first command and after a dismissal". The stop counter is already zero at Done. Test: a command runs to Done, the panel is dismissed and shown again; `state` is nil, the transcript and status are empty, the Retry and Open in Terminal buttons are hidden.
+
+### Decision 18 — Added at the run sheet: a block cursor while Running
+
+Practitioner's ruling 2026-10-31, from run-sheet item 4 (the sudo prompt). While a command runs the transcript area shows a block cursor after the last byte of output, in the ink colour, so the user can see that keystrokes now go to the command. It is removed at Done. It is not an echo and it is not content: `transcript.string` holds only what the command sent, so the no-echo tests read the same string as before. The mechanism is the subagent's (a trailing glyph outside the stored text, or a drawn rectangle); the placeholder exposes one `showsCursor: Bool` that Panel's `apply` sets from `state`. ho-04's Transcript carries the cursor over. Test: `showsCursor` is true while `.running` and false at `.done` and after dismissal; the string never contains the cursor glyph.
 
 ### Discovery (deferred to execution) — three things only the build can show
 

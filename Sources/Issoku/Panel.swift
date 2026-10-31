@@ -8,7 +8,7 @@ internal final class Panel {
     /// Terminal.app, which every Mac has; the picker is ho-05's.
     internal static let terminal = "com.apple.Terminal"
 
-    /// The last state from `run.states`.
+    /// The last state Run reported, or nil before the first command and after a dismissal.
     ///
     /// Nil is Composing, `.running` is Running, `.done` is Done.
     internal private(set) var state: RunState?
@@ -81,10 +81,15 @@ internal final class Panel {
         apply()
     }
 
-    /// Hides the panel unless a command runs: Escape, click-out and the hotkey all come here.
+    /// Hides the panel unless a command runs, and returns it to Composing.
+    ///
+    /// Every summons starts clean. Escape, click-out and the hotkey all come here.
     internal func dismissIfAllowed() {
         guard canDismiss else { return }
         window.orderOut(nil)
+        state = nil
+        window.transcript.string = ""
+        apply()
     }
 
     /// The hotkey: shows a hidden panel, hides a visible one, and brings a running one forward.
@@ -195,6 +200,7 @@ internal final class Panel {
         window.retryButton.isHidden = offer == nil
         window.openButton.isHidden = exit == nil
         window.input.isEditable = !running
+        window.transcript.showsCursor = running
 
         var status = ""
         switch exit {

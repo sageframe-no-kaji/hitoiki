@@ -139,7 +139,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         }
         inputHeight.constant = min(max(lines, 1), 5) * Self.lineHeight
 
-        let empty = transcript.string.isEmpty
+        // Shown while the cursor is on, so a command that has printed nothing yet still shows where keys go.
+        let empty = transcript.string.isEmpty && !transcript.showsCursor
         scroll.isHidden = empty
         rule.isHidden = empty
         transcriptHeight.constant = 0

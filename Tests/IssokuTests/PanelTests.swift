@@ -119,6 +119,22 @@ private struct Fixture {
         try await until { window.transcript.string.contains(text) }
     }
 
+    /// An `ssh` in the test's directory, as ho-02's RunTests build it: sudo's refusal on stderr and
+    /// status 1, unless its first argument is `-tt`, then `ok` and status 0.
+    func writeFakeSSH() throws {
+        let ssh = home + "/ssh"
+        let script = """
+            #!/bin/sh
+            if [ "$1" = "-tt" ]; then echo ok; exit 0; fi
+            printf 'sudo: a terminal is required to read the password; either use the -S option to \
+            read from standard input or configure an askpass helper\\nsudo: a password is required\\n' >&2
+            exit 1
+
+            """
+        try script.write(toFile: ssh, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh)
+    }
+
     func tearDown() {
         window.orderOut(nil)
         try? FileManager.default.removeItem(atPath: home)
@@ -272,17 +288,7 @@ internal struct PanelTests {
     internal func offer() async throws {
         let fixture = try Fixture(homeOnPath: true)
         defer { fixture.tearDown() }
-        let ssh = fixture.home + "/ssh"
-        let script = """
-            #!/bin/sh
-            if [ "$1" = "-tt" ]; then echo ok; exit 0; fi
-            printf 'sudo: a terminal is required to read the password; either use the -S option to \
-            read from standard input or configure an askpass helper\\nsudo: a password is required\\n' >&2
-            exit 1
-
-            """
-        try script.write(toFile: ssh, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh)
+        try fixture.writeFakeSSH()
 
         fixture.panel.submit("ssh host 'sudo true'")
         #expect(try await fixture.done() == .done(.status(1), retry: "ssh -tt host 'sudo true'"))
@@ -295,6 +301,64 @@ internal struct PanelTests {
         #expect(states.last == .done(.status(0), retry: nil))
         #expect(fixture.window.retryButton.isHidden)
         try await fixture.transcriptContains("ok")
+    }
+
+    @Test("A dismissal takes a showing offer with it; an empty line then starts nothing")
+    internal func dismissalClearsOffer() async throws {
+        let fixture = try Fixture(homeOnPath: true)
+        defer { fixture.tearDown() }
+        try fixture.writeFakeSSH()
+        fixture.panel.show()
+        fixture.panel.submit("ssh host 'sudo true'")
+        #expect(try await fixture.done() == .done(.status(1), retry: "ssh -tt host 'sudo true'"))
+        fixture.panel.dismissIfAllowed()
+        #expect(fixture.panel.state == nil)
+        #expect(fixture.window.retryButton.isHidden)
+        fixture.panel.show()
+        fixture.panel.submit("")
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(fixture.panel.state == nil)
+    }
+
+    @Test("Dismissing returns the panel to Composing: no state, no transcript, no status, no buttons")
+    internal func dismissalClears() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo shown; exit 3")
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        try await fixture.transcriptContains("shown")
+        #expect(!fixture.window.openButton.isHidden)
+
+        fixture.panel.dismissIfAllowed()
+        #expect(!fixture.window.isVisible)
+        fixture.panel.show()
+        #expect(fixture.panel.state == nil)
+        #expect(fixture.window.transcript.string.isEmpty)
+        #expect(fixture.window.status.stringValue.isEmpty)
+        #expect(fixture.window.retryButton.isHidden)
+        #expect(fixture.window.openButton.isHidden)
+    }
+
+    @Test("The block cursor shows only while Running and is never part of the transcript's text")
+    internal func cursor() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        #expect(!fixture.window.transcript.showsCursor)
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(fixture.window.transcript.showsCursor)
+        #expect(fixture.window.transcript.string == "ready\r\n")
+
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(!fixture.window.transcript.showsCursor)
+        #expect(!fixture.window.transcript.string.contains("\u{2588}"))
+        #expect(!fixture.window.transcript.string.contains("\u{FFFC}"))
+        fixture.panel.dismissIfAllowed()
+        #expect(!fixture.window.transcript.showsCursor)
     }
 
     @Test("The first command waits for the launch task")

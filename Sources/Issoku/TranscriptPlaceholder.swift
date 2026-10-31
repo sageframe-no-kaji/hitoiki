@@ -8,8 +8,20 @@ import AppKit
 internal final class TranscriptPlaceholder: NSTextView {
     internal weak var panel: Panel?
 
+    /// A block after the last byte while a command runs.
+    ///
+    /// Drawn, never stored: `string` holds only what the command sent.
+    internal var showsCursor = false {
+        didSet { needsDisplay = true }
+    }
+
+    private static let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    private static let block = NSSize(
+        width: ("M" as NSString).size(withAttributes: [.font: font]).width,
+        height: NSLayoutManager().defaultLineHeight(for: font))
+
     private let attributes: [NSAttributedString.Key: Any] = [
-        .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+        .font: TranscriptPlaceholder.font,
         .foregroundColor: Theme.Token.ink.nsColor,
     ]
 
@@ -45,6 +57,25 @@ internal final class TranscriptPlaceholder: NSTextView {
             Keystrokes.action(characters: event.characters, modifiers: event.modifierFlags, keyCode: event.keyCode))
     }
 
+    override internal func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard showsCursor, let layout = layoutManager, let container = textContainer else { return }
+        layout.ensureLayout(for: container)
+        // The extra line fragment exists when the text is empty or ends a line; otherwise the block
+        // follows the last glyph on its line.
+        var corner = layout.extraLineFragmentRect.origin
+        corner.x += container.lineFragmentPadding
+        if layout.extraLineFragmentRect.height == 0, layout.numberOfGlyphs > 0 {
+            let last = layout.numberOfGlyphs - 1
+            corner.x = layout.boundingRect(forGlyphRange: NSRange(location: last, length: 1), in: container).maxX
+            corner.y = layout.lineFragmentRect(forGlyphAt: last, effectiveRange: nil).minY
+        }
+        corner.x += textContainerOrigin.x
+        corner.y += textContainerOrigin.y
+        Theme.Token.ink.nsColor.setFill()
+        NSRect(origin: corner, size: Self.block).fill()
+    }
+
     override internal func paste(_ sender: Any?) {
         panel?.keystroke(.paste)
     }
@@ -52,6 +83,8 @@ internal final class TranscriptPlaceholder: NSTextView {
     /// Appends `text` and scrolls to the end.
     internal func append(_ text: String) {
         textStorage?.append(NSAttributedString(string: text, attributes: attributes))
+        // The block moves with the end of the text, outside the range the text system redraws.
+        if showsCursor { needsDisplay = true }
         scrollToEndOfDocument(nil)
     }
 }
