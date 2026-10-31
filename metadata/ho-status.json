@@ -1,17 +1,17 @@
 {
   "schema": "ho-status/1",
   "project": "issoku",
-  "generated_at": "2026-10-26",
+  "generated_at": "2026-10-31",
   "source": {
     "overview": "ho-process/kamae-4-issoku-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 5,
+    "hos": 7,
     "drafted": 0,
-    "complete": 5,
+    "complete": 6,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -62,6 +62,24 @@
           "shape": "ha",
           "status": "complete",
           "doc": "ho-process/hos/ho-02-run.md"
+        },
+        {
+          "ho": "02.1",
+          "title": "Fix pass for Run — answer ho-02x run 1",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "02",
+          "doc": "ho-process/hos/ho-02.1-fix-pass.md"
+        },
+        {
+          "ho": "02x",
+          "title": "Review of Run — the production process model",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "02",
+          "run": 1,
+          "doc": "ho-process/hos/ho-02x-review-of-run.md",
+          "verdict": "Return"
         }
       ]
     }

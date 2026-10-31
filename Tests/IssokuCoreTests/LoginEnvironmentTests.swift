@@ -71,6 +71,20 @@ internal struct LoginEnvironmentTests {
         #expect(elapsed >= .seconds(5) && elapsed < .seconds(8))
     }
 
+    @Test("A shell that closes its output and keeps running throws timedOut at the same deadline")
+    internal func timesOutAfterOutputCloses() throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let shell = try writeScript("fake-shell", in: directory, body: "printf 'A=1\\0'; exec >&-; exec /bin/sleep 30")
+        let clock = ContinuousClock()
+        let started = clock.now
+        #expect(throws: LoginEnvironment.CaptureError.timedOut) {
+            try LoginEnvironment.capture(shell: shell)
+        }
+        let elapsed = clock.now - started
+        #expect(elapsed >= .seconds(5) && elapsed < .seconds(8))
+    }
+
     @Test("The login shell comes from the password database")
     internal func loginShell() throws {
         let shell = try LoginEnvironment.loginShell()

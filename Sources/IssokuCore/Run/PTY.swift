@@ -7,7 +7,7 @@ public struct WindowSize: Sendable, Equatable {
     /// The height in lines.
     public let rows: UInt16
 
-    /// A size of `columns` by `rows`.
+    /// Pixel dimensions are not carried; the kernel's are left zero.
     public init(columns: UInt16, rows: UInt16) {
         self.columns = columns
         self.rows = rows
@@ -62,6 +62,8 @@ func spawnUnderPTY(
         }
     }
     guard pid > 0 else { throw RunError.spawnFailed(errno: errno) }
+    // Run's queue must never wait on a child that stops reading its terminal.
+    _ = fcntl(primary, F_SETFL, fcntl(primary, F_GETFL) | O_NONBLOCK)
     return PTYChild(pid: pid, primary: primary)
 }
 

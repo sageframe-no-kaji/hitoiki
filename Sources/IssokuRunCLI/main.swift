@@ -8,7 +8,8 @@ import IssokuCore
 // The ho-02 run-sheet driver: the production Run over a real terminal, for the practitioner's
 // runs against real hosts until the panel exists. ho-03's first commit deletes it.
 //
-// Control-C once calls interrupt(); again calls kill(). On Done, one line to stderr,
+// Control-C once calls interrupt(); again calls kill(). SIGTERM or SIGHUP restores the terminal,
+// calls kill(), waits for Done, and exits with 128 plus that signal. On Done, one line to stderr,
 // `issoku-run: exit <n>` or `issoku-run: signal <n>`, then `retry: <line>` when there is an offer.
 
 private func writeAll(_ descriptor: Int32, _ bytes: [UInt8]) {
@@ -62,14 +63,22 @@ private struct TerminalMode {
     }
 }
 
-/// Each delivery of `number`, which is ignored as a disposition so it reaches only this stream.
-private func deliveries(of number: Int32) -> AsyncStream<Void> {
-    signal(number, SIG_IGN)
-    return AsyncStream { continuation in
-        let source = DispatchSource.makeSignalSource(signal: number, queue: DispatchQueue(label: "issoku-run.signal"))
-        source.setEventHandler { continuation.yield() }
-        continuation.onTermination = { _ in source.cancel() }
-        source.resume()
+/// Each delivery of any of `numbers`, which are ignored as dispositions so they reach only this stream.
+private func deliveries(of numbers: Int32...) -> AsyncStream<Int32> {
+    AsyncStream { continuation in
+        let sources = numbers.map { number in
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(
+                signal: number, queue: DispatchQueue(label: "issoku-run.signal"))
+            source.setEventHandler { continuation.yield(number) }
+            source.resume()
+            return source
+        }
+        continuation.onTermination = { _ in
+            for source in sources {
+                source.cancel()
+            }
+        }
     }
 }
 
@@ -95,6 +104,7 @@ private func drive(line: String, environment: [String: String]) async -> Int32 {
     let terminal = TerminalMode()
     let printer: Task<Void, Never>
     let ended: RunState?
+    let caught: Int32?
     do {
         let run = Run(environment: environment)
         let bytes = run.bytes
@@ -122,6 +132,15 @@ private func drive(line: String, environment: [String: String]) async -> Int32 {
                 }
             }
         }
+        let endings = deliveries(of: SIGTERM, SIGHUP)
+        let ending = Task { () -> Int32? in
+            for await number in endings {
+                terminal.restore()
+                await run.kill()
+                return number
+            }
+            return nil
+        }
         terminal.enterRaw()
         let typing =
             terminal.isTerminal
@@ -135,11 +154,18 @@ private func drive(line: String, environment: [String: String]) async -> Int32 {
         terminal.restore()
         stops.cancel()
         typing?.cancel()
+        ending.cancel()
+        caught = await ending.value
         withExtendedLifetime(run) {}
     }
     // Run's byte stream ends once Run is released, after every byte sent before Done.
     await printer.value
+    let code = report(ended)
+    return caught.map { 128 + $0 } ?? code
+}
 
+/// Prints Done's status line and any offer; the exit status, or 128 plus the signal.
+private func report(_ ended: RunState?) -> Int32 {
     guard case .done(let exit, let retry) = ended else { return 1 }
     let code: Int32
     switch exit {

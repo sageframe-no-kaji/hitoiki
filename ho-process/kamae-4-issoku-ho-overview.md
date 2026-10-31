@@ -486,3 +486,25 @@ Spec: `ho-process/hos/ho-02-run.md`. One Opus subagent built `Sources/IssokuCore
 - **NEXT** — ho-02x: author `ho-process/hos/ho-02x-review-of-run.md` from the x template over `0f2630b7ee6a2e820de43276b921d3afa8c81745..<this entry's commit>`, report `ho-process/reviews/ho-02x-report-1.md`, commit it, hand off to Codex (`gpt-6.1-sol`).
 - **ACTION ITEMS / BLOCKS** — For ho-02x: concurrent spawns in one process intermittently fail `forkpty` with errno −6, so the Run suite is serialized; the descriptor close loop costs about 8 ms per spawn under a terminal launch and nothing under the GUI launch path. For ho-03: delete `Sources/IssokuRunCLI/`, the `issoku-run` product, and its coverage-ignore entry in the first commit; the call order and the stream rules are in the spec's Reflect. For ho-04: `bytes` chunks carry no line framing and can end inside an escape sequence; call `resize` when the width is known. For ho-05: a working directory that cannot be entered exits 127 silently, so validate it when stored. After ho-02x the practitioner edits the antagonist brief, per Open questions.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-02x — run 1 — Return — 2026-10-26
+
+Opening hash: `6eae8a8b46a1d6a515d8ed32d8f4631d643697bd` (ho-02's closing commit). The review document was committed as `f504511e5a569bdf0ba868f973b2719d794fe02e`; the report as `dfc94d90d604db3b2923a2fbf6522430767b69df`. Report: `ho-process/reviews/ho-02x-report-1.md`. Verdict **Return**: 4 Must-fix, 1 Should-fix, 3 Notes. Build, 34 tests, and 92.10% core coverage passed, but the review's local probes found a timeout bypass after stdout closes, blocked cancellation during terminal writes, unbounded unread output, and terminal restoration bypassed by signals. Releasing an active Run also left its child alive. The fix-pass spec records the practitioner's ruling to fix all five and retain pending input and output without dropping bytes.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-02x run 1, Return.
+- **NEXT** — ho-02.1: `ho-process/hos/ho-02.1-fix-pass.md`.
+- **ACTION ITEMS / BLOCKS** — Answer M1–M4 and S1; take N2's redundant comments and N3's refresh tests. N1's driver duplication remains bounded by the driver's deletion at ho-03. Run 2 reads the whole original range through the fix pass, not just its changes.
+- **PROJECT LIFECYCLE** — kamae
+
+### ho-02.1 — Fix pass for Run — closed 2026-10-31
+
+Opening hash: `dfc94d90d604db3b2923a2fbf6522430767b69df` (the run-1 report commit). The fix-pass document opened in `f6a9034`; its closing commit is `ho-02.1: fix pass for run — answer ho-02x run 1`, recorded as the range end of ho-02x run 2. Spec: `ho-process/hos/ho-02.1-fix-pass.md`. A builder agent completed the existing changes; the orchestrator read the diff and independently ran all six checks and the terminal demonstrations.
+
+Verification found one error in the proposed M3 mechanism: an unbounded drain after reap could accumulate unread output across completed commands. The drain now respects the same 1 MiB ceiling as normal reads, including across starts. A regression failed before correction, then retained all 1,064,704 bytes across 65 commands. This changes the draft mechanism, not the bounded-output requirement or the public surface beyond `bytes` becoming `Run.Output`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-02.1. The deadline covers EOF and exit; pending input does not block interrupt or kill; output backpressure survives reap and subsequent commands; release kills and reaps the owned child even while reading is paused. TERM and HUP restore the driver's terminal and exit 143 and 129; normal completion also returns promptly. Refresh replacement and failure preservation are tested. Both verification runs pass: 39 core tests plus 3 Theme tests, 93.65% core coverage, 478 nonblank Run-source lines against a 480 limit.
+- **NEXT** — Fresh-session ho-02x run 2 from `ho-process/hos/ho-02x-review-of-run.md`, over the original opening commit `0f2630b7ee6a2e820de43276b921d3afa8c81745` through this fix pass's closing commit. Report: `ho-process/reviews/ho-02x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. After Pass the practitioner revises the antagonist brief before ho-03. The driver and its product/target/coverage exclusion are deleted at ho-03's first commit. `Run.Output` is for one consumer and finishes after queued chunks when Run is released; Done follows reaping and bounded terminal draining, so the consumer must keep taking output while a command completes. N1's driver duplication remains until deletion. No live-host commands were run during this fix pass.
+- **PROJECT LIFECYCLE** — kamae

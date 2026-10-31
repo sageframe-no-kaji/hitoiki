@@ -27,7 +27,6 @@ public enum Retry {
 
 /// Watches the streamed bytes for sudo's clause, across chunk boundaries.
 struct RefusalScanner {
-    /// Whether the clause has appeared in any chunk so far.
     private(set) var sawRefusal = false
     /// The last clause-length bytes of what has been scanned.
     private var tail: [UInt8] = []

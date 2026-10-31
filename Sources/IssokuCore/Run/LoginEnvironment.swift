@@ -47,15 +47,16 @@ public enum LoginEnvironment {
         try process.run()
 
         let deadline = ContinuousClock.now + .seconds(5)
+        func expired() -> CaptureError {
+            kill(process.processIdentifier, SIGKILL)
+            process.waitUntilExit()
+            return .timedOut
+        }
         var output: [UInt8] = []
         var ready = pollfd(fd: pipe.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
         while true {
             let remaining = Int32((ContinuousClock.now.duration(to: deadline) / .milliseconds(1)).rounded(.up))
-            guard remaining > 0, poll(&ready, 1, remaining) > 0 else {
-                kill(process.processIdentifier, SIGKILL)
-                process.waitUntilExit()
-                throw CaptureError.timedOut
-            }
+            guard remaining > 0, poll(&ready, 1, remaining) > 0 else { throw expired() }
             let count = withUnsafeTemporaryAllocation(of: UInt8.self, capacity: 4_096) { buffer in
                 let count = read(ready.fd, buffer.baseAddress, buffer.count)
                 output += buffer.prefix(max(count, 0))
@@ -63,6 +64,9 @@ public enum LoginEnvironment {
             }
             if count <= 0 { break }
         }
+        // A shell can close its output and keep running; the deadline covers the whole capture.
+        while process.isRunning, ContinuousClock.now < deadline { usleep(10_000) }
+        guard !process.isRunning else { throw expired() }
         process.waitUntilExit()
         guard process.terminationReason == .exit, process.terminationStatus == 0 else {
             throw CaptureError.shellFailed(status: process.terminationStatus)

@@ -259,6 +259,8 @@ The practitioner pastes the transcripts; the orchestrator records them in Reflec
 
 ## Phase 3 — Reflect
 
+Follow-up: ho-02x run 1 returned this implementation; `ho-process/hos/ho-02.1-fix-pass.md` records the fixes and supersedes the blocking-write behavior noted below.
+
 Filled 2026-10-26 after the subagent's return, the orchestrator's verification, and the practitioner's run sheet.
 
 **Did the design hold?** Yes. Run is the actor of Decision 3 on its serial queue, `forkpty` from `import Darwin` with a real window size, one dispatch read source on the primary and one process source for the exit, `waitpid`, two streams out. The real processes surfaced six things the Think phase did not have:

@@ -4,7 +4,6 @@ import Foundation
 
 /// How a command ended.
 public enum Exit: Sendable, Equatable {
-    /// The child exited with this status.
     case status(Int32)
     /// The child was terminated by this signal.
     case signal(Int32)
@@ -32,21 +31,35 @@ public enum RunError: Error, Equatable {
 /// The actor runs on a serial dispatch queue, the same queue its dispatch sources fire on, so a
 /// source's handler enters the actor in order without a task hop.
 public actor Run {
-    /// Every chunk read from the pseudoterminal, in order, unmodified.
+    /// Every chunk read from the pseudoterminal, in order, unmodified, for one consumer.
     ///
-    /// The stream ends when Run is released.
-    nonisolated public let bytes: AsyncStream<[UInt8]>
+    /// Read-ahead pauses at `outputCeiling`; the command then waits on its terminal.
+    /// The sequence ends when Run is released, after every chunk read before then.
+    nonisolated public var bytes: Output { Output(chunks: chunks, run: self) }
     /// `.running` after each successful start, `.done` after each child is reaped.
     nonisolated public let states: AsyncStream<RunState>
 
-    private let bytesOut: AsyncStream<[UInt8]>.Continuation
+    static let outputCeiling = 1 << 20
+
+    private let chunks: AsyncStream<[UInt8]>
+    private let chunksOut: AsyncStream<[UInt8]>.Continuation
     private let statesOut: AsyncStream<RunState>.Continuation
     private let queue = DispatchSerialQueue(label: "issoku.run")
     private var environment: [String: String]
+    private let captureShell: String?
     private var child: Child?
     private var doneWaiters: [CheckedContinuation<Void, Never>] = []
+    private var untaken = 0
 
-    /// The command alive, from spawn until Done.
+    /// Run's output as its consumer pulls it; each chunk taken makes room for the command.
+    public struct Output: AsyncSequence, Sendable {
+        let chunks: AsyncStream<[UInt8]>
+        weak var run: Run?
+
+        /// An iterator that tells Run what it takes.
+        public func makeAsyncIterator() -> Iterator { Iterator(chunks: chunks.makeAsyncIterator(), run: run) }
+    }
+
     private struct Child {
         let pid: pid_t
         let line: String
@@ -54,9 +67,12 @@ public actor Run {
         let exits: DispatchSourceProcess
         /// The pseudoterminal's primary side; nil once the read source has drained and closed it.
         var primary: Int32?
-        /// Set when the child is reaped.
         var exit: Exit?
         var scanner = RefusalScanner()
+        var pending: [UInt8] = []
+        /// Present only while keystrokes pend; fires when the terminal has room.
+        var writes: DispatchSourceWrite?
+        var held = false
     }
 
     /// The executor is the serial queue the dispatch sources use.
@@ -64,13 +80,34 @@ public actor Run {
 
     /// A Run that launches commands with `environment`, plus `TERM` when it has none.
     public init(environment: [String: String] = ProcessInfo.processInfo.environment) {
+        self.init(environment: environment, captureShell: nil)
+    }
+
+    /// `captureShell` replaces the login shell for `refreshEnvironment`, so tests can fake it.
+    init(environment: [String: String], captureShell: String? = nil) {
         self.environment = LoginEnvironment.withTerm(environment)
-        (bytes, bytesOut) = AsyncStream.makeStream()
+        self.captureShell = captureShell
+        (chunks, chunksOut) = AsyncStream.makeStream()
         (states, statesOut) = AsyncStream.makeStream()
     }
 
+    // No command outlives Run. The handlers hold Run weakly and do nothing from here on; the read
+    // source's cancel handler still closes the primary it captured. A waiting refresh holds Run.
     deinit {
-        bytesOut.finish()
+        if let child {
+            if child.exit == nil {
+                // By pid as well: forkpty returns before the child's setsid, so the group may not exist yet.
+                Darwin.kill(child.pid, SIGKILL)
+                killpg(child.pid, SIGKILL)
+            }
+            if child.held { child.reads.resume() }
+            child.writes?.cancel()
+            child.reads.cancel()
+            child.exits.cancel()
+            var status: Int32 = 0
+            while child.exit == nil, waitpid(child.pid, &status, 0) < 0, errno == EINTR {}
+        }
+        chunksOut.finish()
         statesOut.finish()
     }
 
@@ -96,6 +133,7 @@ public actor Run {
         child = Child(pid: spawned.pid, line: line, reads: reads, exits: exits, primary: spawned.primary)
         statesOut.yield(.running(pid: spawned.pid))
         reads.resume()
+        hold(untaken >= Self.outputCeiling)
         exits.resume()
     }
 
@@ -109,20 +147,13 @@ public actor Run {
         signalGroup(SIGKILL)
     }
 
-    /// Writes keystrokes to the pseudoterminal, all of them.
+    /// Writes keystrokes to the pseudoterminal, all of them, in order.
     ///
-    /// Nothing is echoed or kept here.
+    /// What it cannot take yet is held until it can, and discarded at Done. Nothing is echoed.
     public func write(_ bytes: [UInt8]) {
-        guard let primary = child?.primary else { return }
-        var offset = 0
-        while offset < bytes.count {
-            let written = bytes[offset...].withUnsafeBytes { Darwin.write(primary, $0.baseAddress, $0.count) }
-            if written > 0 {
-                offset += written
-            } else if errno != EINTR {
-                return
-            }
-        }
+        guard child?.primary != nil, child?.reads.isCancelled == false else { return }
+        child?.pending += bytes
+        flush()
     }
 
     /// Sets the pseudoterminal's size; the kernel sends the child `SIGWINCH`.
@@ -140,38 +171,87 @@ public actor Run {
         while child != nil {
             await withCheckedContinuation { doneWaiters.append($0) }
         }
-        environment = try LoginEnvironment.capture()
+        environment = try LoginEnvironment.capture(shell: captureShell)
+    }
+
+    private func flush() {
+        guard let primary = child?.primary else { return }
+        while child?.pending.isEmpty == false {
+            let written = child?.pending.withUnsafeBytes { Darwin.write(primary, $0.baseAddress, $0.count) } ?? 0
+            if written > 0 {
+                child?.pending.removeFirst(written)
+            } else if errno == EAGAIN {
+                if child?.writes == nil {
+                    let writes = DispatchSource.makeWriteSource(fileDescriptor: primary, queue: queue)
+                    writes.setEventHandler { [weak self] in self?.assumeIsolated { $0.flush() } }
+                    writes.resume()
+                    child?.writes = writes
+                }
+                return
+            } else if errno != EINTR {
+                child?.pending = []
+            }
+        }
+        child?.writes?.cancel()
+        child?.writes = nil
     }
 
     private func signalGroup(_ signal: Int32) {
         guard let child, child.exit == nil else { return }
-        killpg(child.pid, signal)
+        // Before forkpty's child calls setsid, its new process group may not exist yet.
+        if killpg(child.pid, signal) < 0, errno == ESRCH { Darwin.kill(child.pid, signal) }
     }
 
-    /// Reads one chunk into `bytes`.
-    ///
-    /// False at end of output or on a read error other than `EINTR`.
+    /// False at end of output or on a read error other than `EINTR` or `EAGAIN` (nothing now).
     private func readChunk() -> Bool {
         guard let primary = child?.primary else { return false }
-        let count = withUnsafeTemporaryAllocation(of: UInt8.self, capacity: 16_384) { buffer in
+        let capacity = min(16_384, Self.outputCeiling - untaken)
+        let count = withUnsafeTemporaryAllocation(of: UInt8.self, capacity: capacity) { buffer in
             let count = Darwin.read(primary, buffer.baseAddress, buffer.count)
             if count > 0 {
                 let chunk = Array(buffer[..<count])
-                bytesOut.yield(chunk)
+                chunksOut.yield(chunk)
                 child?.scanner.scan(chunk)
+                untaken += count
+                if untaken >= Self.outputCeiling { hold(true) }
             }
             return count
         }
-        return count > 0 || (count < 0 && errno == EINTR)
+        return count > 0 || (count < 0 && (errno == EINTR || errno == EAGAIN))
     }
 
     private func readable() {
-        if !readChunk() {
-            child?.reads.cancel()
+        if untaken >= Self.outputCeiling { hold(true) }
+        if child?.held == false, !readChunk() { stopReading() }
+    }
+
+    /// The consumer took `count` bytes; reading resumes once what is untaken is under the ceiling.
+    nonisolated func taken(_ count: Int) {
+        queue.async {
+            self.assumeIsolated { run in
+                run.untaken -= count
+                if run.untaken < Self.outputCeiling { run.hold(false) }
+            }
         }
     }
 
-    /// Reaps the child if it has exited, drains what it left in the pseudoterminal, then closes it.
+    /// Suspends or resumes the read source, once each way: suspensions must balance, and a suspended
+    /// source is resumed before it is cancelled, since releasing one traps.
+    private func hold(_ held: Bool) {
+        guard let reads = child?.reads, child?.held != held else { return }
+        if held { reads.suspend() } else { reads.resume() }
+        child?.held = held
+    }
+
+    /// Cancels writing, discarding what pends, then reading, whose cancel handler closes the primary.
+    private func stopReading() {
+        child?.pending = []
+        flush()
+        hold(false)
+        child?.reads.cancel()
+    }
+
+    /// Reaps the child; reading and closure still wait for room in the output queue.
     private func reap(waiting: Bool) {
         guard let pid = child?.pid, child?.exit == nil else { return }
         var status: Int32 = 0
@@ -183,11 +263,7 @@ public actor Run {
         let termination = status & 0x7F
         child?.exit = termination == 0 ? .status((status >> 8) & 0xFF) : .signal(termination)
         child?.exits.cancel()
-        if let primary = child?.primary {
-            var ready = pollfd(fd: primary, events: Int16(POLLIN), revents: 0)
-            while poll(&ready, 1, 0) > 0, readChunk() {}
-            child?.reads.cancel()
-        }
+        if child?.primary != nil { readable() }
         finishIfDone()
     }
 
@@ -206,6 +282,21 @@ public actor Run {
         doneWaiters = []
         for waiter in waiters {
             waiter.resume()
+        }
+    }
+}
+
+extension Run.Output {
+    /// Pulls the next chunk and tells Run its size.
+    public struct Iterator: AsyncIteratorProtocol {
+        var chunks: AsyncStream<[UInt8]>.Iterator
+        weak var run: Run?
+
+        /// The next chunk, or nil once Run is released and every chunk read before then is taken.
+        public mutating func next() async -> [UInt8]? {
+            let chunk = await chunks.next()
+            if let chunk { run?.taken(chunk.count) }
+            return chunk
         }
     }
 }
