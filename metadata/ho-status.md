@@ -10,4 +10,4 @@
 | 01x | Review of The Spike — prove the pseudoterminal process model | x | complete |
 | 02 | Run — the production process model | ha | complete |
 | 02.1 | Fix pass for Run — answer ho-02x run 1 | ri | complete |
-| 02x | Review of Run — the production process model | x | ready (run 1: Return; fix pass complete) |
+| 02x | Review of Run — the production process model | x | ready (run 2) |

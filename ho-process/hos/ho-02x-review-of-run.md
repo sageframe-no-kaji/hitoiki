@@ -7,12 +7,15 @@ ho: 02x
 kamae: 5
 shape: x
 phase: 1 — The Process Model
+title: Review of Run — the production process model
+description: Rechecks the full Run implementation and its ho-02.1 fix pass against the standing brief, with a report and a Pass or Return verdict.
 reviews: ho-02
-run: 1
+run: 2
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
   - ho-process/hos/ho-02-run.md
+  - ho-process/hos/ho-02.1-fix-pass.md
 ---
 
 # ho-02x — Review of Run — the production process model
@@ -21,6 +24,8 @@ You are the antagonist for ho-02. You did not write this code. You review one bo
 
 This is the first review of code that ships. The unit is `Sources/IssokuCore/Run/` with its tests and fixture, plus the driver `Sources/IssokuRunCLI/`, which the spec's Decision 8 says exists for ho-02 only and is deleted at ho-03's first commit; review the driver for what it does to the terminal and to Run, not for its own test coverage, which the spec excludes. The spec's Reflect records what execution surfaced, including two facts for you: in one process, two concurrent `forkpty` calls intermittently fail with errno −6, so the Run test suite is `.serialized`; and the child closes descriptors 3 up to `getdtablesize()` before `execve`, which costs about 8 ms per spawn under a terminal launch. The practitioner's run-sheet transcript in Reflect is redacted and is evidence, not a claim for you to re-run against a host; nothing you run touches a live host.
 
+**Run 2.** Run 1 (`ho-process/reviews/ho-02x-report-1.md`) returned ho-02 with four Must-fix findings and one Should-fix. The fix pass `ho-process/hos/ho-02.1-fix-pass.md` answers them and ends the range below. Read the whole unit again, not just the fixes, against both specs. Rate any run-1 finding you judge unanswered as you would any other. The builder's verification is evidence to check, not a verdict.
+
 **Goal**
 
 A written report at the path named under Files, answering every question in the brief with file and line references or the word "none", with each finding rated, ending in one verdict: Pass or Return.
@@ -28,15 +33,17 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-02-run.md`
-- Commit range: `0f2630b7ee6a2e820de43276b921d3afa8c81745..6eae8a8b46a1d6a515d8ed32d8f4631d643697bd`
+- Fix-pass spec: `ho-process/hos/ho-02.1-fix-pass.md`
+- Previous report: `ho-process/reviews/ho-02x-report-1.md`
+- Commit range: `0f2630b7ee6a2e820de43276b921d3afa8c81745..46f78c9b233da6e0029911ca5d44d15e43205553`
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: everything in the commit range, via `git diff 0f2630b7ee6a2e820de43276b921d3afa8c81745..6eae8a8b46a1d6a515d8ed32d8f4631d643697bd`
-- Read-only: the three inputs above
-- Create: `ho-process/reviews/ho-02x-report-1.md`
+- Read-only: everything in the commit range, via `git diff 0f2630b7ee6a2e820de43276b921d3afa8c81745..46f78c9b233da6e0029911ca5d44d15e43205553`
+- Read-only: the inputs above
+- Create: `ho-process/reviews/ho-02x-report-2.md`
 
 No other file is created or modified.
 
@@ -72,9 +79,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-02x report, run 1
+# ho-02x report, run 2
 
-Commit range: 0f2630b7ee6a2e820de43276b921d3afa8c81745..6eae8a8b46a1d6a515d8ed32d8f4631d643697bd
+Commit range: 0f2630b7ee6a2e820de43276b921d3afa8c81745..46f78c9b233da6e0029911ca5d44d15e43205553
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -121,8 +128,8 @@ Every finding carries a `file:line`. A question with no finding is answered "non
 swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 swift test --enable-code-coverage >/dev/null 2>&1 && scripts/coverage-floor.sh
-git diff --stat 0f2630b7ee6a2e820de43276b921d3afa8c81745..6eae8a8b46a1d6a515d8ed32d8f4631d643697bd
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-02x-report-1.md
+git diff --stat 0f2630b7ee6a2e820de43276b921d3afa8c81745..46f78c9b233da6e0029911ca5d44d15e43205553
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-02x-report-2.md
 ```
 
 **Do not**
@@ -140,7 +147,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-02x-report-1
 Commit only the report.
 
 ```
-ho-02x: review of ho-02, run 1 — <Pass | Return>
+ho-02x: review of ho-02, run 2 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.

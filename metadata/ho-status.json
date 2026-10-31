@@ -77,9 +77,8 @@
           "shape": "x",
           "status": "ready",
           "reviews": "02",
-          "run": 1,
-          "doc": "ho-process/hos/ho-02x-review-of-run.md",
-          "verdict": "Return"
+          "run": 2,
+          "doc": "ho-process/hos/ho-02x-review-of-run.md"
         }
       ]
     }
