@@ -9,9 +9,9 @@
   "summary": {
     "hos": 7,
     "drafted": 0,
-    "complete": 6,
+    "complete": 7,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -75,10 +75,11 @@
           "ho": "02x",
           "title": "Review of Run — the production process model",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "reviews": "02",
           "run": 2,
-          "doc": "ho-process/hos/ho-02x-review-of-run.md"
+          "doc": "ho-process/hos/ho-02x-review-of-run.md",
+          "verdict": "Pass"
         }
       ]
     }
