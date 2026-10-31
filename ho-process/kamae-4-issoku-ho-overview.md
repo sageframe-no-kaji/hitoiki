@@ -94,7 +94,7 @@ The seed's directive was to prove the SSH/PTY process model before building any 
 
 ### ho-01 — The Spike
 
-A spike is a short, throwaway experiment built to answer specific technical questions. This one is a command-line program, not part of the app target, that opens a pseudoterminal, spawns the user's shell with a command line and a captured environment in a new process group, streams output to stdout, forwards stdin keystrokes, and responds to a signal by interrupting and then killing the group. It runs against the practitioner's real hosts: koan, tenzo, kanyo. Its code is not kept. Its findings are written into a findings document in the ho's folder and into ho-02's spec.
+A spike is a short, throwaway experiment built to answer specific technical questions. This one is a command-line program, not part of the app target, that opens a pseudoterminal, spawns the user's shell with a command line and a captured environment in a new process group, streams output to stdout, forwards stdin keystrokes, and responds to a signal by interrupting and then killing the group. It runs against the practitioner's real hosts: host-a, host-b, host-c. Its code is not kept. Its findings are written into a findings document in the ho's folder and into ho-02's spec.
 
 **Depends on:** ho-00.
 
@@ -112,7 +112,7 @@ A spike is a short, throwaway experiment built to answer specific technical ques
 **What's out of scope:** Reusable code. Any UI. Any error presentation beyond what the harness prints.
 
 **Decisions required:**
-- **Spawn mechanism**: which POSIX path gives a PTY that is the child's controlling terminal, in a new process group, with the captured environment, callable from Swift 6 with strict concurrency. Criterion: `ssh -tt koan 'sudo true'` prompts, a keystroke-typed password is accepted, nothing echoes, the command completes with status zero.
+- **Spawn mechanism**: which POSIX path gives a PTY that is the child's controlling terminal, in a new process group, with the captured environment, callable from Swift 6 with strict concurrency. Criterion: `ssh -tt host-a 'sudo true'` prompts, a keystroke-typed password is accepted, nothing echoes, the command completes with status zero.
 - **Process ownership**: interrupt reaches the whole group; a process that ignores it yields to force-kill; the process table shows no orphans afterwards, for a local command and for a remote `ssh` command.
 - **Failure legibility**: unreachable host, rejected key, wrong sudo password each end with a status and a message the harness can distinguish.
 - **Memory ceiling**: fifty megabytes of output stays within a fixed ceiling in the harness.

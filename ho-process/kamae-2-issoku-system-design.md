@@ -142,10 +142,10 @@ Transcripts are not stored. **(Confirms seed.)**
 The user is in Claude Code and needs to restart a service on a remote host.
 
 1. **Hotkey.** Panel appears over the current app with the input focused. Working directory is home, per the default setting.
-2. **Type and Return.** `ssh koan 'sudo systemctl restart caddy'`. Panel moves to Running. Escape and click-out are inert. Stop is visible.
+2. **Type and Return.** `ssh host-a 'sudo systemctl restart caddy'`. Panel moves to Running. Escape and click-out are inert. Stop is visible.
 3. **Launch.** Run opens a PTY, spawns the user's shell non-interactively with the line and the captured environment, in a new process group. `ssh` finds `~/.ssh/config` and the agent socket because the environment is the user's own.
 4. **Failure.** Remote `sudo` cannot read a password without a terminal and says so. The process exits non-zero. Transcript shows the message and the status in the alarm colour. Panel moves to Done and, because the line begins with `ssh` and the message matched, offers retry with `-tt`.
-5. **Retry.** The user accepts. Run relaunches `ssh -tt koan 'sudo systemctl restart caddy'`. Panel is Running again.
+5. **Retry.** The user accepts. Run relaunches `ssh -tt host-a 'sudo systemctl restart caddy'`. Panel is Running again.
 6. **Password.** sudo prompts. The user presses the keyboard macro key that types their password. Keystrokes go to the PTY. Nothing is drawn locally, and sudo does not echo, so the transcript shows the prompt and nothing else.
 7. **Done.** The service restarts, the process exits zero, Panel moves to Done. The user reads the result, presses `Command-C` if they want it, and presses Escape. The panel is gone. The terminal was never opened.
 
