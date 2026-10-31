@@ -34,9 +34,7 @@ for binary in "${BINARIES[@]:1}"; do
     OBJECTS+=(-object "$binary")
 done
 
-# Sources/IssokuRunCLI, the ho-02 run-sheet driver, is excluded like the surface: it is a driver
-# with no tests of its own, and ho-03 deletes it.
-IGNORE='(Tests/|\.build/|Sources/Issoku/|Sources/IssokuRunCLI/)'
+IGNORE='(Tests/|\.build/|Sources/Issoku/)'
 
 echo "== IssokuCore =="
 xcrun llvm-cov report "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \

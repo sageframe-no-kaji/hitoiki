@@ -16,10 +16,6 @@ let package = Package(
             name: "Issoku",
             targets: ["Issoku"]
         ),
-        .executable(
-            name: "issoku-run",
-            targets: ["IssokuRunCLI"]
-        ),
     ],
     dependencies: [],
     targets: [
@@ -31,13 +27,6 @@ let package = Package(
         ),
         .executableTarget(
             name: "Issoku",
-            dependencies: ["IssokuCore"],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency"),
-            ]
-        ),
-        .executableTarget(
-            name: "IssokuRunCLI",
             dependencies: ["IssokuCore"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
