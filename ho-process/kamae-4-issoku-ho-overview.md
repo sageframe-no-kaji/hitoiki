@@ -520,3 +520,13 @@ The Notes record limits, not defects. N1: the driver's write loop duplicates Run
 - **NEXT** — the practitioner edits the antagonist brief (Open questions, "The brief itself") from the two ho-02x reports against the diff; the edit is recorded here. Then ho-03, Panel: author its spec with the Kamae 5 skill, Think phase first, in a fresh session.
 - **ACTION ITEMS / BLOCKS** — ho-03's first commit deletes `Sources/IssokuRunCLI/`, the `issoku-run` product and target, and its coverage-ignore entry. Think inputs for ho-03: ho-02's Reflect (call order, stream rules, exit mapping, public surface) and ho-02.1's Results (`bytes` is `Run.Output`, one consumer, which keeps taking output while a command completes). N2 above is a test to make wherever a consumer can call refresh mid-command. For ho-04: chunks carry no line framing and can end inside an escape sequence; call `resize` when the width is known. For ho-05: validate a stored working directory when it is stored.
 - **PROJECT LIFECYCLE** — kamae
+
+### Antagonist brief — reviewed after ho-02x — stands 2026-10-31
+
+The practitioner read the brief against both ho-02x reports and the range. Run 1 found four defects and a leak, none spurious; run 2 found nothing to fix and three fair Notes. The brief stands unchanged. The deferred decision "The brief itself" under Other deferred decisions is resolved.
+
+**STATE-SUMMARY**
+- **COMPLETED** — the brief review. No edit.
+- **NEXT** — ho-03, Panel: author its spec with the Kamae 5 skill, Think phase first, in a fresh session.
+- **ACTION ITEMS / BLOCKS** — as the ho-02x run 2 entry above.
+- **PROJECT LIFECYCLE** — kamae
