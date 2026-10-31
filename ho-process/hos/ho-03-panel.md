@@ -279,14 +279,42 @@ The practitioner pastes the observations; the orchestrator records them in Refle
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+Drafted 2026-10-31 after the subagent's return and the orchestrator's verification, before the practitioner's run sheet. The run sheet's section below is empty until the practitioner runs it; nothing here claims the demonstrations.
 
-- **Did the design hold?** Where did the real window and the real hotkey surface things the Think phase did not anticipate?
-- **Decision review.** Were Decisions 2 through 14 right? In particular 5 (one state), 8 (the keystroke set), 9 (line breaks), 14 (the app floor).
-- **Discovery results.** The Character Viewer conflict; the key-equivalent mechanism; the reopen path's deferred proof.
-- **Size.** Nonblank lines per file in `Sources/Issoku/`; the two coverage numbers.
-- **What broke that the tests didn't catch?** From the run sheet.
-- **Followups for ho-04 and ho-05.** Facts only.
+**Commits so far.** The practitioner lifted the spec-approval gate for this ho before leaving the session ("lift for now, do as much as you can"), so the build ran unattended against the spec. Because the run sheet needs the practitioner at the keyboard, the build was committed on its own as `7775d8dfb45e7cdb18563599411a36597badf7a3` (`ho-03: panel — build verified; run sheet pending`) rather than waiting; the closing commit, which carries the build-record entry and the spec's named message, follows the run sheet. ho-03x reads the whole range from the opening commit.
+
+**Did the design hold?** Yes, as built and tested; the run sheet decides the rest. Panel holds one `private(set) var state: RunState?` and derives every control, the status line and the keyboard's place from it in one `apply` method; `canDismiss` is the one rule and Escape, the click-out (`resignKey`) and the hotkey all reach `dismissIfAllowed()`. The hotkey is `RegisterEventHotKey` behind one `register` function; Keystrokes is one pure function over the event's plain values; the window is an `NSPanel` with no SwiftUI. Four things the Think phase did not have:
+
+1. **The click-out is `resignKey()`, not the notification.** Observing `didResignKeyNotification` leaves an observer token that a nonisolated `deinit` cannot remove under strict concurrency; overriding the method that posts it has no token. Same behaviour, less state.
+2. **The spec's test commands race.** Stop can reach the child before `trap` is installed, and keystrokes before `stty -echo`. The tests put `echo ready` after the set-up and wait for it in the transcript. The spec's intent is unchanged.
+3. **Whitespace-only Return with an offer showing takes the offer.** The spec said both that empty Return takes the offer and that a whitespace-only line does nothing; the subagent read whitespace-only as empty. Practitioner to confirm or reverse at the run sheet.
+4. **`Panel.init` takes `directory:`**, defaulting to home, so the missing-directory test can set it; ho-05's working-directory setting is its second caller. Not a configuration surface: one plain value.
+
+Two further choices of the subagent's, recorded for ho-03x: `collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]` on the window, with a comment tracing it to the System Design's "appears over the current app"; and the status line reading `running` while a command runs, `exit N` or `signal N` after, with ` · Return or Retry runs <line>` appended when there is an offer. The capture-failure notice is posted when the launch task fails, not held until the first submit. The input and the transcript both clear at `.running`. One lint suppression, `optional_data_string_conversion`, on the `String(decoding:as:)` Decision 10 requires, with its reason beside it.
+
+**Decision review.** 2 through 14 hold as written. 5 (one state) and 14 (the app floor) did their work: the floor is met at 92.18% with the four named files excluded, and nothing about the panel state exists outside Panel. 8 (the keystroke set) and 9 (line breaks) are built as ruled and await the run sheet. 11's about-forty lines came in at 51, which includes `unregister` and `statusText`.
+
+**Discovery results.**
+
+- *The Character Viewer conflict.* On the build machine `RegisterEventHotKey` returned `noErr` for Control-Command-Space and `eventHotKeyExistsErr` (−9878) for a second registration in the same process; a read-only look at the system's symbolic-hotkey preferences showed nothing bound to Control-Command-Space on this machine, so the conflict case did not arise here. Whether the handler fires needs a real key press: run sheet items 1 and 10.
+- *Key equivalents without a menu bar.* The subagent probed both mechanisms in a scratch accessory app: with no menu, a synthesized Command-A did nothing; a hidden main menu with an Edit menu worked; the window's `performKeyEquivalent` worked. Both are about ten lines. It chose the window override because it does not depend on AppKit consulting the main menu for an app that is not active, which the probe could not exercise. The override maps Command-X, C, V, A to `cut:`, `copy:`, `paste:`, `selectAll:` on the first responder. While Running, Command-V therefore reaches the transcript's `paste(_:)`, which is Decision 8's `.paste`.
+- *The reopen path.* `applicationShouldHandleReopen` is built and returns `false` after showing the panel; demonstrated at ho-06 with the bundle.
+
+**Verification, orchestrator's run, 2026-10-31.** `swift-format lint --recursive --strict Sources Tests`: exit 0. `swiftlint lint --strict`: 0 violations in 21 files. `swift build`: complete, 0 warnings. `swift test`: 18 tests in 4 suites in `IssokuTests` (Keystrokes 13 rows, Theme 3, Hotkey 1, Panel 13 cases) and 39 in 4 suites in `IssokuCoreTests`, 0 failures; the app target was run seven times in all without a failure. `scripts/coverage-floor.sh`: IssokuCore 93.65% over 4 files; `Sources/Issoku` 92.18% over 4 files (Hotkey 83.33%, the press callback and the install-failure return; Keystrokes 100%; Panel 93.12%, `openInTerminal`, the spawn-failure and generic catch branches and the reason fallback; Theme 84.21%, its SwiftUI `color` accessors, unused by AppKit). `swift build -c release`: complete, 0 warnings. `pre-commit run` with the eleven paths staged: every hook passed. The subagent's own transcript of the same six commands matched. A launch probe of `.build/debug/Issoku` stayed up for three seconds, exited 143 on `SIGTERM`, and left no process behind.
+
+**Size.** `Sources/Issoku/`: App 50, Hotkey 51, Keystrokes 48, Panel 217, PanelWindow 233, SettingsWindow 29, TranscriptPlaceholder 48 nonblank lines, 676 new; Theme 111 unchanged. The three test files: PanelTests, KeystrokesTests, HotkeyTests.
+
+**Watch items for ho-03x and ho-04.** The placeholder calls `fit()` after every chunk and `fit()` lays out the whole text each time, so a very large output grows slower as it grows; it is the placeholder ho-04 deletes, and ho-04's ceiling is the fix. The `exit 3` state-trace test samples `state` between main-actor jobs and asserts exactly three values; stable in seven runs, named here in case it is not under load.
+
+**The run sheet.** *Pending the practitioner.* Items 1–10 of part H, recorded here with host names redacted.
+
+**What broke that the tests didn't catch?** *Pending the run sheet.*
+
+**Followups for ho-04 and ho-05.** Facts only, so far.
+
+- ho-04 replaces `TranscriptPlaceholder.swift` whole and takes over the `bytes` task in `Panel.init`, `terminalSize` in `PanelWindow`, and `fit()`'s transcript measurement. Call `resize` when the width changes.
+- ho-05: `Panel.init(directory:)` is where the working-directory setting arrives; validate a stored directory (a missing one exits 127 silently, tested here as `missingDirectory`). `Hotkey.combination` is the one constant the recorder replaces. The terminal picker's detection list is in Decision 12. Refresh Environment and ho-02x's N2 test land with settings.
+- ho-06: demonstrate reopen with the bundle; `Hotkey.unregister` is never called at quit, since process exit releases it.
 
 ### Closing this ho
 
