@@ -8,8 +8,8 @@
   },
   "summary": {
     "hos": 8,
-    "drafted": 1,
-    "complete": 7,
+    "drafted": 0,
+    "complete": 8,
     "planned": 0,
     "ready": 0
   },
@@ -91,7 +91,7 @@
           "ho": "03",
           "title": "Panel — the only visible surface",
           "shape": "ha",
-          "status": "draft",
+          "status": "complete",
           "doc": "ho-process/hos/ho-03-panel.md"
         }
       ]

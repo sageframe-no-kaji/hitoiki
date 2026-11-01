@@ -11,4 +11,4 @@
 | 02 | Run — the production process model | ha | complete |
 | 02.1 | Fix pass for Run — answer ho-02x run 1 | ri | complete |
 | 02x | Review of Run — the production process model | x | complete |
-| 03 | Panel — the only visible surface | ha | draft |
+| 03 | Panel — the only visible surface | ha | complete |

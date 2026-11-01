@@ -1,6 +1,6 @@
 ---
 created: 2026-10-31
-status: draft
+status: complete
 type: ho-document
 project: issoku
 ho: "03"
@@ -287,20 +287,30 @@ The practitioner pastes the observations; the orchestrator records them in Refle
 
 ## Phase 3 — Reflect
 
-Drafted 2026-10-31 after the subagent's return and the orchestrator's verification, before the practitioner's run sheet. The run sheet's section below is empty until the practitioner runs it; nothing here claims the demonstrations.
+Drafted 2026-10-31 after the subagent's return and the orchestrator's verification, before the practitioner's run sheet; the run-sheet sections were filled the same day after it.
 
-**Commits so far.** The practitioner lifted the spec-approval gate for this ho before leaving the session ("lift for now, do as much as you can"), so the build ran unattended against the spec. Because the run sheet needs the practitioner at the keyboard, the build was committed on its own as `7775d8dfb45e7cdb18563599411a36597badf7a3` (`ho-03: panel — build verified; run sheet pending`) rather than waiting; the closing commit, which carries the build-record entry and the spec's named message, follows the run sheet. ho-03x reads the whole range from the opening commit.
+**Commits.** The practitioner lifted the spec-approval gate for this ho before leaving the session ("lift for now, do as much as you can"), so the build ran unattended against the spec. Done means named two commits; there are five, because the run sheet needs the practitioner at the keyboard and produced two more decisions:
+
+| Commit | Message |
+|---|---|
+| `dec68946185e57ddea39672794dc66b2a884ae27` | `ho-03: panel — open; delete the driver` |
+| `7775d8dfb45e7cdb18563599411a36597badf7a3` | `ho-03: panel — build verified; run sheet pending` |
+| `489eaf5b117ace05737183629e2c091e994a31b9` | `ho-03: panel — Reflect drafted before the run sheet` |
+| `205f618d6e15b8a2cf889694c206f5a45df0223e` | `ho-03: panel — clear on dismiss and the block cursor, from the run sheet` |
+| the closing commit | `ho-03: panel — the only visible surface` (this Reflect, the build-record entry) |
+
+ho-03x reads the whole range from `f371d87b18d101c5c9ea46bcace9ed3102939067`, the commit before the first of these.
 
 **Did the design hold?** Yes, as built and tested; the run sheet decides the rest. Panel holds one `private(set) var state: RunState?` and derives every control, the status line and the keyboard's place from it in one `apply` method; `canDismiss` is the one rule and Escape, the click-out (`resignKey`) and the hotkey all reach `dismissIfAllowed()`. The hotkey is `RegisterEventHotKey` behind one `register` function; Keystrokes is one pure function over the event's plain values; the window is an `NSPanel` with no SwiftUI. Four things the Think phase did not have:
 
 1. **The click-out is `resignKey()`, not the notification.** Observing `didResignKeyNotification` leaves an observer token that a nonisolated `deinit` cannot remove under strict concurrency; overriding the method that posts it has no token. Same behaviour, less state.
 2. **The spec's test commands race.** Stop can reach the child before `trap` is installed, and keystrokes before `stty -echo`. The tests put `echo ready` after the set-up and wait for it in the transcript. The spec's intent is unchanged.
-3. **Whitespace-only Return with an offer showing takes the offer.** The spec said both that empty Return takes the offer and that a whitespace-only line does nothing; the subagent read whitespace-only as empty. Practitioner to confirm or reverse at the run sheet.
+3. **Whitespace-only Return with an offer showing takes the offer.** The spec said both that empty Return takes the offer and that a whitespace-only line does nothing; the subagent read whitespace-only as empty. Not reversed at the run sheet; it stands, and ho-03x may read it.
 4. **`Panel.init` takes `directory:`**, defaulting to home, so the missing-directory test can set it; ho-05's working-directory setting is its second caller. Not a configuration surface: one plain value.
 
 Two further choices of the subagent's, recorded for ho-03x: `collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]` on the window, with a comment tracing it to the System Design's "appears over the current app"; and the status line reading `running` while a command runs, `exit N` or `signal N` after, with ` · Return or Retry runs <line>` appended when there is an offer. The capture-failure notice is posted when the launch task fails, not held until the first submit. The input and the transcript both clear at `.running`. One lint suppression, `optional_data_string_conversion`, on the `String(decoding:as:)` Decision 10 requires, with its reason beside it.
 
-**Decision review.** 2 through 14 hold as written. 5 (one state) and 14 (the app floor) did their work: the floor is met at 92.18% with the four named files excluded, and nothing about the panel state exists outside Panel. 8 (the keystroke set) and 9 (line breaks) are built as ruled and await the run sheet. 11's about-forty lines came in at 51, which includes `unregister` and `statusText`.
+**Decision review.** 2 through 14 hold as written. 5 (one state) and 14 (the app floor) did their work: the floor is met at 92.28% with the four named files excluded, and nothing about the panel state exists outside Panel. 8 (the keystroke set) and 9 (line breaks) are built as ruled and passed the run sheet (items 4 and 9). 11's about-forty lines came in at 51, which includes `unregister` and `statusText`. 17 and 18 were added from the run sheet and built the same day: `dismissIfAllowed()` sets `state` to nil and clears the transcript before `apply()`, so one more write to the one state value and no new rule; the cursor is a rectangle drawn in `TranscriptPlaceholder.draw(_:)` after the last glyph, or at the extra line fragment when the text is empty or ends a line, switched by `showsCursor`, which `apply` sets from `state`. `PanelWindow.fit()` keeps the transcript area open while the cursor shows, so an empty Running panel has somewhere to draw it. The practitioner confirmed both behaviours in the rebuilt binary.
 
 **Discovery results.**
 
@@ -310,15 +320,33 @@ Two further choices of the subagent's, recorded for ho-03x: `collectionBehavior 
 
 **Verification, orchestrator's run, 2026-10-31.** `swift-format lint --recursive --strict Sources Tests`: exit 0. `swiftlint lint --strict`: 0 violations in 21 files. `swift build`: complete, 0 warnings. `swift test`: 18 tests in 4 suites in `IssokuTests` (Keystrokes 13 rows, Theme 3, Hotkey 1, Panel 13 cases) and 39 in 4 suites in `IssokuCoreTests`, 0 failures; the app target was run seven times in all without a failure. `scripts/coverage-floor.sh`: IssokuCore 93.65% over 4 files; `Sources/Issoku` 92.18% over 4 files (Hotkey 83.33%, the press callback and the install-failure return; Keystrokes 100%; Panel 93.12%, `openInTerminal`, the spawn-failure and generic catch branches and the reason fallback; Theme 84.21%, its SwiftUI `color` accessors, unused by AppKit). `swift build -c release`: complete, 0 warnings. `pre-commit run` with the eleven paths staged: every hook passed. The subagent's own transcript of the same six commands matched. A launch probe of `.build/debug/Issoku` stayed up for three seconds, exited 143 on `SIGTERM`, and left no process behind.
 
-**Size.** `Sources/Issoku/`: App 50, Hotkey 51, Keystrokes 48, Panel 217, PanelWindow 233, SettingsWindow 29, TranscriptPlaceholder 48 nonblank lines, 676 new; Theme 111 unchanged. The three test files: PanelTests, KeystrokesTests, HotkeyTests.
+**Verification after Decisions 17 and 18, orchestrator's runs, 2026-10-31.** The same six commands at `205f618` and again on the unchanged tree before the closing commit: format exit 0; 0 violations in 21 files; build complete, 0 warnings; 21 tests in 4 suites in `IssokuTests` (Panel 16 cases, three new: `dismissalClears`, `cursor`, and the offer clearing on dismissal) and 39 in `IssokuCoreTests`, 0 failures; IssokuCore 93.65%, `Sources/Issoku` 92.28%; release build complete, 0 warnings. The subagent's first run of the D17/18 change failed swift-format on four lines (doc-comment summaries over the line length); it fixed them and reran green before reporting.
+
+**Size.** `Sources/Issoku/` at close: App 50, Hotkey 51, Keystrokes 48, Panel 223, PanelWindow 234, SettingsWindow 29, TranscriptPlaceholder 78 nonblank lines, 713 new; Theme 111 unchanged. The three test files: PanelTests, KeystrokesTests, HotkeyTests.
 
 **Watch items for ho-03x and ho-04.** The placeholder calls `fit()` after every chunk and `fit()` lays out the whole text each time, so a very large output grows slower as it grows; it is the placeholder ho-04 deletes, and ho-04's ceiling is the fix. The `exit 3` state-trace test samples `state` between main-actor jobs and asserts exactly three values; stable in seven runs, named here in case it is not under load.
 
-**The run sheet.** *Pending the practitioner.* Items 1–10 of part H, recorded here with host names redacted.
+**The run sheet.** Run by the practitioner 2026-10-31 against the build at `7775d8d`, from `.build/debug/Issoku`; host names redacted per the project's map. Items 1–10 of part H:
 
-**What broke that the tests didn't catch?** *Pending the run sheet.*
+1. Pass. No Dock icon; Control-Command-Space showed the panel over the current app with focus in the input, and hid it again. The hotkey fires on this machine.
+2. Pass. `uptime`, output below the input, `exit 0`, Escape hid the panel.
+3. Pass. `ssh host-a uptime`, remote, `exit 0`. The practitioner noted once that Escape did not dismiss the panel afterwards; the step could not be repeated ("couldn't repeat it") and is recorded as unreproduced, not as a defect. ho-04 and ho-05 keep an eye on Escape in Done.
+4. Pass, with two rulings. `ssh host-a 'sudo true'` showed sudo's refusal lines, `exit 1` in the alarm colour, the Retry button and the offer in the status line. Return in the empty input relaunched with `-tt`; the panel then read `running`, Stop, `[sudo] password for <user>:` and nothing more; the password was typed, nothing was drawn, `exit 0`. Two things the practitioner saw: after Escape, the next summons still showed the previous output ("it shouldn't be"), which became Decision 17; and the bare prompt gave no sign that keystrokes now went to the command ("would a cursor help?"), which became Decision 18. Both built and committed at `205f618` and confirmed by the practitioner in the rebuilt binary before close.
+5. Pass. During `sleep 30`, Escape, a click on another window and the hotkey each left the panel up; the input took no typing; Stop ended it with a non-zero status.
+6. Pass. `sh -c 'trap "" INT; sleep 300'`: after the first Stop the command was still running and `pgrep -fx 'sleep 300'` printed its pid; after the second, `signal 9` and the same `pgrep` printed nothing.
+7. Pass. `sleep 299`, gear, Quit; `pgrep -fx 'sleep 299'` printed nothing.
+8. Pass. After relaunch and `pwd`, Open in Terminal opened a Terminal.app window at the home directory, empty.
+9. Pass. Two pasted lines showed in full and ran as one command, `exit 0`; the same composed with Shift-Return between them ran the same way.
+10. Not reproducible on this machine. System Settings > Keyboard > Keyboard Shortcuts > Input Sources has no "Show Emoji & Symbols" item on this macOS; only the two input-source items (Control-Space, Control-Option-Space) are listed, both unchecked. Nothing was changed and nothing had to be restored. Together with item 1 and the Discovery result above, the conflict case did not arise here: registration returned `noErr` and the hotkey fires. If a machine does own Control-Command-Space, what `RegisterEventHotKey` returns there is still unobserved; the notice is built for the failing case and the relaunch path (Decision 2) is the fallback for silent success.
 
-**Followups for ho-04 and ho-05.** Facts only, so far.
+The practitioner also asked for a command history during item 3. It is ho-05's (the System Design's Memory component); nothing was built for it here and nothing in Panel anticipates it beyond `submit(_:)` taking the whole line as one string.
+
+**What broke that the tests didn't catch?** Nothing in the code failed. Two gaps were in the design, both inside what the System Design allowed: Composing permitted the previous result to stay on screen, and the practitioner found it wrong at the keyboard; and a running command that waits silently for input looked the same as one doing nothing. Both were decided and built as Decisions 17 and 18 within the ho rather than deferred, because each was one write to the one state value and one drawn rectangle. The one thing the tests cannot witness remains the hotkey firing (item 1).
+
+**Followups for ho-04 and ho-05.** Facts only.
+
+- ho-04 Think input, practitioner's ruling 2026-10-31 after seeing Spotlight's bar: Composing collapses to the input alone, with the transcript appearing beneath it as its own surface once there is output. Derived from `state`, no style switch. One style only; a capsule shape or larger input type is a pālana question, decided once, not a setting.
+- ho-05: history. Asked for at the run sheet; Memory's.
 
 - ho-04 replaces `TranscriptPlaceholder.swift` whole and takes over the `bytes` task in `Panel.init`, `terminalSize` in `PanelWindow`, and `fit()`'s transcript measurement. Call `resize` when the width changes.
 - ho-05: `Panel.init(directory:)` is where the working-directory setting arrives; validate a stored directory (a missing one exits 127 silently, tested here as `missingDirectory`). `Hotkey.combination` is the one constant the recorder replaces. The terminal picker's detection list is in Decision 12. Refresh Environment and ho-02x's N2 test land with settings.
@@ -337,4 +365,4 @@ Closing = fill this Reflect + flip `status: complete` in the frontmatter + write
 ---
 
 _Authored: 2026-10-31 (Think phase, practitioner and orchestrator)._
-_Execution and Reflect: pending._
+_Executed and closed: 2026-10-31. ho-03x pending._
