@@ -7,11 +7,11 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 8,
+    "hos": 9,
     "drafted": 0,
     "complete": 8,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -93,6 +93,15 @@
           "shape": "ha",
           "status": "complete",
           "doc": "ho-process/hos/ho-03-panel.md"
+        },
+        {
+          "ho": "03x",
+          "title": "Review of Panel — the only visible surface",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "03",
+          "run": 1,
+          "doc": "ho-process/hos/ho-03x-review-of-panel.md"
         }
       ]
     }
