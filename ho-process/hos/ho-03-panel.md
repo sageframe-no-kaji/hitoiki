@@ -324,6 +324,8 @@ Two further choices of the subagent's, recorded for ho-03x: `collectionBehavior 
 
 **Size.** `Sources/Issoku/` at close: App 50, Hotkey 51, Keystrokes 48, Panel 223, PanelWindow 234, SettingsWindow 29, TranscriptPlaceholder 78 nonblank lines, 713 new; Theme 111 unchanged. The three test files: PanelTests, KeystrokesTests, HotkeyTests.
 
+**ho-03x run 1 returned this ho** (2026-11-02, `ho-process/reviews/ho-03x-report-1.md`); the fix pass is `ho-process/hos/ho-03.1-fix-pass.md`.
+
 **Watch items for ho-03x and ho-04.** The placeholder calls `fit()` after every chunk and `fit()` lays out the whole text each time, so a very large output grows slower as it grows; it is the placeholder ho-04 deletes, and ho-04's ceiling is the fix. The `exit 3` state-trace test samples `state` between main-actor jobs and asserts exactly three values; stable in seven runs, named here in case it is not under load.
 
 **The run sheet.** Run by the practitioner 2026-10-31 against the build at `7775d8d`, from `.build/debug/Issoku`; host names redacted per the project's map. Items 1–10 of part H:
