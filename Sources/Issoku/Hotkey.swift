@@ -6,6 +6,8 @@ import Carbon.HIToolbox
 internal enum Hotkey {
     /// Control-Command-Space; the shortcut recorder is ho-05's.
     internal static let combination = (keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey | cmdKey))
+    /// `combination` as the notices name it.
+    nonisolated internal static let displayName = "Control-Command-Space"
 
     private static var handler: (@MainActor () -> Void)?
     private static var installed: EventHandlerRef?
@@ -45,7 +47,7 @@ internal enum Hotkey {
     /// Nil for `noErr`; otherwise the notice the panel and Settings show.
     nonisolated internal static func statusText(for status: OSStatus) -> String? {
         guard status != noErr else { return nil }
-        return "Control-Command-Space is unavailable (\(status)). Another app or macOS may own it; "
+        return "\(displayName) is unavailable (\(status)). Another app or macOS may own it; "
             + "see System Settings > Keyboard > Keyboard Shortcuts."
     }
 

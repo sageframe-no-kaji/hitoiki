@@ -36,7 +36,7 @@ public actor Run {
     /// Read-ahead pauses at `outputCeiling`; the command then waits on its terminal.
     /// The sequence ends when Run is released, after every chunk read before then.
     nonisolated public var bytes: Output { Output(chunks: chunks, run: self) }
-    /// `.running` after each successful start, `.done` after each child is reaped.
+    /// `.running` after each successful start, `.done` after each child is reaped and its output taken.
     nonisolated public let states: AsyncStream<RunState>
 
     static let outputCeiling = 1 << 20
@@ -133,7 +133,6 @@ public actor Run {
         child = Child(pid: spawned.pid, line: line, reads: reads, exits: exits, primary: spawned.primary)
         statesOut.yield(.running(pid: spawned.pid))
         reads.resume()
-        hold(untaken >= Self.outputCeiling)
         exits.resume()
     }
 
@@ -225,12 +224,14 @@ public actor Run {
         if child?.held == false, !readChunk() { stopReading() }
     }
 
-    /// The consumer took `count` bytes; reading resumes once what is untaken is under the ceiling.
+    /// The consumer took `count` bytes; reading resumes once what is untaken is under the ceiling,
+    /// and an ended command's Done once nothing is untaken.
     nonisolated func taken(_ count: Int) {
         queue.async {
             self.assumeIsolated { run in
                 run.untaken -= count
                 if run.untaken < Self.outputCeiling { run.hold(false) }
+                run.finishIfDone()
             }
         }
     }
@@ -272,9 +273,11 @@ public actor Run {
         finishIfDone()
     }
 
-    /// Done once the child is reaped and the pseudoterminal closed: emit `.done` and wake refreshes.
+    /// Done once the child is reaped, the pseudoterminal closed and every chunk taken.
+    ///
+    /// Until then the ended child stays in place, so `start` throws `alreadyRunning`.
     private func finishIfDone() {
-        guard let current = child, current.primary == nil, let exit = current.exit else { return }
+        guard let current = child, current.primary == nil, let exit = current.exit, untaken == 0 else { return }
         child = nil
         let retry = Retry.offer(line: current.line, exit: exit, sawSudoRefusal: current.scanner.sawRefusal)
         statesOut.yield(.done(exit, retry: retry))
@@ -287,15 +290,18 @@ public actor Run {
 }
 
 extension Run.Output {
-    /// Pulls the next chunk and tells Run its size.
+    /// Pulls the next chunk and tells Run the size of the one before.
     public struct Iterator: AsyncIteratorProtocol {
         var chunks: AsyncStream<[UInt8]>.Iterator
         weak var run: Run?
+        /// The chunk last handed over is the consumer's until it comes back for the next.
+        var holding = 0
 
         /// The next chunk, or nil once Run is released and every chunk read before then is taken.
         public mutating func next() async -> [UInt8]? {
+            if holding > 0 { run?.taken(holding) }
             let chunk = await chunks.next()
-            if let chunk { run?.taken(chunk.count) }
+            holding = chunk?.count ?? 0
             return chunk
         }
     }

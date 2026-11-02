@@ -552,3 +552,13 @@ Opening hash: `ed9ee98d83920ccb8df345206f19372eb7185f68` (ho-03's closing commit
 - **NEXT** — ho-03.1: `ho-process/hos/ho-03.1-fix-pass.md`.
 - **ACTION ITEMS / BLOCKS** — Answer M1–M3 and S1–S3; take N2. M2's fix is in Run (Done held until the consumer has taken every chunk), which opens `Sources/IssokuCore/` in the fix pass and is read by run 2. Run 2 reads the whole original range through the fix pass, not just its changes. N1 and N3 stay as recorded.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-03.1 — Fix pass for Panel — closed 2026-11-02
+
+Opening hash: `29adb365f1fb409ff0645d95e75eab725e544b9a` (the run-1 report commit). The fix-pass document opened in `fece43530271cef974f20b5230a481305f81eb4c`; its closing commit is `ho-03.1: fix pass for panel — answer ho-03x run 1`, recorded as the range end of ho-03x run 2. Spec: `ho-process/hos/ho-03.1-fix-pass.md`. The practitioner approved the spec before the subagent started; one Opus subagent built it test first; the orchestrator read the diff twice, settled two questions the subagent raised under the System Design's one-command rule (a second Return while the launch capture is pending does nothing; the line in Run's `start` that the held Done made unreachable is deleted), ran the six checks with the Panel suite three times, and committed.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-03.1. A dismissal cancels a submission still waiting for the login-environment capture, and a second submission while one waits does nothing. Run yields Done only once the consumer has taken every chunk, with a chunk counted as taken when the consumer returns for the next; the ended child keeps Run occupied until then. The four narrating comments are gone; the launch-wait, state-trace and offer tests hold the command at a readiness point; the transcript font has one definition; the shortcut's display name has one. 24 app tests and 40 core tests pass three times; IssokuCore 93.73%, `Sources/Issoku` 92.46%; Run's sources 478 → 484 nonblank lines.
+- **NEXT** — ho-03x run 2 from `ho-process/hos/ho-03x-review-of-panel.md`, over `f371d87b18d101c5c9ea46bcace9ed3102939067` through this fix pass's closing commit. Report: `ho-process/reviews/ho-03x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. For run 2: the submission handle is a Task, not a second state value; Run's public surface is unchanged, its Done contract is stronger. For every consumer of `Run.Output`: a consumer that stops pulling never sees Done for a command whose output it has not taken; Panel's iterator lives for the app's life. N1 and N3 of run 1 stand as recorded. The ho-04 and ho-05 items of ho-03's entry stand.
+- **PROJECT LIFECYCLE** — kamae

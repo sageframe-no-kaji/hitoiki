@@ -5,7 +5,6 @@ import AppKit
 /// The real settings are ho-05's.
 @MainActor
 internal final class SettingsWindow: NSWindow {
-    /// A titled window holding `text`.
     internal init(text: String) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 96),

@@ -19,8 +19,6 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
 
     private static let width: CGFloat = 640
     private static let inset: CGFloat = 12
-    private static let mono = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-    private static let lineHeight = NSLayoutManager().defaultLineHeight(for: mono)
 
     /// Command-key equivalents for the text in the panel; an accessory app has no menu to route them.
     private static let editing: [String: Selector] = [
@@ -32,7 +30,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     private let scroll = NSScrollView()
     private let rule = PanelWindow.hairline()
     private let gearMenu = NSMenu()
-    private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: Self.lineHeight)
+    private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: TranscriptPlaceholder.lineHeight)
     private lazy var transcriptHeight = scroll.heightAnchor.constraint(equalToConstant: 0)
     /// The transcript's greatest height: half the screen's visible height, less the rest of the panel.
     private var cap: CGFloat = 0
@@ -57,7 +55,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         input.isBordered = false
         input.drawsBackground = false
         input.focusRingType = .none
-        input.font = Self.mono
+        input.font = TranscriptPlaceholder.font
         input.textColor = Theme.Token.ink.nsColor
         input.usesSingleLineMode = false
         input.cell?.wraps = true
@@ -113,9 +111,9 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     /// its greatest height over the line height.
     internal var terminalSize: WindowSize {
         let padding = 2 * (transcript.textContainer?.lineFragmentPadding ?? 0)
-        let advance = ("M" as NSString).size(withAttributes: [.font: Self.mono]).width
+        let advance = ("M" as NSString).size(withAttributes: [.font: TranscriptPlaceholder.font]).width
         let columns = ((Self.width - 2 * Self.inset - padding) / advance).rounded(.down)
-        let rows = (cap / Self.lineHeight).rounded(.down)
+        let rows = (cap / TranscriptPlaceholder.lineHeight).rounded(.down)
         return WindowSize(columns: UInt16(max(columns, 1)), rows: UInt16(max(rows, 1)))
     }
 
@@ -135,9 +133,9 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         let editor = input.currentEditor() as? NSTextView
         if let layout = editor?.layoutManager, let container = editor?.textContainer {
             layout.ensureLayout(for: container)
-            lines = (layout.usedRect(for: container).height / Self.lineHeight).rounded()
+            lines = (layout.usedRect(for: container).height / TranscriptPlaceholder.lineHeight).rounded()
         }
-        inputHeight.constant = min(max(lines, 1), 5) * Self.lineHeight
+        inputHeight.constant = min(max(lines, 1), 5) * TranscriptPlaceholder.lineHeight
 
         // Shown while the cursor is on, so a command that has printed nothing yet still shows where keys go.
         let empty = transcript.string.isEmpty && !transcript.showsCursor
@@ -146,7 +144,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         transcriptHeight.constant = 0
         content.layoutSubtreeIfNeeded()
         let visible = (screen ?? NSScreen.main)?.visibleFrame.height ?? 0
-        cap = max(visible / 2 - content.fittingSize.height, Self.lineHeight)
+        cap = max(visible / 2 - content.fittingSize.height, TranscriptPlaceholder.lineHeight)
         if !empty, let layout = transcript.layoutManager, let container = transcript.textContainer {
             layout.ensureLayout(for: container)
             let text = layout.usedRect(for: container).height + 2 * transcript.textContainerInset.height
@@ -209,8 +207,6 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         button.action = action
     }
 
-    /// Ground, a hairline edge and radius 10 behind a column: the input, a hairline, the control
-    /// strip, the notice, a hairline, the transcript.
     private func layOut() {
         let card = NSBox()
         card.boxType = .custom

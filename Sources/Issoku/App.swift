@@ -9,7 +9,6 @@ internal final class IssokuApp: NSObject, NSApplicationDelegate {
     private var hotkey = noErr
     private var settings: SettingsWindow?
 
-    /// Runs the application with this delegate.
     internal static func main() {
         let application = NSApplication.shared
         let delegate = IssokuApp()
@@ -47,7 +46,7 @@ internal final class IssokuApp: NSObject, NSApplicationDelegate {
     /// The gear's Settings… item, reached through the responder chain.
     @objc
     internal func showSettings(_ sender: Any?) {
-        let text = Hotkey.statusText(for: hotkey) ?? "Control-Command-Space is registered."
+        let text = Hotkey.statusText(for: hotkey) ?? "\(Hotkey.displayName) is registered."
         let window = settings ?? SettingsWindow(text: text)
         settings = window
         NSApplication.shared.activate()

@@ -15,10 +15,11 @@ internal final class TranscriptPlaceholder: NSTextView {
         didSet { needsDisplay = true }
     }
 
-    private static let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    /// The monospace font, with its line height; the panel's input, terminal size and height cap read both.
+    internal static let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    internal static let lineHeight = NSLayoutManager().defaultLineHeight(for: font)
     private static let block = NSSize(
-        width: ("M" as NSString).size(withAttributes: [.font: font]).width,
-        height: NSLayoutManager().defaultLineHeight(for: font))
+        width: ("M" as NSString).size(withAttributes: [.font: font]).width, height: lineHeight)
 
     private let attributes: [NSAttributedString.Key: Any] = [
         .font: TranscriptPlaceholder.font,
@@ -80,7 +81,6 @@ internal final class TranscriptPlaceholder: NSTextView {
         panel?.keystroke(.paste)
     }
 
-    /// Appends `text` and scrolls to the end.
     internal func append(_ text: String) {
         textStorage?.append(NSAttributedString(string: text, attributes: attributes))
         // The block moves with the end of the text, outside the range the text system redraws.

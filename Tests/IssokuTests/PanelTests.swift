@@ -53,6 +53,13 @@ private func same(_ color: NSColor?, _ token: Palette) -> Bool {
 /// A condition the test waited ten seconds for.
 private struct TimedOut: Error {}
 
+/// A launch task that returns only once the test calls `open`.
+@MainActor
+private func gate() -> (launch: Task<Void, any Error>, open: () -> Void) {
+    let (opened, opener) = AsyncStream<Void>.makeStream()
+    return (Task { for await _ in opened {} }, { opener.finish() })
+}
+
 /// A Panel over a real Run and a real window, in a directory the test owns.
 @MainActor
 private struct Fixture {
@@ -85,18 +92,6 @@ private struct Fixture {
         }
     }
 
-    /// Every distinct value `state` takes, sampled after each main-actor job, until a run is `.done`.
-    func trace() async throws -> [RunState?] {
-        let deadline = ContinuousClock.now + .seconds(10)
-        var seen: [RunState?] = [panel.state]
-        while true {
-            await Task.yield()
-            if panel.state != seen.last { seen.append(panel.state) }
-            if case .done = panel.state, seen.count > 1 { return seen }
-            guard ContinuousClock.now < deadline else { throw TimedOut() }
-        }
-    }
-
     /// The pid of the running command, once Panel shows it running.
     func running() async throws -> pid_t {
         try await until {
@@ -120,12 +115,12 @@ private struct Fixture {
     }
 
     /// An `ssh` in the test's directory, as ho-02's RunTests build it: sudo's refusal on stderr and
-    /// status 1, unless its first argument is `-tt`, then `ok` and status 0.
+    /// status 1, unless its first argument is `-tt`, then `ok`, and status 0 once it reads a line.
     func writeFakeSSH() throws {
         let ssh = home + "/ssh"
         let script = """
             #!/bin/sh
-            if [ "$1" = "-tt" ]; then echo ok; exit 0; fi
+            if [ "$1" = "-tt" ]; then echo ok; read -r line; exit 0; fi
             printf 'sudo: a terminal is required to read the password; either use the -S option to \
             read from standard input or configure an askpass helper\\nsudo: a password is required\\n' >&2
             exit 1
@@ -167,15 +162,16 @@ internal struct PanelTests {
     internal func submit() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
-        fixture.panel.submit("exit 3")
-        let states = try await fixture.trace()
-        #expect(states.count == 3)
-        #expect(states.first == .some(nil))
-        guard case .running = states.dropFirst().first else {
-            Issue.record("no Running state between Composing and Done: \(states)")
+        // The read holds the command at its readiness point until Running has been asserted.
+        fixture.panel.submit("echo ready; read -r line; exit 3")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        guard case .running = fixture.panel.state else {
+            Issue.record("not Running at the readiness point: \(String(describing: fixture.panel.state))")
             return
         }
-        #expect(states.last == .done(.status(3), retry: nil))
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
         #expect(fixture.window.status.stringValue == "exit 3")
         #expect(same(fixture.window.status.textColor, Theme.Token.alarm))
     }
@@ -296,11 +292,15 @@ internal struct PanelTests {
         #expect(fixture.window.status.stringValue.contains("ssh -tt host 'sudo true'"))
 
         fixture.panel.submit("")
-        let states = try await fixture.trace()
-        #expect(states.count == 3)
-        #expect(states.last == .done(.status(0), retry: nil))
-        #expect(fixture.window.retryButton.isHidden)
+        _ = try await fixture.running()
         try await fixture.transcriptContains("ok")
+        guard case .running = fixture.panel.state else {
+            Issue.record("not Running at the readiness point: \(String(describing: fixture.panel.state))")
+            return
+        }
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.retryButton.isHidden)
     }
 
     @Test("A dismissal takes a showing offer with it; an empty line then starts nothing")
@@ -360,21 +360,90 @@ internal struct PanelTests {
         fixture.panel.dismissIfAllowed()
         #expect(!fixture.window.transcript.showsCursor)
     }
+}
 
+// The launch task, output, failure and quitting: an extension, not a second suite, so these stay
+// serialized with the rest of Panel's tests.
+extension PanelTests {
     @Test("The first command waits for the launch task")
     internal func launchTaskAwaited() async throws {
-        let clock = ContinuousClock()
-        let created = clock.now
-        let fixture = try Fixture(launch: Task { try await Task.sleep(for: .milliseconds(300)) })
+        let (launch, open) = gate()
+        let fixture = try Fixture(launch: launch)
         defer { fixture.tearDown() }
-        fixture.panel.submit("echo ready")
-        try await fixture.until {
-            if case .running = fixture.panel.state { return true }
-            if case .done = fixture.panel.state { return true }
-            return false
+        fixture.panel.submit("echo ready; read -r line")
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(fixture.panel.state == nil)
+        #expect(fixture.window.transcript.string.isEmpty)
+
+        open()
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        guard case .running = fixture.panel.state else {
+            Issue.record("not Running at the readiness point: \(String(describing: fixture.panel.state))")
+            return
         }
-        #expect(clock.now - created >= .milliseconds(300))
+        fixture.panel.keystroke(.write([0x0D]))
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
+    }
+
+    @Test("Dismissal while the launch task is pending cancels the submission; nothing starts")
+    internal func dismissalCancelsSubmission() async throws {
+        let (launch, open) = gate()
+        let fixture = try Fixture(launch: launch)
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("touch \"$HOME/started\"; sleep 30")
+        fixture.panel.dismissIfAllowed()
+        #expect(!fixture.window.isVisible)
+
+        open()
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(fixture.panel.state == nil)
+        #expect(!fixture.window.isVisible)
+        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/started"))
+    }
+
+    @Test("A second Return while the launch task is pending is ignored; one command runs")
+    internal func oneSubmission() async throws {
+        let (launch, open) = gate()
+        let fixture = try Fixture(launch: launch)
+        defer { fixture.tearDown() }
+        fixture.panel.submit("touch \"$HOME/first\"; echo ready; read -r line")
+        fixture.panel.submit("touch \"$HOME/second\"")
+        open()
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(FileManager.default.fileExists(atPath: fixture.home + "/first"))
+        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/second"))
+        fixture.panel.keystroke(.write([0x0D]))
+        _ = try await fixture.done()
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/second"))
+        guard case .done = fixture.panel.state else {
+            Issue.record("not Done: \(String(describing: fixture.panel.state))")
+            return
+        }
+    }
+
+    @Test("Every chunk is drawn before Done, and none reaches the panel after a dismissal clears it")
+    internal func outputBeforeDone() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("sleep 0.1; head -c 65536 /dev/zero | tr '\\000' x")
+        _ = try await fixture.running()
+        // Held, the main actor draws nothing while the command writes everything and ends.
+        usleep(300_000)
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let text = fixture.window.transcript.string
+        #expect(text.count == 65_536)
+        #expect(text.allSatisfy { $0 == "x" })
+
+        fixture.panel.dismissIfAllowed()
+        fixture.panel.show()
+        #expect(fixture.window.transcript.string.isEmpty)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(fixture.window.transcript.string.isEmpty)
     }
 
     @Test(

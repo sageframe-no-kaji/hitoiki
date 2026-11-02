@@ -19,6 +19,8 @@ internal final class Panel {
     private let directory: String
     /// Stops since the last Done: the first interrupts, every later one kills.
     private var stops = 0
+    /// The submission waiting on the launch task; a dismissal cancels it, so nothing starts hidden.
+    private var submission: Task<Void, Never>?
     private var notices: [String] = []
 
     /// True unless a command runs; every dismiss path reads it.
@@ -87,6 +89,7 @@ internal final class Panel {
     internal func dismissIfAllowed() {
         guard canDismiss else { return }
         window.orderOut(nil)
+        submission?.cancel()
         state = nil
         window.transcript.string = ""
         apply()
@@ -100,15 +103,20 @@ internal final class Panel {
     }
 
     /// Starts `typed`; a blank line starts the `-tt` offer when there is one and otherwise nothing.
+    ///
+    /// One submission at a time: while one waits on the launch task, another does nothing.
     internal func submit(_ typed: String) {
         let blank = typed.allSatisfy(\.isWhitespace)
         var line = blank ? nil : typed
         if blank, case .done(_, let offer?) = state { line = offer }
-        guard let line else { return }
+        guard let line, submission == nil else { return }
         let size = window.terminalSize
-        Task {
+        submission = Task {
+            defer { submission = nil }
             // A failed capture is the notice's to report; the command runs with the app's environment.
+            // Awaiting the launch task's value leaves the capture running when this task is cancelled.
             _ = try? await launch.value
+            guard !Task.isCancelled else { return }
             do {
                 try await run.start(line: line, cwd: directory, size: size)
             } catch RunError.spawnFailed(let code) {

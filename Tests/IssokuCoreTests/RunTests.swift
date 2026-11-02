@@ -30,8 +30,8 @@ internal func ownedEnvironment(home: String, path: String = "/usr/bin:/bin:/usr/
 /// Runs `line` to Done on a fresh Run started in `environment["HOME"]`.
 ///
 /// `before` runs on the Run before the start. With a `marker`, waits until the output holds it, then
-/// calls `act`. Run is released before the rest of the bytes are read: its streams end with it, so
-/// every byte sent before Done is collected.
+/// calls `act`. The rest of the bytes are taken alongside the wait for Done, which follows the taking
+/// of every chunk, so what was taken by Done is every byte the command sent.
 internal func drive(
     _ line: String,
     environment: [String: String],
@@ -42,32 +42,37 @@ internal func drive(
     act: (Run, pid_t) async throws -> Void = { _, _ in }
 ) async throws -> Outcome {
     var output: [UInt8] = []
-    var bytes: Run.Output.Iterator
-    let pid: pid_t
-    let ended: RunState?
-    do {
-        let run = Run(environment: environment, captureShell: captureShell)
-        bytes = run.bytes.makeAsyncIterator()
-        try await before(run)
-        var states = run.states.makeAsyncIterator()
-        try await run.start(line: line, cwd: environment["HOME"] ?? "/", size: size)
-        let started = await states.next()
-        guard case .running(let running) = started else { throw UnexpectedState(state: started) }
-        pid = running
-        if let marker {
-            while !output.contains(Array(marker.utf8)), let chunk = await bytes.next() {
-                output += chunk
-            }
+    let run = Run(environment: environment, captureShell: captureShell)
+    var bytes = run.bytes.makeAsyncIterator()
+    try await before(run)
+    var states = run.states.makeAsyncIterator()
+    try await run.start(line: line, cwd: environment["HOME"] ?? "/", size: size)
+    let started = await states.next()
+    guard case .running(let pid) = started else { throw UnexpectedState(state: started) }
+    if let marker {
+        while !output.contains(Array(marker.utf8)), let chunk = await bytes.next() {
+            output += chunk
         }
-        try await act(run, pid)
-        ended = await states.next()
-        withExtendedLifetime(run) {}
     }
-    while let chunk = await bytes.next() {
-        output += chunk
-    }
+    try await act(run, pid)
+    let rest = remaining(bytes)
+    let ended = await states.next()
+    rest.cancel()
+    output += await rest.value
     guard case .done(let exit, let retry) = ended else { throw UnexpectedState(state: ended) }
     return Outcome(output: output, exit: exit, retry: retry, pid: pid)
+}
+
+/// Takes every chunk `bytes` has left, each as it arrives, until the task is cancelled.
+///
+/// Cancel it after Done, by which every chunk has been taken; cancelling the wait for another ends the stream.
+internal func remaining(_ bytes: sending Run.Output.Iterator) -> Task<[UInt8], Never> {
+    Task {
+        var bytes = bytes
+        var taken: [UInt8] = []
+        while let chunk = await bytes.next() { taken += chunk }
+        return taken
+    }
 }
 
 /// What `/bin/ps` prints for `arguments`, trimmed.
@@ -418,31 +423,45 @@ extension RunTests {
     internal func backpressure() async throws {
         let home = try makeDirectory()
         defer { try? FileManager.default.removeItem(atPath: home) }
-        var total = 0
-        let ended: RunState?
-        var bytes: Run.Output.Iterator
-        do {
-            let run = Run(environment: ownedEnvironment(home: home))
-            bytes = run.bytes.makeAsyncIterator()
-            var states = run.states.makeAsyncIterator()
-            try await run.start(line: "head -c 8388608 /dev/zero", cwd: home)
-            let started = await states.next()
-            guard case .running(let pid) = started else { throw UnexpectedState(state: started) }
-            // Unbounded, head writes everything through the terminal and exits in about three
-            // seconds here; held at the ceiling it is still alive after five.
-            try await Task.sleep(for: .seconds(5))
-            #expect(try !ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty)
-            while total < 8_388_608, let chunk = await bytes.next() {
-                total += chunk.count
-            }
-            ended = await states.next()
-            withExtendedLifetime(run) {}
+        let run = Run(environment: ownedEnvironment(home: home))
+        var states = run.states.makeAsyncIterator()
+        try await run.start(line: "head -c 8388608 /dev/zero", cwd: home)
+        let started = await states.next()
+        guard case .running(let pid) = started else { throw UnexpectedState(state: started) }
+        // Unbounded, head writes everything through the terminal and exits in about three
+        // seconds here; held at the ceiling it is still alive after five.
+        try await Task.sleep(for: .seconds(5))
+        #expect(try !ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty)
+        let rest = remaining(run.bytes.makeAsyncIterator())
+        #expect(await states.next() == .done(.status(0), retry: nil))
+        rest.cancel()
+        #expect(await rest.value.count == 8_388_608)
+    }
+
+    @Test("Done waits until every chunk is taken; until then the ended command keeps Run occupied")
+    internal func doneAwaitsOutput() async throws {
+        let home = try makeDirectory()
+        defer { try? FileManager.default.removeItem(atPath: home) }
+        let arrived = Order()
+        let run = Run(environment: ownedEnvironment(home: home))
+        var states = run.states.makeAsyncIterator()
+        try await run.start(line: "head -c 65536 /dev/zero", cwd: home)
+        let started = await states.next()
+        guard case .running(let pid) = started else { throw UnexpectedState(state: started) }
+        let done = Task { [states] in
+            var states = states
+            let next = await states.next()
+            await arrived.append("done")
+            return next
         }
-        while let chunk = await bytes.next() {
-            total += chunk.count
-        }
-        #expect(total == 8_388_608)
-        #expect(ended == .done(.status(0), retry: nil))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(await arrived.events.isEmpty)
+        #expect(try ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty)
+        await #expect(throws: RunError.alreadyRunning) { try await run.start(line: "true", cwd: home) }
+        let rest = remaining(run.bytes.makeAsyncIterator())
+        #expect(await done.value == .done(.status(0), retry: nil))
+        rest.cancel()
+        #expect(await rest.value.count == 65_536)
     }
 
     @Test("Unconsumed output stays bounded across repeated short commands; every byte is retained")
@@ -453,38 +472,25 @@ extension RunTests {
         let commands = 64
         let priming = Run.outputCeiling - perCommand
         let completed = Order()
-        var total = 0
-        var unchanged = true
-        var bytes: Run.Output.Iterator
-        do {
-            let run = Run(environment: ownedEnvironment(home: home))
-            bytes = run.bytes.makeAsyncIterator()
-            let producer = Task {
-                var states = run.states.makeAsyncIterator()
-                for size in [priming] + [Int](repeating: perCommand, count: commands) {
-                    try await run.start(line: "head -c \(size) /dev/zero", cwd: home)
-                    _ = await states.next()
-                    #expect(await states.next() == .done(.status(0), retry: nil))
-                    await completed.append("done")
-                }
+        let run = Run(environment: ownedEnvironment(home: home))
+        let producer = Task {
+            var states = run.states.makeAsyncIterator()
+            for size in [priming] + [Int](repeating: perCommand, count: commands) {
+                try await run.start(line: "head -c \(size) /dev/zero", cwd: home)
+                _ = await states.next()
+                #expect(await states.next() == .done(.status(0), retry: nil))
+                await completed.append("done")
             }
-            let deadline = ContinuousClock.now + .seconds(10)
-            while await completed.events.count < 1, ContinuousClock.now < deadline {
-                try await Task.sleep(for: .milliseconds(10))
-            }
-            try await Task.sleep(for: .milliseconds(200))
-            let countBeforeTaking = await completed.events.count
-            #expect(countBeforeTaking == 1)
-            while total < priming + commands * perCommand, let chunk = await bytes.next() {
-                total += chunk.count
-                unchanged = unchanged && chunk.allSatisfy { $0 == 0 }
-            }
-            try await producer.value
-            withExtendedLifetime(run) {}
         }
-        while let chunk = await bytes.next() { total += chunk.count }
-        #expect(total == priming + commands * perCommand)
-        #expect(unchanged)
+        // Done follows the taking of a command's output, so not even the priming command completes.
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(await completed.events.isEmpty)
+        let rest = remaining(run.bytes.makeAsyncIterator())
+        try await producer.value
+        rest.cancel()
+        let output = await rest.value
+        #expect(output.count == priming + commands * perCommand)
+        #expect(output.allSatisfy { $0 == 0 })
         #expect(await completed.events.count == commands + 1)
     }
 

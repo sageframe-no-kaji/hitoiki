@@ -8,8 +8,8 @@
   },
   "summary": {
     "hos": 10,
-    "drafted": 1,
-    "complete": 8,
+    "drafted": 0,
+    "complete": 9,
     "planned": 0,
     "ready": 1
   },
@@ -98,7 +98,7 @@
           "ho": "03.1",
           "title": "Fix pass for Panel — answer ho-03x run 1",
           "shape": "ri",
-          "status": "draft",
+          "status": "complete",
           "fixes": "03",
           "doc": "ho-process/hos/ho-03.1-fix-pass.md"
         },
