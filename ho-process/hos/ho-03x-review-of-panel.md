@@ -8,14 +8,15 @@ kamae: 5
 shape: x
 phase: 2 — The Surface
 title: Review of Panel — the only visible surface
-description: Rechecks the Panel build and its ho-03.1 fix pass against the standing brief and the four ho-03x questions, with a report and a Pass or Return verdict.
+description: Rechecks the Panel build and its two fix passes against the standing brief and the four ho-03x questions, with a report and a Pass or Return verdict.
 reviews: ho-03
-run: 2
+run: 3
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
   - ho-process/hos/ho-03-panel.md
   - ho-process/hos/ho-03.1-fix-pass.md
+  - ho-process/hos/ho-03.2-fix-pass.md
 ---
 
 # ho-03x — Review of Panel — the only visible surface
@@ -24,7 +25,7 @@ You are the antagonist for ho-03. You did not write this code. You review one bo
 
 The unit is `Sources/Issoku/` as ho-03 left it (App, Panel, Keystrokes, Hotkey, PanelWindow, TranscriptPlaceholder, SettingsWindow), its three test files under `Tests/IssokuTests/`, and the second measured set in `scripts/coverage-floor.sh`. The range also deletes `Sources/IssokuRunCLI/` and its product, which ho-02 ruled; that deletion is not under review. `Sources/IssokuCore/` does not change in this range. The spec's Reflect records what execution surfaced, including facts for you: the range holds five commits because the practitioner's run sheet produced Decisions 17 and 18 after the build commit; the Panel tests construct a real `PanelWindow` in the test process and are `.serialized`; the subagent read a whitespace-only Return as the empty Return that takes the `-tt` offer, and the spec's Decision 9 says both. The practitioner's run sheet in Reflect is redacted and is evidence, not a claim for you to re-run against a host; nothing you run touches a live host. The hotkey firing and the Dock icon's absence are witnessed only by the run sheet; say so rather than counting them untested.
 
-**Run 2.** Run 1 (`ho-process/reviews/ho-03x-report-1.md`) returned ho-03 with three Must-fix findings and three Should-fix. The fix pass `ho-process/hos/ho-03.1-fix-pass.md` answers all six and takes N2; its Results record two choices settled during execution (a second submission while one waits on the launch capture does nothing; the line in Run's `start` made unreachable by the held Done is deleted) and one consequence for every consumer of `Run.Output` (a consumer that stops pulling never sees Done for output it has not taken). The range below now includes `Sources/IssokuCore/Run/Run.swift`, which ho-03 itself did not touch; read it against ho-02's spec and ho-02.1's M3 as well as the fix pass. Read the whole unit again, not just the fixes, against both specs. Rate any run-1 finding you judge unanswered as you would any other. The builder's verification is evidence to check, not a verdict.
+**Run 3.** Run 1 (`ho-process/reviews/ho-03x-report-1.md`) returned ho-03 with three Must-fix findings and three Should-fix; the fix pass `ho-process/hos/ho-03.1-fix-pass.md` answered them, and run 2 (`ho-process/reviews/ho-03x-report-2.md`) judged all but M1 answered and returned on M1 alone: the cancellation left two gaps in which a dismissed submission still started hidden. The second fix pass `ho-process/hos/ho-03.2-fix-pass.md` answers it by reversing the mechanism on the practitioner's ruling: a submission in flight is undismissable, in the one dismiss rule, from Return until Running arrives or the start fails; Quit awaits an in-flight submission. Its Results record three points settled during execution (the delegate's Quit guard reads `canDismiss`; the Quit-in-flight test witnesses no living child because the kill lands before the command can report a pid; `ps` drops its own row) and the cost (Escape, click-out and the hotkey do nothing for up to five seconds on the first command after launch). The range below includes `Sources/IssokuCore/Run/Run.swift` from ho-03.1; read it against ho-02's spec and ho-02.1's M3 as well. Read the whole unit again, not just the fixes, against all three specs. Rate any earlier finding you judge unanswered as you would any other. The builder's verification is evidence to check, not a verdict.
 
 **Goal**
 
@@ -33,17 +34,17 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-03-panel.md`
-- Fix-pass spec: `ho-process/hos/ho-03.1-fix-pass.md`
-- Previous report: `ho-process/reviews/ho-03x-report-1.md`
-- Commit range: `f371d87b18d101c5c9ea46bcace9ed3102939067..bf42a7dacc01f1369bf9308997060a6ece2ead35`
+- Fix-pass specs: `ho-process/hos/ho-03.1-fix-pass.md`, `ho-process/hos/ho-03.2-fix-pass.md`
+- Previous reports: `ho-process/reviews/ho-03x-report-1.md`, `ho-process/reviews/ho-03x-report-2.md`
+- Commit range: `f371d87b18d101c5c9ea46bcace9ed3102939067..31d73750b5fb103dca6cad1eff9ec5c2d57b9e01`
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: everything in the commit range, via `git diff f371d87b18d101c5c9ea46bcace9ed3102939067..bf42a7dacc01f1369bf9308997060a6ece2ead35`
+- Read-only: everything in the commit range, via `git diff f371d87b18d101c5c9ea46bcace9ed3102939067..31d73750b5fb103dca6cad1eff9ec5c2d57b9e01`
 - Read-only: the inputs above
-- Create: `ho-process/reviews/ho-03x-report-2.md`
+- Create: `ho-process/reviews/ho-03x-report-3.md`
 
 No other file is created or modified.
 
@@ -79,9 +80,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-03x report, run 2
+# ho-03x report, run 3
 
-Commit range: f371d87b18d101c5c9ea46bcace9ed3102939067..bf42a7dacc01f1369bf9308997060a6ece2ead35
+Commit range: f371d87b18d101c5c9ea46bcace9ed3102939067..31d73750b5fb103dca6cad1eff9ec5c2d57b9e01
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -128,8 +129,8 @@ Every finding carries a `file:line`. A question with no finding is answered "non
 swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 swift test --enable-code-coverage >/dev/null 2>&1 && scripts/coverage-floor.sh
-git diff --stat f371d87b18d101c5c9ea46bcace9ed3102939067..bf42a7dacc01f1369bf9308997060a6ece2ead35
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-03x-report-2.md
+git diff --stat f371d87b18d101c5c9ea46bcace9ed3102939067..31d73750b5fb103dca6cad1eff9ec5c2d57b9e01
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-03x-report-3.md
 ```
 
 **Do not**
@@ -148,7 +149,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-03x-report-2
 Commit only the report.
 
 ```
-ho-03x: review of ho-03, run 2 — <Pass | Return>
+ho-03x: review of ho-03, run 3 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.
