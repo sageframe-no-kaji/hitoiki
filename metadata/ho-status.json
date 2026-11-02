@@ -9,9 +9,9 @@
   "summary": {
     "hos": 11,
     "drafted": 0,
-    "complete": 10,
+    "complete": 11,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -114,10 +114,11 @@
           "ho": "03x",
           "title": "Review of Panel — the only visible surface",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "reviews": "03",
           "run": 3,
-          "doc": "ho-process/hos/ho-03x-review-of-panel.md"
+          "doc": "ho-process/hos/ho-03x-review-of-panel.md",
+          "verdict": "Pass"
         }
       ]
     }

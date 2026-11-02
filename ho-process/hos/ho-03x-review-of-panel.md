@@ -1,6 +1,6 @@
 ---
 created: 2026-10-31
-status: ready
+status: complete
 type: ho-document
 project: issoku
 ho: 03x
