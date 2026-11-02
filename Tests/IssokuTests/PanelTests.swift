@@ -44,6 +44,22 @@ private func survivors(ofGroup group: pid_t) async throws -> String {
     }
 }
 
+/// The test process's living children, less the `ps` that lists them, read until none remain or two
+/// seconds pass.
+private func children() async throws -> [String] {
+    let deadline = ContinuousClock.now + .seconds(2)
+    while true {
+        let rows = try ps(["-o", "pid=,ppid=,comm=", "-A"]).split(separator: "\n").filter { row in
+            let fields = row.split(separator: " ")
+            return fields.count > 2 && fields[1] == "\(getpid())" && fields[2] != "/bin/ps"
+        }
+        if rows.isEmpty || ContinuousClock.now >= deadline {
+            return rows.map(String.init)
+        }
+        try await Task.sleep(for: .milliseconds(50))
+    }
+}
+
 /// Same components in the current appearance.
 @MainActor
 private func same(_ color: NSColor?, _ token: Palette) -> Bool {
@@ -386,21 +402,52 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
     }
 
-    @Test("Dismissal while the launch task is pending cancels the submission; nothing starts")
-    internal func dismissalCancelsSubmission() async throws {
+    @Test("A submission in flight cannot be dismissed, through the launch wait and while it runs")
+    internal func inFlightIsUndismissable() async throws {
         let (launch, open) = gate()
         let fixture = try Fixture(launch: launch)
         defer { fixture.tearDown() }
         fixture.panel.show()
-        fixture.panel.submit("touch \"$HOME/started\"; sleep 30")
+        fixture.panel.submit("echo ready; read -r line")
+        await Task.yield()
         fixture.panel.dismissIfAllowed()
-        #expect(!fixture.window.isVisible)
+        fixture.panel.toggle()
+        #expect(fixture.window.isVisible)
+        #expect(fixture.window.isKeyWindow)
+        #expect(!fixture.panel.canDismiss)
+        #expect(fixture.panel.state == nil)
 
         open()
-        try await Task.sleep(for: .milliseconds(500))
-        #expect(fixture.panel.state == nil)
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(!fixture.panel.canDismiss)
+        fixture.panel.keystroke(.write([0x0D]))
+        _ = try await fixture.done()
+        #expect(fixture.panel.canDismiss)
+        fixture.panel.dismissIfAllowed()
         #expect(!fixture.window.isVisible)
-        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/started"))
+    }
+
+    @Test("A dismissal after start but before Running arrives leaves the panel up (ho-03x run 2)")
+    internal func dismissalBeforeRunning() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("sleep 30")
+        await Task.yield()
+        // Held, the main actor lets Run start the command without delivering Running.
+        usleep(50_000)
+        fixture.panel.dismissIfAllowed()
+        #expect(fixture.window.isVisible)
+
+        let pid = try await fixture.running()
+        fixture.panel.stop()
+        guard case .done(.signal, _) = try await fixture.done() else {
+            Issue.record("not ended by a signal: \(String(describing: fixture.panel.state))")
+            return
+        }
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+        #expect(fixture.panel.canDismiss)
     }
 
     @Test("A second Return while the launch task is pending is ignored; one command runs")
@@ -486,6 +533,21 @@ extension PanelTests {
         #expect(clock.now - asked < .milliseconds(1_500))
         #expect(fixture.panel.state == .done(.signal(SIGKILL), retry: nil))
         #expect(try await survivors(ofGroup: pid).isEmpty)
+    }
+
+    @Test("Quit during the launch wait kills the command once it starts and leaves no child")
+    internal func killForQuitInFlight() async throws {
+        let (launch, open) = gate()
+        let fixture = try Fixture(launch: launch)
+        defer { fixture.tearDown() }
+        fixture.panel.submit("sleep 30")
+        let quit = Task { await fixture.panel.killForQuit() }
+        try await Task.sleep(for: .milliseconds(100))
+        open()
+        await quit.value
+        #expect(fixture.panel.state == .done(.signal(SIGKILL), retry: nil))
+        // No group check: the kill lands before the command can report its pid, and Done after SIGKILL is Run's reap.
+        #expect(try await children().isEmpty)
     }
 
     @Test("Open in Terminal resolves Terminal.app")

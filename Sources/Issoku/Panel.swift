@@ -19,14 +19,15 @@ internal final class Panel {
     private let directory: String
     /// Stops since the last Done: the first interrupts, every later one kills.
     private var stops = 0
-    /// The submission waiting on the launch task; a dismissal cancels it, so nothing starts hidden.
+    /// The submission from Return until Running arrives or the start fails; until then the panel is
+    /// undismissable, so nothing starts hidden.
     private var submission: Task<Void, Never>?
     private var notices: [String] = []
 
-    /// True unless a command runs; every dismiss path reads it.
+    /// True unless a command runs or a submission is in flight; every dismiss path reads it.
     internal var canDismiss: Bool {
         if case .running = state { return false }
-        return true
+        return submission == nil
     }
 
     /// Drives `run` through `window` for the app's life.
@@ -89,7 +90,6 @@ internal final class Panel {
     internal func dismissIfAllowed() {
         guard canDismiss else { return }
         window.orderOut(nil)
-        submission?.cancel()
         state = nil
         window.transcript.string = ""
         apply()
@@ -112,16 +112,15 @@ internal final class Panel {
         guard let line, submission == nil else { return }
         let size = window.terminalSize
         submission = Task {
-            defer { submission = nil }
             // A failed capture is the notice's to report; the command runs with the app's environment.
-            // Awaiting the launch task's value leaves the capture running when this task is cancelled.
             _ = try? await launch.value
-            guard !Task.isCancelled else { return }
             do {
                 try await run.start(line: line, cwd: directory, size: size)
             } catch RunError.spawnFailed(let code) {
+                submission = nil
                 apply(failure: "Could not start: " + String(cString: strerror(code)))
             } catch {
+                submission = nil
                 apply(failure: "Could not start: \(error)")
             }
         }
@@ -169,12 +168,13 @@ internal final class Panel {
             configuration: NSWorkspace.OpenConfiguration())
     }
 
-    /// Quit: kills a running command and waits at most one second for its Done.
+    /// Quit: waits for a submission in flight, then kills the command and waits at most one second for its Done.
     internal func killForQuit() async {
-        guard case .running = state else { return }
+        await submission?.value
+        guard !canDismiss else { return }
         await run.kill()
         let deadline = ContinuousClock.now + .seconds(1)
-        while case .running = state, ContinuousClock.now < deadline {
+        while !canDismiss, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -183,6 +183,7 @@ internal final class Panel {
         state = next
         switch next {
         case .running:
+            submission = nil
             window.transcript.string = ""
         case .done:
             stops = 0

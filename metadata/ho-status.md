@@ -14,4 +14,4 @@
 | 03 | Panel — the only visible surface | ha | complete |
 | 03x | Review of Panel — the only visible surface | x | ready |
 | 03.1 | Fix pass for Panel — answer ho-03x run 1 | ri | complete |
-| 03.2 | Second fix pass for Panel — answer ho-03x run 2 | ri | draft |
+| 03.2 | Second fix pass for Panel — answer ho-03x run 2 | ri | complete |

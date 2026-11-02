@@ -572,3 +572,13 @@ Opening hash: `bf42a7dacc01f1369bf9308997060a6ece2ead35` (ho-03.1's closing comm
 - **NEXT** — ho-03.2: `ho-process/hos/ho-03.2-fix-pass.md`.
 - **ACTION ITEMS / BLOCKS** — Answer M1 only. The fix reverses ho-03.1's cancellation: `canDismiss` reads the submission handle, cleared at Running or on a start failure; `killForQuit` awaits an in-flight submission. Run 3 reads the whole original range through both fix passes. N1 and N2 stay as recorded.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-03.2 — Second fix pass for Panel — closed 2026-11-02
+
+Opening hash: `3e9a3be160999776dd080206eeb01d1094aabff1` (the run-2 report commit). The fix-pass document opened in `3a66fbbe881fbf745cdfc30fd9b68cc8f496e334`; its closing commit is `ho-03.2: second fix pass for panel — answer ho-03x run 2`, recorded as the range end of ho-03x run 3. Spec: `ho-process/hos/ho-03.2-fix-pass.md`. The practitioner approved the spec; one Opus subagent built it test first; the orchestrator read the diff three times, settled three execution points (the delegate's Quit guard reads `canDismiss`, one line in `App.swift` added to the table; the Quit-in-flight test witnesses "no living child" rather than a pid the killed command never gets to write; `ps` drops its own row), ran the six checks with the suite three times, and committed.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-03.2. A submission in flight is undismissable: the one dismiss rule reads the submission handle alongside `state`, the handle clears at Running or on a start failure, dismissal cancels nothing, and Quit awaits an in-flight submission before killing. Codex's run-2 reproduction is a test and passes. 26 app tests and 40 core tests pass three times; IssokuCore 93.73%, `Sources/Issoku` 91.78%.
+- **NEXT** — ho-03x run 3 from `ho-process/hos/ho-03x-review-of-panel.md`, over `f371d87b18d101c5c9ea46bcace9ed3102939067` through this fix pass's closing commit. Report: `ho-process/reviews/ho-03x-report-3.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. Cost recorded for the practitioner: on the first command after launch, Escape, click-out and the hotkey do nothing for up to five seconds while the login environment is captured. N1 and N2 of run 2 stand. The ho-04 and ho-05 items of ho-03's entry stand.
+- **PROJECT LIFECYCLE** — kamae

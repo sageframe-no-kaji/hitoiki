@@ -35,7 +35,7 @@ internal final class IssokuApp: NSObject, NSApplicationDelegate {
     }
 
     internal func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let panel, case .running = panel.state else { return .terminateNow }
+        guard let panel, !panel.canDismiss else { return .terminateNow }
         Task {
             await panel.killForQuit()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)
