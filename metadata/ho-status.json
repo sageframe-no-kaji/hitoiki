@@ -7,8 +7,8 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 10,
-    "drafted": 0,
+    "hos": 11,
+    "drafted": 1,
     "complete": 9,
     "planned": 0,
     "ready": 1
@@ -101,6 +101,14 @@
           "status": "complete",
           "fixes": "03",
           "doc": "ho-process/hos/ho-03.1-fix-pass.md"
+        },
+        {
+          "ho": "03.2",
+          "title": "Second fix pass for Panel — answer ho-03x run 2",
+          "shape": "ri",
+          "status": "draft",
+          "fixes": "03",
+          "doc": "ho-process/hos/ho-03.2-fix-pass.md"
         },
         {
           "ho": "03x",

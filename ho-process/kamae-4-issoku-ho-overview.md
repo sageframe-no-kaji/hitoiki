@@ -562,3 +562,13 @@ Opening hash: `29adb365f1fb409ff0645d95e75eab725e544b9a` (the run-1 report commi
 - **NEXT** — ho-03x run 2 from `ho-process/hos/ho-03x-review-of-panel.md`, over `f371d87b18d101c5c9ea46bcace9ed3102939067` through this fix pass's closing commit. Report: `ho-process/reviews/ho-03x-report-2.md`.
 - **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. For run 2: the submission handle is a Task, not a second state value; Run's public surface is unchanged, its Done contract is stronger. For every consumer of `Run.Output`: a consumer that stops pulling never sees Done for a command whose output it has not taken; Panel's iterator lives for the app's life. N1 and N3 of run 1 stand as recorded. The ho-04 and ho-05 items of ho-03's entry stand.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-03x — run 2 — Return — 2026-11-02
+
+Opening hash: `bf42a7dacc01f1369bf9308997060a6ece2ead35` (ho-03.1's closing commit, the end of the run-2 range). The run-2 x document was committed as `08ff66c50ae5827c0e42a83a910bceadb51e7cf8`; Codex (`gpt-6.1-sol`) committed the report as `3e9a3be160999776dd080206eeb01d1094aabff1`. Report: `ho-process/reviews/ho-03x-report-2.md`. Verdict **Return**: 1 Must-fix, 0 Should-fix, 2 Notes. Build, 64 tests and both coverage floors passed; every run-1 finding but M1 is judged answered, and the two run-1 duplications are gone. The remaining M1: ho-03.1's cancellation covers only the wait on the capture; between the cancellation check and Run's `start`, and between `start` returning and Panel applying Running, a dismissal is still accepted and the command runs hidden. Codex reproduced the second gap without changing the reviewed code. The orchestrator read the report against the range and accepts the verdict. The practitioner ruled the fix: a submission in flight is undismissable, in the one dismiss rule; cancellation goes.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-03x run 2, Return.
+- **NEXT** — ho-03.2: `ho-process/hos/ho-03.2-fix-pass.md`.
+- **ACTION ITEMS / BLOCKS** — Answer M1 only. The fix reverses ho-03.1's cancellation: `canDismiss` reads the submission handle, cleared at Running or on a start failure; `killForQuit` awaits an in-flight submission. Run 3 reads the whole original range through both fix passes. N1 and N2 stay as recorded.
+- **PROJECT LIFECYCLE** — kamae
