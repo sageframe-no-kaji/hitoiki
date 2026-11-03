@@ -1,3 +1,7 @@
+// One suite, serialized, in the one test file ho-04's Decision 8 lists for the panel: the suite
+// cannot move to a second file this ho does not name, so the file runs past the length rule.
+// swiftlint:disable file_length
+
 import AppKit
 import Darwin
 import Foundation
@@ -64,6 +68,54 @@ private func children() async throws -> [String] {
 @MainActor
 private func same(_ color: NSColor?, _ token: Palette) -> Bool {
     color?.usingColorSpace(.sRGB) == token.nsColor.usingColorSpace(.sRGB)
+}
+
+/// The transcript's attribute `key` at the first character of `text`.
+@MainActor
+private func attribute(_ key: NSAttributedString.Key, of text: String, in transcript: TranscriptView) -> Any? {
+    let location = (transcript.string as NSString).range(of: text).location
+    guard location != NSNotFound else { return nil }
+    return transcript.textStorage?.attribute(key, at: location, effectiveRange: nil)
+}
+
+/// The general pasteboard's items, to put back after a test that writes it.
+@MainActor
+private func savePasteboard() -> [[(NSPasteboard.PasteboardType, Data)]] {
+    (NSPasteboard.general.pasteboardItems ?? []).map { item in
+        item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+    }
+}
+
+@MainActor
+private func restorePasteboard(_ saved: [[(NSPasteboard.PasteboardType, Data)]]) {
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.writeObjects(
+        saved.map { entries in
+            let item = NSPasteboardItem()
+            for (type, data) in entries {
+                item.setData(data, forType: type)
+            }
+            return item
+        })
+}
+
+/// A key-down event for `window`, as AppKit would deliver it.
+@MainActor
+private func key(
+    _ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = [], in window: NSWindow
+) throws -> NSEvent {
+    try #require(
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: code))
 }
 
 /// A condition the test waited ten seconds for.
@@ -270,20 +322,8 @@ internal struct PanelTests {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         let pasteboard = NSPasteboard.general
-        let saved = (pasteboard.pasteboardItems ?? []).map { item in
-            item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
-        }
-        defer {
-            pasteboard.clearContents()
-            pasteboard.writeObjects(
-                saved.map { entries in
-                    let item = NSPasteboardItem()
-                    for (type, data) in entries {
-                        item.setData(data, forType: type)
-                    }
-                    return item
-                })
-        }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
         pasteboard.clearContents()
         pasteboard.setString("thirteen-long", forType: .string)
 
@@ -366,7 +406,7 @@ internal struct PanelTests {
         _ = try await fixture.running()
         try await fixture.transcriptContains("ready")
         #expect(fixture.window.transcript.showsCursor)
-        #expect(fixture.window.transcript.string == "ready\r\n")
+        #expect(fixture.window.transcript.string == "ready\n")
 
         fixture.panel.keystroke(.write([0x0D]))
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
@@ -554,5 +594,185 @@ extension PanelTests {
     internal func terminalResolves() {
         let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Panel.terminal)
         #expect(url?.lastPathComponent == "Terminal.app")
+    }
+}
+
+// The transcript (ho-04): what the model makes of real output, copying, and the two cards.
+extension PanelTests {
+    @Test("Colours reach the storage: red in the table's index 1, the rest in ink, no escape bytes")
+    internal func colours() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.submit("printf '\\033[31mred\\033[0m plain\\n'")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let transcript = fixture.window.transcript
+        #expect(transcript.string == "red plain\n")
+        #expect(same(attribute(.foregroundColor, of: "red", in: transcript) as? NSColor, Theme.transcriptColors[1]))
+        #expect(same(attribute(.foregroundColor, of: "plain", in: transcript) as? NSColor, Theme.Token.ink))
+    }
+
+    @Test("Bold reaches the storage as the bold monospace font at the same size; the rest is regular")
+    internal func bold() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.submit("printf '\\033[1mbold\\033[22m plain\\n'")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let transcript = fixture.window.transcript
+        #expect(transcript.string == "bold plain\n")
+        let bold = try #require(attribute(.font, of: "bold", in: transcript) as? NSFont)
+        let plain = try #require(attribute(.font, of: "plain", in: transcript) as? NSFont)
+        #expect(NSFontManager.shared.traits(of: bold).contains(.boldFontMask))
+        #expect(bold.isFixedPitch)
+        #expect(bold.pointSize == TranscriptView.font.pointSize)
+        #expect(plain == TranscriptView.font)
+    }
+
+    @Test("A progress line rewrites itself in place")
+    internal func progressLine() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.submit("printf '1%%\\r2%%\\r3%%\\n'")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string == "3%\n")
+    }
+
+    @Test("Copy: the whole transcript with no selection, only the selection with one; plain text only")
+    internal func copy() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
+        fixture.panel.submit("printf '\\033[34mfirst\\033[0m line\\nsecond\\n'")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let transcript = fixture.window.transcript
+        let pasteboard = NSPasteboard.general
+
+        transcript.copy(nil)
+        #expect(pasteboard.string(forType: .string) == "first line\nsecond\n")
+        #expect(pasteboard.pasteboardItems?.map(\.types) == [[.string]])
+
+        transcript.setSelectedRange(NSRange(location: 0, length: 5))
+        transcript.copy(nil)
+        #expect(pasteboard.string(forType: .string) == "first")
+        #expect(pasteboard.pasteboardItems?.map(\.types) == [[.string]])
+
+        transcript.setSelectedRange(NSRange(location: 0, length: 0))
+        pasteboard.clearContents()
+        fixture.window.copyButton.performClick(nil)
+        #expect(pasteboard.string(forType: .string) == "first line\nsecond\n")
+    }
+
+    @Test("Composing is the bar alone; the output card shows from Running with Copy and goes at dismissal")
+    internal func layout() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        #expect(fixture.window.outputCard.isHidden)
+        #expect(fixture.window.frame.height == fixture.window.bar.frame.height)
+
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(!fixture.window.outputCard.isHidden)
+        #expect(!fixture.window.copyButton.isHidden)
+        #expect(fixture.window.frame.height > fixture.window.bar.frame.height + fixture.window.outputCard.frame.height)
+
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(!fixture.window.outputCard.isHidden)
+        fixture.panel.dismissIfAllowed()
+        fixture.panel.show()
+        #expect(fixture.window.outputCard.isHidden)
+        #expect(fixture.window.transcript.string.isEmpty)
+        #expect(fixture.window.frame.height == fixture.window.bar.frame.height)
+    }
+
+    @Test("The ceiling holds through the panel: 12,000 lines leave 10,000")
+    internal func ceiling() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.submit("yes | head -n 12000")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let lines = fixture.window.transcript.string.split(separator: "\n", omittingEmptySubsequences: false)
+        #expect(lines.count == 10_001)
+        #expect(lines.dropLast().allSatisfy { $0 == "y" })
+        #expect(lines.last?.isEmpty == true)
+    }
+
+    @Test("With no command running, Escape pressed in the transcript dismisses the panel")
+    internal func escapeInTranscript() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo shown")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let window = fixture.window
+        #expect(window.makeFirstResponder(window.transcript))
+        window.transcript.keyDown(with: try key("\u{1B}", code: 53, in: window))
+        #expect(!window.isVisible)
+        #expect(fixture.panel.state == nil)
+    }
+
+    @Test("With no command running, a character pressed in the transcript types into the input; Return submits it")
+    internal func typingInTranscript() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo shown")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let window = fixture.window
+        #expect(window.makeFirstResponder(window.transcript))
+        window.transcript.keyDown(with: try key("a", code: 0, in: window))
+        #expect(window.input.stringValue == "a")
+        #expect(window.input.currentEditor() != nil)
+        #expect(window.isVisible)
+
+        window.input.stringValue = "echo again"
+        #expect(window.makeFirstResponder(window.transcript))
+        window.transcript.keyDown(with: try key("\r", code: 36, in: window))
+        try await fixture.transcriptContains("again")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string == "again\n")
+    }
+
+    @Test("Command-C with the input focused copies the transcript, unless text is selected in the input")
+    internal func commandC() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
+        fixture.panel.show()
+        fixture.panel.submit("printf 'first line\\nsecond\\n'")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let window = fixture.window
+        let pasteboard = NSPasteboard.general
+        let editor = try #require(window.input.currentEditor())
+        #expect(window.firstResponder === editor)
+
+        pasteboard.clearContents()
+        #expect(window.performKeyEquivalent(with: try key("c", code: 8, modifiers: .command, in: window)))
+        #expect(pasteboard.string(forType: .string) == "first line\nsecond\n")
+
+        window.input.stringValue = "typed text"
+        editor.selectedRange = NSRange(location: 0, length: 5)
+        pasteboard.clearContents()
+        #expect(window.performKeyEquivalent(with: try key("c", code: 8, modifiers: .command, in: window)))
+        #expect(pasteboard.string(forType: .string) == "typed")
+    }
+
+    @Test("The rows a command is told are the same in Composing as at Running")
+    internal func terminalRows() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        #expect(fixture.window.outputCard.isHidden)
+        let composing = fixture.window.terminalSize.rows
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(!fixture.window.outputCard.isHidden)
+        #expect(fixture.window.terminalSize.rows == composing)
+        fixture.panel.keystroke(.write([0x0D]))
+        _ = try await fixture.done()
     }
 }

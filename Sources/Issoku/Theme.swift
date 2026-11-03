@@ -1,17 +1,20 @@
 // The panel's palette — warm quiet ground, near-black ink, one moss accent,
-// one rust alarm, one umber category tint. Every token is appearance-aware:
-// a light value and a warm-dark sibling, resolved with no asset catalog.
+// one rust alarm, one umber category tint, and three transcript colours.
+// Every token is appearance-aware: a light value and a warm-dark sibling,
+// resolved with no asset catalog.
 //
-// The light values are copied from `palana/design/palana-design-system.md`
-// §2. The dark values are copied from pālana's `Sources/Palana/Theme.swift`,
+// The eight light values are copied from `palana/design/palana-design-system.md`
+// §2. Their dark values are copied from pālana's `Sources/Palana/Theme.swift`,
 // its ho-15 port of Sharibako's dark mode. pālana is the source of truth for
-// both; a change there is copied here, never made here first.
+// both; a change there is copied here, never made here first. The three
+// transcript colours are Issoku's own, derived from those eight (ho-04
+// Decision 2).
 //
 // The pure `resolved(dark:)` seam is unit-tested per token, so the palette
 // carries real coverage even though the app target sits outside the floor.
+// AppKit only: the panel has no SwiftUI (ho-04, Rules for the subagent).
 
 import AppKit
-import SwiftUI
 
 /// A single sRGB color with alpha, as plain `Double` components.
 ///
@@ -53,52 +56,29 @@ internal struct Palette: Sendable, Equatable {
             return resolved(dark: isDark).nsColor
         }
     }
-
-    /// The SwiftUI `Color` the views consume.
-    internal var color: Color {
-        Color(nsColor: nsColor)
-    }
 }
 
 /// The surface's colors — appearance-aware tokens, per the design language.
 internal enum Theme {
-    // Each token is resolved ONCE into a `Color` that wraps a *dynamic*
-    // `NSColor` — so it stays appearance-aware (re-resolving on the light/dark
-    // flip) while costing nothing per access. In pālana, computed accessors
-    // allocated a fresh dynamic `NSColor` on every read, which per-cell color
-    // reads turned into a navigation stutter (pālana ho-13/15 review). `let`,
-    // not `var`, is the fix.
-
-    /// The paper every view sits on.
-    internal static let ground: Color = Token.ground.color
-
-    /// Headers, footers, key-cap chips — a shade down from ground.
-    internal static let groundDeep: Color = Token.groundDeep.color
-
-    /// Primary text.
-    internal static let ink: Color = Token.ink.color
-
-    /// Secondary facts — paths, dates, counts, hint lines, hairlines.
-    internal static let inkFaint: Color = Token.inkFaint.color
-
-    /// The one interactive color — quiet moss.
-    internal static let accent: Color = Token.accent.color
-
-    /// The "data" surface — notebook gone a shade cooler (a ~5% slate).
-    internal static let panelGround: Color = Token.panelGround.color
-
-    /// Quiet rust.
-    internal static let alarm: Color = Token.alarm.color
-
-    /// Burnt umber — one extra category tint that reads distinct from accent and alarm.
-    internal static let plugin: Color = Token.plugin.color
+    /// The eight basic colours of SGR `30`–`37`, by index, for the transcript (ho-04 Decision 2).
+    internal static let transcriptColors: [Palette] = [
+        Token.ink,
+        Token.alarm,
+        Token.accent,
+        Token.plugin,
+        Token.transcriptBlue,
+        Token.transcriptMagenta,
+        Token.transcriptCyan,
+        Token.inkFaint,
+    ]
 
     /// The light/dark values per token — the pure, unit-tested seam.
     ///
-    /// Light and dark are copied digit for digit from pālana's `Theme.Token`.
+    /// The first eight are copied digit for digit from pālana's `Theme.Token`.
     /// Light is design system §2; dark is pālana's Sharibako port, with
     /// `plugin`'s dark derived there by the same "lift toward warm + bright"
-    /// ratio the accent and alarm pairs show.
+    /// ratio the accent and alarm pairs show. The three transcript tokens
+    /// after them are derived here.
     internal enum Token {
         internal static let ground = Palette(
             light: RGBA(red: 0.9804, green: 0.9686, blue: 0.9529, alpha: 1),
@@ -131,5 +111,26 @@ internal enum Theme {
         internal static let plugin = Palette(
             light: RGBA(red: 0.58, green: 0.36, blue: 0.18, alpha: 1),
             dark: RGBA(red: 0.75, green: 0.54, blue: 0.32, alpha: 1))
+
+        // The three transcript colours pālana has no token for, derived in OKLCH. Light: the mean
+        // lightness of moss, rust and umber (L 0.5224), moss's chroma (C 0.0619, the lowest of the
+        // three, so muted), and the hue of the sRGB primary turned 10° toward the ground's warm hue
+        // (75°) — the warm shift. Dark: the mean lift the accent, alarm and plugin pairs show
+        // (L +0.1294, C ×1.0846, hue +2.0°), the same lift toward warm and bright.
+
+        /// Slate blue, for SGR 34: hue 264.05° turned to 274.05° (dark 276.05°).
+        internal static let transcriptBlue = Palette(
+            light: RGBA(red: 0.3698, green: 0.4046, blue: 0.5558, alpha: 1),
+            dark: RGBA(red: 0.5184, green: 0.5515, blue: 0.7259, alpha: 1))
+
+        /// Plum, for SGR 35: hue 328.36° turned to 338.36° (dark 340.36°).
+        internal static let transcriptMagenta = Palette(
+            light: RGBA(red: 0.5081, green: 0.3599, blue: 0.4623, alpha: 1),
+            dark: RGBA(red: 0.6758, green: 0.5015, blue: 0.6135, alpha: 1))
+
+        /// Muted teal, for SGR 36: hue 194.77° turned to 184.77° (dark 186.77°).
+        internal static let transcriptCyan = Palette(
+            light: RGBA(red: 0.2346, green: 0.4604, blue: 0.4316, alpha: 1),
+            dark: RGBA(red: 0.3649, green: 0.6170, blue: 0.5895, alpha: 1))
     }
 }

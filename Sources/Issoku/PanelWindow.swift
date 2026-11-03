@@ -3,8 +3,10 @@ import IssokuCore
 
 /// The panel: one borderless, non-activating floating window, shown and hidden, never closed.
 ///
-/// It takes the keyboard while the app underneath stays frontmost. Layout, placement, the control
-/// strip and the gear menu live here; every event goes to Panel.
+/// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
+/// input, the gear and the notice, always shown; and beneath it the output card, with the transcript
+/// and the strip at its foot. Layout, placement, the strip and the gear menu live here; every event
+/// goes to Panel.
 @MainActor
 internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal weak var panel: Panel?
@@ -15,10 +17,23 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let retryButton = NSButton()
     internal let stopButton = NSButton()
     internal let openButton = NSButton()
-    internal let transcript = TranscriptPlaceholder(width: width - 2 * inset)
+    internal let copyButton = NSButton()
+    internal let transcript = TranscriptView(width: width - 2 * inset)
+    /// The input, the gear and the notice; in Composing, the whole panel.
+    internal let bar = NSView()
+    /// The transcript and the strip, beneath the bar; Panel shows it from Running until a dismissal.
+    internal let outputCard = NSView()
 
     private static let width: CGFloat = 640
     private static let inset: CGFloat = 12
+    /// The space between stacked rows, and between the two cards.
+    private static let spacing: CGFloat = 8
+    /// A card's margin above its first row and below its last.
+    private static let margin: CGFloat = 10
+    /// The input's own size, apart from the transcript's (ho-04 Decision 7).
+    private static let inputSize: CGFloat = 14
+    private static let inputFont = NSFont.monospacedSystemFont(ofSize: inputSize, weight: .regular)
+    private static let inputLineHeight = NSLayoutManager().defaultLineHeight(for: inputFont)
 
     /// Command-key equivalents for the text in the panel; an accessory app has no menu to route them.
     private static let editing: [String: Selector] = [
@@ -29,8 +44,9 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     private let gear = NSButton()
     private let scroll = NSScrollView()
     private let rule = PanelWindow.hairline()
+    private let strip = NSStackView()
     private let gearMenu = NSMenu()
-    private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: TranscriptPlaceholder.lineHeight)
+    private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: Self.inputLineHeight)
     private lazy var transcriptHeight = scroll.heightAnchor.constraint(equalToConstant: 0)
     /// The transcript's greatest height: half the screen's visible height, less the rest of the panel.
     private var cap: CGFloat = 0
@@ -55,7 +71,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         input.isBordered = false
         input.drawsBackground = false
         input.focusRingType = .none
-        input.font = TranscriptPlaceholder.font
+        input.font = Self.inputFont
         input.textColor = Theme.Token.ink.nsColor
         input.usesSingleLineMode = false
         input.cell?.wraps = true
@@ -72,6 +88,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         style(retryButton, "Retry", Theme.Token.accent, #selector(retryPressed))
         style(stopButton, "Stop", Theme.Token.alarm, #selector(stopPressed))
         style(openButton, "Open in Terminal", Theme.Token.accent, #selector(openPressed))
+        style(copyButton, "Copy", Theme.Token.accent, #selector(NSText.copy(_:)))
+        copyButton.target = transcript
         gear.isBordered = false
         gear.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
         gear.contentTintColor = Theme.Token.inkFaint.nsColor
@@ -91,8 +109,15 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
 
     override internal func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags == .command, let action = Self.editing[event.charactersIgnoringModifiers ?? ""] else {
+        let key = event.charactersIgnoringModifiers ?? ""
+        guard flags == .command, let action = Self.editing[key] else {
             return super.performKeyEquivalent(with: event)
+        }
+        // Command-C is the transcript's (System Design 2.3) unless text is selected in the input.
+        let editor = input.currentEditor()
+        if key == "c", firstResponder !== editor || editor?.selectedRange.length == 0 {
+            transcript.copy(nil)
+            return true
         }
         return firstResponder?.tryToPerform(action, with: nil) == true || super.performKeyEquivalent(with: event)
     }
@@ -107,13 +132,23 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         panel?.dismissIfAllowed()
     }
 
+    /// A key pressed in the transcript while no command runs: the input takes the keyboard and the key,
+    /// as if it had been pressed there, so Escape dismisses, Return submits and characters type.
+    internal func typeInInput(_ event: NSEvent) {
+        makeFirstResponder(input)
+        guard let editor = input.currentEditor() else { return }
+        // Taking the keyboard selects the whole line; the key lands at its end instead.
+        editor.selectedRange = NSRange(location: (editor.string as NSString).length, length: 0)
+        editor.keyDown(with: event)
+    }
+
     /// The terminal size for the next command: the transcript's width over the advance of `M`, and
     /// its greatest height over the line height.
     internal var terminalSize: WindowSize {
         let padding = 2 * (transcript.textContainer?.lineFragmentPadding ?? 0)
-        let advance = ("M" as NSString).size(withAttributes: [.font: TranscriptPlaceholder.font]).width
+        let advance = ("M" as NSString).size(withAttributes: [.font: TranscriptView.font]).width
         let columns = ((Self.width - 2 * Self.inset - padding) / advance).rounded(.down)
-        let rows = (cap / TranscriptPlaceholder.lineHeight).rounded(.down)
+        let rows = (cap / TranscriptView.lineHeight).rounded(.down)
         return WindowSize(columns: UInt16(max(columns, 1)), rows: UInt16(max(rows, 1)))
     }
 
@@ -127,27 +162,36 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     }
 
     /// Sizes the input to its lines and the transcript to its text up to the cap, keeping the top edge.
+    ///
+    /// Once the transcript has reached the cap its height stays there until a clear, and the document
+    /// is not measured again.
     internal func fit() {
         guard let content = contentView else { return }
         var lines: CGFloat = 1
         let editor = input.currentEditor() as? NSTextView
         if let layout = editor?.layoutManager, let container = editor?.textContainer {
             layout.ensureLayout(for: container)
-            lines = (layout.usedRect(for: container).height / TranscriptPlaceholder.lineHeight).rounded()
+            lines = (layout.usedRect(for: container).height / Self.inputLineHeight).rounded()
         }
-        inputHeight.constant = min(max(lines, 1), 5) * TranscriptPlaceholder.lineHeight
+        inputHeight.constant = min(max(lines, 1), 5) * Self.inputLineHeight
 
         // Shown while the cursor is on, so a command that has printed nothing yet still shows where keys go.
         let empty = transcript.string.isEmpty && !transcript.showsCursor
         scroll.isHidden = empty
         rule.isHidden = empty
-        transcriptHeight.constant = 0
         content.layoutSubtreeIfNeeded()
+        // All but the transcript area, with a one-line input and the output card's chrome counted
+        // whether or not the card is on screen: the rows a command is told are the rows it gets.
+        let card = 2 * Self.margin + 2 * Self.spacing + rule.fittingSize.height + strip.fittingSize.height
+        let rest = bar.frame.height - inputHeight.constant + Self.inputLineHeight + Self.spacing + card
         let visible = (screen ?? NSScreen.main)?.visibleFrame.height ?? 0
-        cap = max(visible / 2 - content.fittingSize.height, TranscriptPlaceholder.lineHeight)
-        if !empty, let layout = transcript.layoutManager, let container = transcript.textContainer {
+        cap = max(visible / 2 - rest, TranscriptView.lineHeight)
+        if transcript.atCap {
+            transcriptHeight.constant = cap
+        } else if !empty, let layout = transcript.layoutManager, let container = transcript.textContainer {
             layout.ensureLayout(for: container)
             let text = layout.usedRect(for: container).height + 2 * transcript.textContainerInset.height
+            transcript.atCap = text >= cap
             transcriptHeight.constant = min(text, cap)
         }
         content.layoutSubtreeIfNeeded()
@@ -208,39 +252,62 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     }
 
     private func layOut() {
-        let card = NSBox()
-        card.boxType = .custom
-        card.cornerRadius = 10
-        card.borderWidth = 1
-        card.fillColor = Theme.Token.ground.nsColor
-        card.borderColor = Theme.Token.inkFaint.nsColor.withAlphaComponent(0.15)
-        let strip = NSStackView(views: [status, retryButton, stopButton, openButton, gear])
-        strip.spacing = 8
-        let column = NSStackView(views: [input, Self.hairline(), strip, notice, rule, scroll])
+        let row = NSStackView(views: [input, gear])
+        row.alignment = .top
+        row.spacing = Self.spacing
+        gear.setContentHuggingPriority(.required, for: .horizontal)
+        for control in [status, retryButton, stopButton, openButton, copyButton] {
+            strip.addArrangedSubview(control)
+        }
+        strip.spacing = Self.spacing
+        Self.card(bar, holding: [row, notice])
+        Self.card(outputCard, holding: [scroll, rule, strip])
+        let column = NSStackView(views: [bar, outputCard])
         column.orientation = .vertical
-        column.spacing = 8
-        column.edgeInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        column.spacing = Self.spacing
         let root = NSView()
-        for view in [card, column] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview(view)
-            NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-                view.topAnchor.constraint(equalTo: root.topAnchor),
-                view.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            ])
-        }
-        for view in column.arrangedSubviews {
-            NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: Self.inset),
-                view.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -Self.inset),
-            ])
-        }
+        column.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(column)
         NSLayoutConstraint.activate([
+            column.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            column.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            column.topAnchor.constraint(equalTo: root.topAnchor),
+            column.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            bar.widthAnchor.constraint(equalTo: column.widthAnchor),
+            outputCard.widthAnchor.constraint(equalTo: column.widthAnchor),
             root.widthAnchor.constraint(equalToConstant: Self.width), inputHeight, transcriptHeight,
         ])
         contentView = root
+    }
+
+    /// Makes `view` a card — ground, corner radius 10, a hairline border — with `views` stacked on it.
+    private static func card(_ view: NSView, holding views: [NSView]) {
+        let box = NSBox()
+        box.boxType = .custom
+        box.cornerRadius = 10
+        box.borderWidth = 1
+        box.fillColor = Theme.Token.ground.nsColor
+        box.borderColor = Theme.Token.inkFaint.nsColor.withAlphaComponent(0.15)
+        let column = NSStackView(views: views)
+        column.orientation = .vertical
+        column.spacing = spacing
+        column.edgeInsets = NSEdgeInsets(top: margin, left: 0, bottom: margin, right: 0)
+        for layer in [box, column] {
+            layer.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(layer)
+            NSLayoutConstraint.activate([
+                layer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                layer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                layer.topAnchor.constraint(equalTo: view.topAnchor),
+                layer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
+        }
+        for arranged in views {
+            NSLayoutConstraint.activate([
+                arranged.leadingAnchor.constraint(equalTo: column.leadingAnchor, constant: inset),
+                arranged.trailingAnchor.constraint(equalTo: column.trailingAnchor, constant: -inset),
+            ])
+        }
     }
 
     private static func hairline() -> NSBox {

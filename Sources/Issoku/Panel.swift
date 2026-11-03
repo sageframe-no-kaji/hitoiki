@@ -55,10 +55,7 @@ internal final class Panel {
         let states = run.states
         Task { [weak self] in
             for await chunk in bytes {
-                // Decoding repairs, never drops: a chunk can end inside a UTF-8 sequence, and the
-                // failable initializer the rule prefers would lose the whole chunk.
-                // swiftlint:disable:next optional_data_string_conversion
-                self?.window.transcript.append(String(decoding: chunk, as: UTF8.self))
+                self?.window.transcript.append(chunk)
                 self?.window.fit()
             }
         }
@@ -91,7 +88,7 @@ internal final class Panel {
         guard canDismiss else { return }
         window.orderOut(nil)
         state = nil
-        window.transcript.string = ""
+        window.transcript.clear()
         apply()
     }
 
@@ -184,7 +181,7 @@ internal final class Panel {
         switch next {
         case .running:
             submission = nil
-            window.transcript.string = ""
+            window.transcript.clear()
         case .done:
             stops = 0
         }
@@ -208,6 +205,8 @@ internal final class Panel {
         window.stopButton.isHidden = !running
         window.retryButton.isHidden = offer == nil
         window.openButton.isHidden = exit == nil
+        // Composing is the bar alone; a start that failed before Running shows its reason on the strip.
+        window.outputCard.isHidden = state == nil && failure == nil
         window.input.isEditable = !running
         window.transcript.showsCursor = running
 

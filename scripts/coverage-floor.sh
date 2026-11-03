@@ -61,10 +61,10 @@ sys.exit(0 if percent >= $FLOOR else 1)
 
 
 # The surface. Excluded by name: App.swift, because the delegate needs a running
-# application; PanelWindow.swift, TranscriptPlaceholder.swift and
-# SettingsWindow.swift, because they hold layout and event forwarding that
-# cannot be driven headless.
-APP_IGNORE='(Tests/|\.build/|Sources/IssokuCore/|Sources/Issoku/(App|PanelWindow|TranscriptPlaceholder|SettingsWindow)\.swift)'
+# application; PanelWindow.swift, TranscriptView.swift and SettingsWindow.swift,
+# because they hold layout, drawing and event forwarding that cannot be driven
+# headless. The transcript's logic is the model, measured with IssokuCore.
+APP_IGNORE='(Tests/|\.build/|Sources/IssokuCore/|Sources/Issoku/(App|PanelWindow|TranscriptView|SettingsWindow)\.swift)'
 
 echo
 echo "== Sources/Issoku =="
