@@ -775,4 +775,56 @@ extension PanelTests {
         fixture.panel.keystroke(.write([0x0D]))
         _ = try await fixture.done()
     }
+
+    @Test("The transcript enters its scroll view at the clip view's width, and a line wider than the panel wraps")
+    internal func longLineWraps() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        // Before any layout the clip view already has the transcript's width: the transcript's width mask
+        // becomes a constraint against it, and one made against a clip view with no width kept the
+        // transcript that much wider than the clip in the running app.
+        let bare = PanelWindow()
+        let bareClip = try #require(bare.transcript.enclosingScrollView?.contentView)
+        #expect(bareClip.bounds.width > 0)
+        #expect(bareClip.bounds.width == bare.transcript.frame.width)
+        fixture.panel.show()
+        fixture.panel.submit("printf '%0.s-' $(seq 1 120); echo")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let transcript = fixture.window.transcript
+        #expect(transcript.string == String(repeating: "-", count: 120) + "\n")
+        let clip = try #require(transcript.enclosingScrollView?.contentView)
+        #expect(transcript.frame.width == clip.bounds.width)
+        let layout = try #require(transcript.layoutManager)
+        var fragments = 0
+        layout.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: 120)) { _, _, _, _, _ in
+            fragments += 1
+        }
+        #expect(fragments == 2)
+    }
+
+    @Test("After Stop nothing more is drawn; Done arrives within seconds; the next command draws again")
+    internal func nothingDrawnAfterStop() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("yes | head -n 2000000")
+        _ = try await fixture.running()
+        let transcript = fixture.window.transcript
+        try await fixture.until { transcript.string.count > 10_000 }
+        let drawn = transcript.string
+        let clock = ContinuousClock()
+        let asked = clock.now
+        fixture.panel.stop()
+        guard case .done = try await fixture.done() else {
+            Issue.record("not Done: \(String(describing: fixture.panel.state))")
+            return
+        }
+        #expect(clock.now - asked < .seconds(5))
+        #expect(transcript.string == drawn)
+
+        fixture.panel.submit("echo again")
+        try await fixture.transcriptContains("again")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(transcript.string == "again\n")
+    }
 }

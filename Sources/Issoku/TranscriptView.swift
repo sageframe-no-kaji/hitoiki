@@ -47,6 +47,9 @@ internal final class TranscriptView: NSTextView {
         maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         textContainer?.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
         textContainer?.widthTracksTextView = true
+        // Contiguous layout lays the whole document out again after every eviction from its top: at
+        // 10,000 rows of 76 columns a 1 KB chunk took 194 ms, against 2.4 ms laid out non-contiguously.
+        layoutManager?.allowsNonContiguousLayout = true
     }
 
     // NSTextView's `init(frame:)` builds its text system through this initializer.
@@ -75,7 +78,10 @@ internal final class TranscriptView: NSTextView {
     override internal func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard showsCursor, let layout = layoutManager, let container = textContainer else { return }
-        layout.ensureLayout(for: container)
+        // The end of the text only: laying the whole container out here, on every redraw while output
+        // streamed, held chunks 165 ms apart at 10,000 rows when each took 6 ms to append.
+        let length = textStorage?.length ?? 0
+        layout.ensureLayout(forCharacterRange: NSRange(location: max(length - 1, 0), length: min(length, 1)))
         // The extra line fragment exists when the text is empty or ends a line; otherwise the block
         // follows the last glyph on its line.
         var corner = layout.extraLineFragmentRect.origin
@@ -113,15 +119,27 @@ internal final class TranscriptView: NSTextView {
         if change.evicted > 0 {
             storage.deleteCharacters(in: NSRange(location: 0, length: Self.leadingLength(change.evicted, in: storage)))
         }
-        let tail = NSMutableAttributedString()
-        for line in change.committed {
-            tail.append(Self.rendered(line))
-            tail.append(Self.newline)
-        }
+        let held = NSRange(location: storage.length - inProgressLength, length: inProgressLength)
         let inProgress = Self.rendered(change.inProgress)
-        tail.append(inProgress)
-        storage.replaceCharacters(
-            in: NSRange(location: storage.length - inProgressLength, length: inProgressLength), with: tail)
+        // A line that only grew gets its new characters appended: replacing it whole lays the whole
+        // line out again, 0.2 ms per KB of line on every chunk.
+        let grew =
+            change.committed.isEmpty && inProgress.length >= held.length
+            && storage.attributedSubstring(from: held).isEqual(
+                to: inProgress.attributedSubstring(from: NSRange(location: 0, length: held.length)))
+        if grew {
+            storage.append(
+                inProgress.attributedSubstring(
+                    from: NSRange(location: held.length, length: inProgress.length - held.length)))
+        } else {
+            let tail = NSMutableAttributedString()
+            for line in change.committed {
+                tail.append(Self.rendered(line))
+                tail.append(Self.newline)
+            }
+            tail.append(inProgress)
+            storage.replaceCharacters(in: held, with: tail)
+        }
         inProgressLength = inProgress.length
         storage.endEditing()
         // The block moves with the end of the text, outside the range the text system redraws.

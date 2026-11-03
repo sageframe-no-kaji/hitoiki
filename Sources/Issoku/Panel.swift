@@ -19,6 +19,9 @@ internal final class Panel {
     private let directory: String
     /// Stops since the last Done: the first interrupts, every later one kills.
     private var stops = 0
+    /// Set by Stop until the next command starts: the output is still taken from Run, so Done
+    /// arrives, but no more of it is drawn (practitioner's ruling, ho-04 run sheet, item 8).
+    private var stopped = false
     /// The submission from Return until Running arrives or the start fails; until then the panel is
     /// undismissable, so nothing starts hidden.
     private var submission: Task<Void, Never>?
@@ -55,8 +58,10 @@ internal final class Panel {
         let states = run.states
         Task { [weak self] in
             for await chunk in bytes {
-                self?.window.transcript.append(chunk)
-                self?.window.fit()
+                guard let self, !self.stopped else { continue }
+                self.window.transcript.append(chunk)
+                // At the cap a chunk cannot change the panel's height (Decision 6).
+                if !self.window.transcript.atCap { self.window.fit() }
             }
         }
         Task { [weak self] in
@@ -126,6 +131,7 @@ internal final class Panel {
     /// Stop and Control-C: the first since the last Done interrupts the group, later ones kill it.
     internal func stop() {
         guard case .running = state else { return }
+        stopped = true
         stops += 1
         let first = stops == 1
         Task {
@@ -181,6 +187,7 @@ internal final class Panel {
         switch next {
         case .running:
             submission = nil
+            stopped = false
             window.transcript.clear()
         case .done:
             stops = 0

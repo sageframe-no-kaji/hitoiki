@@ -31,7 +31,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     /// A card's margin above its first row and below its last.
     private static let margin: CGFloat = 10
     /// The input's own size, apart from the transcript's (ho-04 Decision 7).
-    private static let inputSize: CGFloat = 14
+    private static let inputSize: CGFloat = 18
     private static let inputFont = NSFont.monospacedSystemFont(ofSize: inputSize, weight: .regular)
     private static let inputLineHeight = NSLayoutManager().defaultLineHeight(for: inputFont)
 
@@ -42,7 +42,10 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     ]
 
     private let gear = NSButton()
-    private let scroll = NSScrollView()
+    /// Built at the transcript's width: the transcript's width mask becomes a layout constraint against
+    /// the clip view, and one made while the clip view had no width kept the transcript 616 points
+    /// wider than the clip, so no line wrapped (ho-04 run sheet).
+    private let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width - 2 * inset, height: 0))
     private let rule = PanelWindow.hairline()
     private let strip = NSStackView()
     private let gearMenu = NSMenu()
@@ -195,7 +198,9 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             transcriptHeight.constant = min(text, cap)
         }
         content.layoutSubtreeIfNeeded()
-        let height = content.fittingSize.height
+        // Whole points: a fractional height set again on every chunk came back from the window server
+        // alternately a point taller and shorter, and the panel jiggled (ho-04 run sheet, item 8).
+        let height = content.fittingSize.height.rounded(.up)
         setFrame(NSRect(x: frame.minX, y: frame.maxY - height, width: Self.width, height: height), display: true)
         invalidateShadow()
     }
