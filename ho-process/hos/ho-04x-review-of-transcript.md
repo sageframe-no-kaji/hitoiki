@@ -8,13 +8,14 @@ kamae: 5
 shape: x
 phase: 2 — The Surface
 title: Review of Transcript — the one monospace zone
-description: Checks the Transcript build against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
+description: Rechecks the Transcript build and its ho-04.1 fix pass against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
 reviews: ho-04
-run: 1
+run: 2
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
   - ho-process/hos/ho-04-transcript.md
+  - ho-process/hos/ho-04.1-fix-pass.md
 ---
 
 # ho-04x — Review of Transcript — the one monospace zone
@@ -23,6 +24,8 @@ You are the antagonist for ho-04. You did not write this code. You review one bo
 
 The unit is `Sources/IssokuCore/Transcript/Transcript.swift` (the model: bytes in, a change out), `Sources/Issoku/TranscriptView.swift` (the view, replacing `TranscriptPlaceholder.swift`, which the range deletes), the three derived colours and the colour table in `Sources/Issoku/Theme.swift`, the two-card layout and the strip in `Sources/Issoku/PanelWindow.swift`, the bytes task and the Stop flag in `Sources/Issoku/Panel.swift`, the renamed exclusion in `scripts/coverage-floor.sh`, and the tests in `Tests/IssokuCoreTests/TranscriptTests.swift`, `Tests/IssokuTests/PanelTests.swift` and `Tests/IssokuTests/ThemeTests.swift`. `Sources/IssokuCore/Run/` does not change in this range. The spec's Reflect records what execution surfaced, including facts for you: the range holds five commits because the practitioner's run sheet found four defects the test harness could not show and produced three rulings (the input at 18; after Stop nothing more is drawn, which is the `stopped` flag in Panel; the Escape ladder, which is a later ho and not in this code); the view uses non-contiguous layout and appends to a line that only grew, both for measured cost; the practitioner ruled that `Theme.swift` keeps its SwiftUI accessors though the panel does not use them. The practitioner's run sheet in Reflect is redacted and is evidence, not a claim for you to re-run against a host; nothing you run touches a live host. The colours on screen, the cursor's drawing, the wrap and the jiggle are witnessed only by the run sheet; say so rather than counting them untested. The builder's verification is evidence to check, not a verdict.
 
+**Run 2.** Run 1 (`ho-process/reviews/ho-04x-report-1.md`) returned ho-04 with three Must-fix findings, one Should-fix and three Notes. The fix pass `ho-process/hos/ho-04.1-fix-pass.md` answers the four and takes all three Notes: the per-line cap is enforced as bytes arrive, through a 16 KiB slack in `put` and a trim in `commit()`, so an LF commits at most 1 MiB however the bytes were chunked; a control string ends only at BEL or `ESC \`, through a control-string-escape state; `Theme.swift` has its SwiftUI accessors back as at the range start; SGR 58 is consumed with its arguments, by the practitioner's ruling, added to the consumed-and-ignored set of Decision 1; the ceiling and bound tests assert the specified literals and the large lines commit; scroll-follow and Command-C-while-Running have tests; the reversed counts are corrected with marks. Its Results record three facts for you: the feed-end trim stays beside the mid-feed trim, so a carriage-return overwrite in the instant after an end trim could still differ by chunking, untested; Decision 1's terminator rule differs from the DEC parser, which ends a control string at any ESC, a difference only for malformed streams, and the fix implements Decision 1; `Theme.swift` reads 84.21% with the accessors unused by the panel, which the practitioner ruled. Read the whole unit again, not just the fixes, against both specs. Rate any earlier finding you judge unanswered as you would any other.
+
 **Goal**
 
 A written report at the path named under Files, answering every question in the brief with file and line references or the word "none", with each finding rated, ending in one verdict: Pass or Return.
@@ -30,15 +33,16 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-04-transcript.md`
-- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..19e3195d5e1804bc8430368b7aecff02de0927ca`
+- Fix-pass spec: `ho-process/hos/ho-04.1-fix-pass.md`
+- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff`
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..19e3195d5e1804bc8430368b7aecff02de0927ca`
+- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff`
 - Read-only: the three inputs above
-- Create: `ho-process/reviews/ho-04x-report-1.md`
+- Create: `ho-process/reviews/ho-04x-report-2.md`
 
 No other file is created or modified.
 
@@ -73,9 +77,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-04x report, run 1
+# ho-04x report, run 2
 
-Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..19e3195d5e1804bc8430368b7aecff02de0927ca
+Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -122,8 +126,8 @@ Every finding carries a `file:line`. A question with no finding is answered "non
 swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 swift test --enable-code-coverage >/dev/null 2>&1 && scripts/coverage-floor.sh
-git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..19e3195d5e1804bc8430368b7aecff02de0927ca
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-1.md
+git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-2.md
 ```
 
 **Do not**
@@ -142,7 +146,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-1
 Commit only the report.
 
 ```
-ho-04x: review of ho-04, run 1 — <Pass | Return>
+ho-04x: review of ho-04, run 2 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.
