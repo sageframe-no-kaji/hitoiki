@@ -7,11 +7,11 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 13,
+    "hos": 14,
     "drafted": 0,
     "complete": 12,
     "planned": 0,
-    "ready": 1
+    "ready": 2
   },
   "phases": [
     {
@@ -135,6 +135,14 @@
           "reviews": "04",
           "run": 1,
           "doc": "ho-process/hos/ho-04x-review-of-transcript.md"
+        },
+        {
+          "ho": "04.1",
+          "title": "Fix pass for Transcript — answer ho-04x run 1",
+          "shape": "ri",
+          "status": "ready",
+          "fixes": "04",
+          "doc": "ho-process/hos/ho-04.1-fix-pass.md"
         }
       ]
     }

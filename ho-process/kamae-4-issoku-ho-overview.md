@@ -360,7 +360,7 @@ Hos are numbered in sequence. A ho that splits becomes decimals of itself: ho-03
 - **ho-02** may split into launch-and-termination and environment-and-retry.
 - **ho-03** may split into panel-and-states and hotkey-and-recorder, with the recorder possibly moving to ho-05.
 - **ho-01.5** inserts if the spike finds an emulator necessary.
-- **ho-04.5** inserts if first real use finds friction in the core interaction.
+- **ho-04.5** was reserved for friction found in first real use; ruled 2026-11-04 to be **Rename to Hitoiki**, after ho-04x passes and before the replan week. **ho-04.6** follows it with the Escape ladder and the click-out rule (revises System Design 2.1 and ho-03). Friction from the replan week takes the next half number.
 - **ho-06** may split into pipeline and icon if the icon is not ready.
 - **Fix passes** (ho-NN.1) insert after any Return verdict; they are expected, not exceptional.
 
@@ -605,4 +605,14 @@ Spec: `ho-process/hos/ho-04-transcript.md`. The practitioner and the orchestrato
 - **COMPLETED** — ho-04. The transcript is the one monospace zone: bold and the eight colours drawn from pālana's tokens and three derived from them, carriage-return overwrite, every other sequence removed, a measured ceiling (50 MB of lines holds 760,000 bytes; one 50 MB line holds 1 MiB; the view adds 10 MB resident for 50 MB streamed), selection and Command-C and Copy as plain text, the output card beneath the bar from Running until dismissal. Run sheet: all ten items passed on the second pass. 40 core and 61 app tests; IssokuCore 95.85%, `Sources/Issoku` 92.79%.
 - **NEXT** — ho-04x: author `ho-process/hos/ho-04x-review-of-transcript.md` from the x template over `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..<this entry's commit>`, report `ho-process/reviews/ho-04x-report-1.md`, commit it, hand off to Codex (`gpt-6.1-sol`). After it passes: the replan checkpoint, a week of real use.
 - **ACTION ITEMS / BLOCKS** — For ho-04x, from Reflect: SGR 58 not consumed with its arguments; the selection and caret colours are the system's; the output card on a failed start; Theme's SwiftUI accessors kept though unused by the panel; the `stopped` flag from a run-sheet ruling; `setFrame(display: true)` per call below the cap; the `print`s and the `file_length` suppression in the tests. New ho after ho-04x: the Escape ladder and the click-out rule (revises System Design 2.1 and ho-03). Replan week: the unbroken-line streaming cost; the input at 18 against the design system's scale. For ho-05: up-arrow history recall, and the list carried from ho-03.
+- **PROJECT LIFECYCLE** — kamae
+
+### ho-04x — run 1 — Return — 2026-11-04
+
+Opening hash: `19e3195d5e1804bc8430368b7aecff02de0927ca` (ho-04's closing commit). The review document was committed as `acc0b30`; Codex (`gpt-6.1-sol`) committed the report as `77847dc96f87cf909ee238bb1f897388fc773641`. Report: `ho-process/reviews/ho-04x-report-1.md`. Verdict **Return**: 3 Must-fix, 1 Should-fix, 3 Notes. Build, 101 tests and both coverage floors passed; the review's local probes found the per-line cap applied only after a whole feed, so an LF inside a feed commits an oversized line and the result depends on chunking; a control string ended by any ESC-plus-byte rather than BEL or `ESC \`, drawing the rest as text; and `Theme.swift` without the SwiftUI accessors the practitioner had ruled kept, which ho-04's Reflect wrongly records as restored, the orchestrator's error. The orchestrator read the report against the range, confirmed each finding in the code, and accepts the verdict.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04x run 1, Return.
+- **NEXT** — ho-04.1: `ho-process/hos/ho-04.1-fix-pass.md`.
+- **ACTION ITEMS / BLOCKS** — Answer M1–M3 and S1; take N1, N2 and N3 (N1 ruled taken 2026-11-04: 58 joins the consumed-and-ignored set of 38 and 48, nothing new honoured). Run 2 reads the whole original range through the fix pass, not just its changes. Ruled 2026-11-04, the order after run 2 passes: **ho-04.5 — Rename to Hitoiki** (the app is 一息, *hitoiki*, the everyday reading; the project was named by the on-reading *issoku*; the rename touches the repository, the package and product names, the source, the tests, the scripts, the living documents and the State Memory path, and is done between sessions by a fresh one; the seed, the closed hos and the reviews keep the historical name, stated once in the README); then **ho-04.6 — the Escape ladder and the click-out rule**; then the replan week under the right name.
 - **PROJECT LIFECYCLE** — kamae
