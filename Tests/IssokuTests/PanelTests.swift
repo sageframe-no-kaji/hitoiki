@@ -669,6 +669,12 @@ extension PanelTests {
         fixture.panel.show()
         #expect(fixture.window.outputCard.isHidden)
         #expect(fixture.window.frame.height == fixture.window.bar.frame.height)
+        // The bar's row: the input, then the gear at the trailing edge, centred top to bottom.
+        let row = try #require(fixture.window.input.superview as? NSStackView)
+        let gear = try #require(row.arrangedSubviews.last)
+        #expect(gear.frame.maxX == row.bounds.maxX)
+        #expect(abs(gear.frame.midY - row.bounds.midY) <= 0.5)
+        let composingGear = gear.frame.maxX
 
         fixture.panel.submit("echo ready; read -r line")
         _ = try await fixture.running()
@@ -676,6 +682,10 @@ extension PanelTests {
         #expect(!fixture.window.outputCard.isHidden)
         #expect(!fixture.window.copyButton.isHidden)
         #expect(fixture.window.frame.height > fixture.window.bar.frame.height + fixture.window.outputCard.frame.height)
+        #expect(fixture.window.input.currentEditor() == nil)
+        #expect(gear.frame.maxX == composingGear)
+        let input = fixture.window.input
+        #expect(input.alignmentRect(forFrame: input.frame).maxX + row.spacing == gear.frame.minX)
 
         fixture.panel.keystroke(.write([0x0D]))
         #expect(try await fixture.done() == .done(.status(0), retry: nil))

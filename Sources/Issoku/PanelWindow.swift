@@ -257,8 +257,11 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     }
 
     private func layOut() {
+        // The input fills the row in every state and the gear sits at its trailing edge, centred top to
+        // bottom; under the default gravity areas an input with nothing to edit took only its own width.
         let row = NSStackView(views: [input, gear])
-        row.alignment = .top
+        row.distribution = .fill
+        row.alignment = .centerY
         row.spacing = Self.spacing
         gear.setContentHuggingPriority(.required, for: .horizontal)
         for control in [status, retryButton, stopButton, openButton, copyButton] {
