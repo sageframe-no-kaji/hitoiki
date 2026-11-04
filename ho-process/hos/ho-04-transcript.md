@@ -1,6 +1,6 @@
 ---
 created: 2026-11-03
-status: ready
+status: complete
 type: ho-document
 project: issoku
 ho: "04"
@@ -267,13 +267,59 @@ The practitioner pastes the observations; the orchestrator records them in Refle
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+Filled 2026-11-04 after the practitioner's two run-sheet passes (2026-11-03 and 2026-11-04), the orchestrator's verification at every commit, and the two fix rounds the run sheet produced.
 
-- **Did the design hold?** Where did the real output surface things the Think phase didn't anticipate?
-- **Decision review.** Were Decisions 1–8 right? Which sequences did the run sheet meet that the ho-01 list did not?
-- **Numbers.** Resident size at item 8, the retained counts in the ceiling tests, line counts of the new files, the three colour values, the input size kept.
-- **What broke that the tests didn't catch?**
-- **Followups for the replan week and ho-05.** Up-arrow history recall is already on ho-05's list.
+**Commits.** Done means named three; there are five, because the run sheet found four defects and produced two rulings:
+
+| Commit | Message |
+|---|---|
+| `63067da0d10ce6e0ed3bd54c160e99f797c79348` | `ho-04: transcript — open` |
+| `dd89260` | `ho-04: transcript — build verified; run sheet pending` |
+| `199d9ab` | `ho-04: transcript — run-sheet fixes; input at 18, lines wrap, no jiggle, nothing drawn after Stop` |
+| `5f814df` | `ho-04: transcript — the gear stays at the bar's trailing edge, centred` |
+| the closing commit | `ho-04: transcript — the one monospace zone` (this Reflect, the build-record entry) |
+
+ho-04x reads the whole range from `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a`, the commit before the first of these.
+
+**Did the design hold?** The model did, whole: every sequence the run sheet met was handled by Decision 1's table, nothing outside the ho-01 list needed honouring, and `Transcript` knows nothing of Run beyond receiving bytes. The view's layout cost did not hold as Decision 6 assumed, and the bar had two layout faults the Think phase's "input and gear in one row" did not foresee. Everything below was seen only in the running app; the test harness showed none of it, which is the lesson of this ho.
+
+1. **Lines did not wrap.** The scroll view was created with no width, so the transcript's width mask became a constraint reading "clip width plus 616": the transcript was 1,232 points wide inside a 616-point clip and an 84-character line ran off the card. The harness sizes the view by a different path and wrapped correctly, so my own diagnostic test, run under both scroll-bar styles, could not reproduce it. Fixed by creating the scroll view at the transcript's width; a test now constructs a bare `PanelWindow` and checks the clip view has the transcript's width before any layout, then runs a 120-character line and counts two fragments.
+2. **The cost per chunk grew with the transcript.** Three causes, all measured in the live app with a temporary driver: contiguous layout re-laid the whole document after every eviction from the top (194 ms per 1 KB chunk at 10,000 rows; 2.4 ms with `allowsNonContiguousLayout`); a growing line in progress was replaced whole, which laid the whole line out again (0.2 ms per KB of line per chunk; a line that only grew now has its new characters appended, the storage identical); and the cursor's `draw` laid out the whole container on every redraw (it lays out the last character now). Panel no longer calls `fit()` per chunk once the transcript is at the cap. All inside Decisions 5 and 6: one bytes task, one chunk per main-actor turn, no timer, no second queue. The pseudoterminal delivers 1,024-byte chunks; a drain of 1 MiB read ahead is about 1,000 main-actor turns at about 11 ms each with a display pass between, whatever the append costs.
+3. **The window jiggled.** A fractional height set again on every chunk came back from the window server alternately a point taller and shorter (543 chunks at each of 474 and 475). The height is now rounded up to whole points: one value across 1,482 chunks.
+4. **Stop did not seem to act.** It always did: the process group was gone within a second of every press. What the practitioner saw was the panel still drawing the up-to-1 MiB Run had read ahead: about 15 s for line output, minutes for one unbroken line, because each chunk drops the oldest characters from the head of a 1 MiB paragraph and the text system lays the whole paragraph out again (135–206 ms per chunk; non-contiguous layout and character wrapping do not help). The builder halted there, since any shorter drain changes a decision. **Practitioner's ruling (2026-11-03): after Stop, nothing more is drawn.** Panel sets a flag at Stop and Control-C; the bytes task still takes every chunk, so Run's contract holds and Done arrives, but appends nothing; the flag clears when the next command enters Running. The test gets from Stop to Done in about half a second and the next command draws again. The unbroken-line case is now a known limit, not a defect: one line past 1 MiB streams at roughly 5 KB/s while it runs, responsive, bounded, slow; curing it means Decision 5 showing only the tail of a huge line, and it goes to the replan week.
+
+Two more from the second pass, both in the bar: the gear jumped to the left edge while a command ran, because the row's default distribution packed an input with nothing to edit at its own width (now `.fill`, the input stretching, the gear hugging); and it sat high, because the row aligned `.top` (now `.centerY`, centred on the whole row for a multi-line input, the practitioner's call). The harness showed the input at full width in both states, so only the centring has a test that fails without the fix; the practitioner confirmed both by eye.
+
+**Decision review.** 1 (the honoured set) holds exactly; the parser's recognised set is the table and the diff shows nothing more. 2 (the colours) passed on screen in light and dark at items 2, 3 and 5; the derived values are below. 3 (the ceiling) holds and is measured, not asserted: the retained counts are below, and the process measurement is in Numbers. 4 (the model) holds; `Transcript` imports Foundation only. 5 (the view) holds as specified, with the three layout-cost changes above; copy with and without a selection passed at item 9; the cursor, redrawn by a cheaper path, was confirmed after the sudo prompt at item 6. 6 (the bytes task and the layout cost) kept its constraints but its premise was wrong: ranged edits do not confine the text system's work under contiguous layout, and `fit()` at the cap still cost a display pass per chunk. 7 (the layout) holds, with the two bar fixes; `inputSize` is one constant and the practitioner's ruling is **18**, after rebuilds at 12, 14, 16 and 18 ("it looks nice"), which is past the design system's text scale (it tops out at 15) and is recorded as his choice for the replan week to confirm. 8 (files, tests, one subagent, no split) held; the subagent returned three times more than planned, each time to a defect the run sheet found.
+
+**Choices the subagent made beyond the spec, for ho-04x.** It removed `import SwiftUI` and the `Color` accessors from `Theme.swift` as unused by the panel; the practitioner ruled "keep" and they were restored. It shows the output card when a start fails, so the failure's notice and `exit` line have somewhere to sit; accepted. SGR 58 (underline colour) is not consumed with its arguments, since it is not on the ho-01 list; a `58;2;r;g;b` whose components land on 0, 1, 22, 30–37 or 39 would be read as those parameters. The selection colour is the system's and the input's caret is the system blue, not the accent. A 4,095-column variant of the lines ceiling test was added. The transcript tests `print` their retained counts so the numbers are in the transcript; `PanelTests.swift` carries a `file_length` suppression with its reason (one suite, one file, by Decision 8). `fit()` still calls `setFrame(display: true)` on every call below the cap: the builder tried skipping the call when the height was unchanged and two `isKeyWindow` assertions failed when the whole suite ran, so it was taken out. The `stopped` flag in Panel comes from the practitioner's ruling at item 8, not from the spec text; this Reflect is its record.
+
+**Run sheet, practitioner's two passes.** Hosts are redacted; `host-d` is the one he used, not the spec's `host-a`.
+
+1. 12, then 14, 16 and 18 by hand rebuilds; **18 stays**.
+2. Pass, light and dark.
+3. Pass.
+4. Pass; `100%` at the end.
+5. As written, no colours: the remote's coreutils 9.7 sends none when TERM is unset even under `--color=always`, and plain `ssh` sends no TERM; verified by capturing the bytes. Rerun as `ssh -t host-d 'ls --color=always /'`: pass, folders in the derived blue, links in cyan bold, a sticky directory's background code dropped and its text in ink. His first attempt typed the placeholder `host-a` literally; that error line, 84 characters, is what exposed the wrap defect.
+6. Pass, both passes: the prompt before anything is typed, the block cursor after it, nothing drawn while the password is typed, `exit 0`.
+7. Pass. On the first pass item 7 also found that Spotlight dismissed the panel; see Rulings.
+8. First pass: fail, defects 2–4 above. Second pass with `base64 -b 76`: pass, a still window while it streams, Done within a second of Stop.
+9. Pass, both ways.
+10. Pass; Escape in Done five times across the items, never inert. The transcript now hands a key pressed in Done to the input, which is the likely explanation of ho-03's once-seen case.
+
+**Numbers.** Resident size: the practitioner did not record `ps` at item 8, so the orchestrator measured the same path in the test process on 2026-11-04: 50 MB of 76-column lines in 16 KiB chunks through the real `TranscriptView` and `fit()`, 87,520 KB before, 97,728 KB after, 14.8 s. Retained counts from the model tests: one 50 MB line, largest 1,048,576; 50 MB of 76-column lines, largest 760,076, final 760,000; 50 MB of 4,095-column lines, largest and final 10,483,200; a 2 MiB line, 1,048,576. Lines, nonblank: `Transcript.swift` 307, `TranscriptView.swift` 166, `Theme.swift` 117, `Panel.swift` 238, `PanelWindow.swift` 303; `TranscriptTests.swift` 270, `PanelTests.swift` 764, `ThemeTests.swift` 76. Tests: 40 in IssokuCoreTests (21 Transcript), 61 in IssokuTests (33 Panel). Coverage at close: IssokuCore 95.85%, `Sources/Issoku` 92.79% over the measured set. The three derived colours, sRGB, light then dark: blue (0.3698, 0.4046, 0.5558) and (0.5184, 0.5515, 0.7259); magenta (0.5081, 0.3599, 0.4623) and (0.6758, 0.5015, 0.6135); cyan (0.2346, 0.4604, 0.4316) and (0.3649, 0.6170, 0.5895); derived in OKLCH from the five pālana tokens' mean lightness and chroma with the hue turned toward the warm axis, the dark set lifted as the tokens are. Input size kept: 18.
+
+**Verification, orchestrator's runs.** At `dd89260`, `199d9ab`, `5f814df` and on the unchanged tree before the closing commit: `swift-format lint --recursive --strict Sources Tests` exit 0; `swiftlint lint --strict` 0 violations in 23 files; `swift build` complete, 0 warnings; `swift test` 40 tests in 4 suites and 61 in 5 suites, 0 failures; `scripts/coverage-floor.sh` 95.85% and 92.79% at close; `swift build -c release` complete, 0 warnings (builder's run, recorded). The subagent's transcripts of the same commands matched at every round; the Panel suite was run three extra times after each fix without a failure.
+
+**What broke that the tests didn't catch?** All four defects and both bar faults. The harness creates and sizes the window by a path that is not the app's: the scroll view gets its width before the transcript's constraint is made, the input reports full width in every state, and nothing times a chunk. One test now pins the window's construction (the bare clip width); the timing stays unmeasured by test, since a timing assertion would be flaky, and is recorded here instead. The habit to keep: a run sheet that streams real output through the real window is not optional, and the first thing a defect report needs is a measurement in the live app, which the builder took with a temporary driver and removed.
+
+**Rulings from this ho for later hos.**
+
+- **The Escape ladder (practitioner, 2026-11-04), replacing the click-out ruling of 2026-11-03.** While Running, the first Escape stops the command, as Stop and Control-C do; the second Escape, or the first once the command is stopped or Done, dismisses, killing the command if it is somehow still alive, so nothing ever runs hidden. In Composing, Escape dismisses. Click-out dismisses only when nothing was typed and nothing ran; with text in the input the panel stays so the practitioner can open another app and come back to paste; in Done, click-out dismisses. The hotkey then becomes: hidden, show; visible without the keyboard, take the keyboard; visible with the keyboard, dismiss. This revises System Design 2.1 and ho-03's `resignKey` rule, so it is its own ho after ho-04x, and Escape no longer reaches the command as a key.
+- **Replan week:** the unbroken-line streaming cost (above); the input at 18 against the design system's scale; the Escape ladder's priority against ho-05.
+- **ho-05:** up-arrow history recall in the input, as already listed.
+
+---
 
 ### Closing this ho
 
@@ -288,4 +334,4 @@ Closing = fill this Reflect + flip `status: complete` in the frontmatter + write
 ---
 
 _Authored: 2026-11-03 (Think phase, practitioner and orchestrator)._
-_Execution and Reflect: pending._
+_Execution: 2026-11-03 (one Opus subagent, three returns). Run sheet: 2026-11-03 and 2026-11-04. Reflect: 2026-11-04._
