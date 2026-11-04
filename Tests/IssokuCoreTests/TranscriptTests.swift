@@ -143,7 +143,7 @@ internal struct TranscriptTests {
         "Parameters outside the list change nothing; extended colours take their arguments with them",
         arguments: [
             "[38;5;31m", "[38;2;255;0;0m", "[48;5;196m", "[48;2;1;34;1m", "[4m", "[2m", "[91m", "[44m",
-            "[38:5:31m", "[>4;1m", "[?1m", "[38m",
+            "[38:5:31m", "[>4;1m", "[?1m", "[38m", "[58;2;1;34;1m", "[58;5;1m",
         ])
     internal func ignoredParameters(sequence: String) {
         #expect(spans("\(escape)\(sequence)x\n") == [Span(text: "x", style: Style())])
@@ -157,6 +157,8 @@ internal struct TranscriptTests {
             "\(escape)[2J", "\(escape)[3A", "\(escape)[K", "\(escape)]0;title\u{07}", "\(escape)]0;title\(escape)\\",
             "\(escape)P1$r0m\(escape)\\", "\(escape)X sos \u{07}", "\(escape)^pm\u{07}", "\(escape)_apc\u{07}",
             "\(escape)(B", "\(escape)7", "\(escape)\(escape)7", "\u{07}", "\u{08}", "\u{0C}", "\u{0B}", "\u{00}",
+            "\(escape)]0;before\(escape)7LEAK\u{07}", "\(escape)Pbefore\(escape)7LEAK\(escape)\\",
+            "\(escape)]0;t\(escape)\(escape)\\",
         ])
     internal func removed(sequence: String) {
         #expect(spans("a\(sequence)b\n") == [Span(text: "ab", style: Style())])
@@ -194,7 +196,7 @@ internal struct TranscriptTests {
     @Test("A sequence is abandoned past exactly 256 bytes, ESC included, and the rest reads as text")
     internal func sequenceBound() {
         let fits = "\(escape)[" + String(repeating: ";", count: 252) + "1m"
-        #expect(fits.utf8.count == Transcript.sequenceByteLimit)
+        #expect(fits.utf8.count == 256)
         #expect(spans(fits + "x\n") == [Span(text: "x", style: Style(bold: true))])
 
         let over = "\(escape)[" + String(repeating: ";", count: 253) + "1m"
@@ -203,6 +205,12 @@ internal struct TranscriptTests {
         let unterminated = "\(escape)[" + String(repeating: "1", count: 298)
         #expect(unterminated.utf8.count == 300)
         #expect(committed(unterminated + "after\n") == [String(repeating: "1", count: 43) + "after"])
+
+        let string = "\(escape)]" + String(repeating: "x", count: 298)
+        #expect(committed("a" + string + "b\n") == ["a" + String(repeating: "x", count: 43) + "b"])
+        let escaped = "\(escape)]\(escape)7" + String(repeating: "x", count: 296)
+        #expect(escaped.utf8.count == 300)
+        #expect(committed("a" + escaped + "b\n") == ["a" + String(repeating: "x", count: 43) + "b"])
     }
 
     @Test("Multi-byte characters stay whole, across a chunk boundary too")
@@ -217,13 +225,13 @@ internal struct TranscriptTests {
     @Test("10,001 lines leave 10,000; the change after the last reports one evicted")
     internal func lineCeiling() {
         var transcript = Transcript()
-        let first = transcript.feed(Array(String(repeating: "x\n", count: Transcript.lineLimit).utf8))
+        let first = transcript.feed(Array(String(repeating: "x\n", count: 10_000).utf8))
         #expect(first.evicted == 0)
-        #expect(first.committed.count == Transcript.lineLimit)
+        #expect(first.committed.count == 10_000)
         let last = transcript.feed(Array("y\n".utf8))
         #expect(last.evicted == 1)
         #expect(last.committed.map(\.text) == ["y"])
-        #expect(transcript.lines.count == Transcript.lineLimit)
+        #expect(transcript.lines.count == 10_000)
         #expect(transcript.lines.last?.text == "y")
     }
 
@@ -231,13 +239,13 @@ internal struct TranscriptTests {
     internal func droppedWithinOneFeed() {
         var transcript = Transcript()
         _ = transcript.feed(Array("a\n".utf8))
-        let change = transcript.feed(Array(String(repeating: "x\n", count: Transcript.lineLimit + 5).utf8))
+        let change = transcript.feed(Array(String(repeating: "x\n", count: 10_005).utf8))
         #expect(change.evicted == 1)
-        #expect(change.committed.count == Transcript.lineLimit)
-        #expect(transcript.lines.count == Transcript.lineLimit)
+        #expect(change.committed.count == 10_000)
+        #expect(transcript.lines.count == 10_000)
     }
 
-    @Test("A 2 MiB line keeps its newest 1 MiB; the retained count never passes the per-line bound")
+    @Test("A 2 MiB line keeps its newest 1 MiB, and commits 1 MiB at its LF; the retained count never passes 1 MiB")
     internal func lineInProgressCeiling() {
         var transcript = Transcript()
         let count = 2 << 20
@@ -245,16 +253,20 @@ internal struct TranscriptTests {
         let (feeds, last) = stream(&transcript, count: count, byte: digit)
         let largest = feeds.map(\.retainedBytes).max() ?? 0
         print("transcript: 2 MiB line, largest retained \(largest), final \(transcript.retainedBytes)")
-        #expect(largest <= Transcript.lineByteLimit)
-        #expect(transcript.retainedBytes == Transcript.lineByteLimit)
-        let expected = String((count - Transcript.lineByteLimit..<count).map { Character(Unicode.Scalar(digit($0))) })
+        #expect(largest <= 1_048_576)
+        #expect(transcript.retainedBytes == 1_048_576)
+        let expected = String((count - 1_048_576..<count).map { Character(Unicode.Scalar(digit($0))) })
         #expect(last?.inProgress.text == expected)
+        let commit = transcript.feed([0x0A])
+        #expect(commit.committed.map(\.byteCount) == [1_048_576])
+        #expect(commit.committed.first?.text == expected)
+        #expect(transcript.retainedBytes == 1_048_576)
     }
 
     @Test("The oldest columns go whole characters at a time, and overwrite still lands on whole characters")
     internal func overwriteAfterDrop() {
         var transcript = Transcript()
-        let dots = Transcript.lineByteLimit / 3 + 1
+        let dots = 1_048_576 / 3 + 1
         _ = transcript.feed(Array(String(repeating: "●", count: dots).utf8))
         #expect(transcript.retainedBytes == (dots - 1) * 3)
         let change = transcript.feed(Array("\rb\n".utf8))
@@ -274,19 +286,68 @@ internal struct TranscriptTests {
         }
         let largest = feeds.map(\.retainedBytes).max() ?? 0
         print("transcript: \(columns)-column lines, largest retained \(largest), final \(transcript.retainedBytes)")
-        #expect(largest <= Transcript.byteLimit)
-        #expect(feeds.allSatisfy { $0.lines <= Transcript.lineLimit })
+        #expect(largest <= 10_485_760)
+        #expect(feeds.allSatisfy { $0.lines <= 10_000 })
         #expect(feeds.map(\.evicted).reduce(0, +) + transcript.lines.count == fed)
     }
 
-    @Test("50 MB on one line in 16 KiB feeds: at most 1 MiB retained after every feed")
+    @Test("50 MB on one line in 16 KiB feeds: at most 1 MiB retained after every feed, 1 MiB committed at the LF")
     internal func streamedLine() {
         var transcript = Transcript()
         let (feeds, _) = stream(&transcript, count: 50_000_000) { _ in UInt8(ascii: "Q") }
         let largest = feeds.map(\.retainedBytes).max() ?? 0
         print("transcript: one 50 MB line, largest retained \(largest), final \(transcript.retainedBytes)")
-        #expect(largest <= Transcript.lineByteLimit)
+        #expect(largest <= 1_048_576)
         #expect(transcript.lines.isEmpty)
+        #expect(transcript.feed([0x0A]).committed.map(\.byteCount) == [1_048_576])
+    }
+
+    @Test("An LF commits at most 1 MiB, however the bytes before it were chunked")
+    internal func lineCapAtCommit() {
+        let line = [UInt8](repeating: UInt8(ascii: "x"), count: 2_097_152) + [0x0A]
+        var whole = Transcript()
+        #expect(whole.feed(line).committed.map(\.byteCount) == [1_048_576])
+        #expect(whole.retainedBytes == 1_048_576)
+
+        var chunked = Transcript()
+        for start in stride(from: 0, to: line.count, by: 1_024) {
+            _ = chunked.feed(Array(line[start..<min(start + 1_024, line.count)]))
+        }
+        #expect(chunked.lines == whole.lines)
+        #expect(chunked.retainedBytes == whole.retainedBytes)
+
+        var full = Transcript()
+        _ = full.feed([UInt8](repeating: UInt8(ascii: "x"), count: 1_048_576))
+        #expect(full.retainedBytes == 1_048_576)
+        let tail = full.feed([UInt8](repeating: UInt8(ascii: "y"), count: 1_023) + [0x0A])
+        #expect(tail.committed.map(\.byteCount) == [1_048_576])
+        #expect(tail.committed.first?.text.hasSuffix(String(repeating: "y", count: 1_023)) == true)
+    }
+
+    @Test("Fed whole or in 1,024-byte chunks across all three ceilings, the transcript is the same")
+    internal func ceilingsChunked() {
+        var input = Array(String(repeating: "x\n", count: 11_000).utf8)
+        let wide = [UInt8](repeating: UInt8(ascii: "w"), count: 1_999) + [0x0A]
+        for _ in 0..<6_000 {
+            input += wide
+        }
+        input += [UInt8](repeating: UInt8(ascii: "L"), count: 2_097_152) + [0x0A]
+        input += [UInt8](repeating: UInt8(ascii: "t"), count: 1_572_864)
+
+        var whole = Transcript()
+        let all = whole.feed(input)
+        var chunked = Transcript()
+        var last: Transcript.Change?
+        for start in stride(from: 0, to: input.count, by: 1_024) {
+            last = chunked.feed(Array(input[start..<min(start + 1_024, input.count)]))
+        }
+        #expect(chunked.lines == whole.lines)
+        #expect(last?.inProgress == all.inProgress)
+        #expect(chunked.retainedBytes == whole.retainedBytes)
+        #expect(whole.lines.count <= 10_000)
+        #expect(whole.retainedBytes <= 10_485_760)
+        #expect(whole.lines.last?.byteCount == 1_048_576)
+        #expect(all.inProgress.byteCount == 1_048_576)
     }
 
     @Test("clear() empties the lines, resets the style and starts a fresh line")

@@ -17,4 +17,4 @@
 | 03.2 | Second fix pass for Panel — answer ho-03x run 2 | ri | complete |
 | 04 | Transcript — the one monospace zone | ha | complete |
 | 04x | Review of Transcript — the one monospace zone | x | ready |
-| 04.1 | Fix pass for Transcript — answer ho-04x run 1 | ri | ready |
+| 04.1 | Fix pass for Transcript — answer ho-04x run 1 | ri | complete |

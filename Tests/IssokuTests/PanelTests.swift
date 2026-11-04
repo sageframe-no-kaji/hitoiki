@@ -837,4 +837,57 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
         #expect(transcript.string == "again\n")
     }
+
+    @Test("The transcript follows the end only when the end was in view")
+    internal func scrollFollowsEnd() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let transcript = fixture.window.transcript
+        transcript.append(Array((1...300).map { "row \($0)\n" }.joined().utf8))
+        fixture.window.fit()
+        #expect(transcript.atCap)
+        #expect(transcript.bounds.height > transcript.visibleRect.height)
+
+        transcript.scroll(.zero)
+        let top = transcript.visibleRect
+        #expect(top.minY == 0)
+        transcript.append(Array("more\n".utf8))
+        #expect(transcript.visibleRect == top)
+
+        transcript.scrollToEndOfDocument(nil)
+        transcript.append(Array("last\n".utf8))
+        #expect(transcript.visibleRect.maxY == transcript.bounds.maxY)
+        #expect(transcript.visibleRect.minY > 0)
+
+        fixture.panel.keystroke(.write([0x0D]))
+        _ = try await fixture.done()
+    }
+
+    @Test("Command-C through the window while Running copies the transcript so far")
+    internal func commandCWhileRunning() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        guard case .running = fixture.panel.state else {
+            Issue.record("not Running at the readiness point: \(String(describing: fixture.panel.state))")
+            return
+        }
+        let window = fixture.window
+        #expect(window.firstResponder === window.transcript)
+        NSPasteboard.general.clearContents()
+        #expect(window.performKeyEquivalent(with: try key("c", code: 8, modifiers: .command, in: window)))
+        #expect(NSPasteboard.general.string(forType: .string) == "ready\n")
+
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+    }
 }

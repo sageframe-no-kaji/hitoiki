@@ -9,9 +9,9 @@
   "summary": {
     "hos": 14,
     "drafted": 0,
-    "complete": 12,
+    "complete": 13,
     "planned": 0,
-    "ready": 2
+    "ready": 1
   },
   "phases": [
     {
@@ -140,7 +140,7 @@
           "ho": "04.1",
           "title": "Fix pass for Transcript — answer ho-04x run 1",
           "shape": "ri",
-          "status": "ready",
+          "status": "complete",
           "fixes": "04",
           "doc": "ho-process/hos/ho-04.1-fix-pass.md"
         }

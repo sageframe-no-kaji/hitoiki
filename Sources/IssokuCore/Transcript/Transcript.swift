@@ -4,8 +4,8 @@ import Foundation
 ///
 /// Bytes in, a change out. The grammar is the ho-01 list and nothing more (ho-04 Decision 1):
 /// - SGR `0` or empty resets, `1` is bold, `22` is regular weight, `30`–`37` set the colour and `39`
-///   returns to the default. Every other parameter is ignored; `38` and `48` take their `5;n` or
-///   `2;r;g;b` arguments with them. A parameter holding `:` is ignored whole.
+///   returns to the default. Every other parameter is ignored; `38`, `48` and `58` take their `5;n`
+///   or `2;r;g;b` arguments with them. A parameter holding `:` is ignored whole.
 /// - CR returns to column zero and the following characters overwrite; LF commits the line; TAB is
 ///   a character.
 /// - Every other escape sequence is removed: CSI with any other final or with a private marker, OSC
@@ -71,6 +71,10 @@ public struct Transcript: Sendable {
     /// Ten times the per-line cap, so 10,000 lines of wide output stay bounded too (ho-04 Decision 3,
     /// from ho-01 findings, §4).
     public static let byteLimit = 10 << 20
+    /// How far the line in progress may pass `lineByteLimit` before it is trimmed mid-feed, so the
+    /// trimming is paid once per this many bytes, not per byte; Run's read size (16 KiB), so a chunk
+    /// from Run trims at most once before the end-of-feed trim.
+    internal static let trimSlack = 16_384
     /// The longest escape or control sequence, ESC included, before it is abandoned (ho-01.1).
     public static let sequenceByteLimit = 256
 
@@ -80,6 +84,7 @@ public struct Transcript: Sendable {
         case escapeIntermediate
         case controlSequence
         case controlString
+        case controlStringEscape
     }
 
     private static let escapeByte: UInt8 = 0x1B
@@ -163,13 +168,8 @@ public struct Transcript: Sendable {
             }
         case .controlSequence:
             controlSequence(byte)
-        case .controlString:
-            if byte == Self.bell {
-                state = .ground
-            } else if byte == Self.escapeByte {
-                // ESC \ ends the string; the backslash is then a single-character escape, removed.
-                state = .escape
-            }
+        case .controlString, .controlStringEscape:
+            controlString(byte)
         }
     }
 
@@ -186,6 +186,7 @@ public struct Transcript: Sendable {
             bytes.insert(byte, at: cursor)
             styles.insert(styles[cursor - 1], at: cursor)
             cursor += 1
+            dropOldestColumns(beyond: Self.trimSlack)
         case 0x09, 0x20...0xFF:
             put(byte)
         default:
@@ -209,6 +210,18 @@ public struct Transcript: Sendable {
         default:
             state = .ground
             ground(byte)
+        }
+    }
+
+    /// Inside an OSC, DCS, SOS, PM or APC string, which BEL or `ESC \` ends and nothing else does.
+    private mutating func controlString(_ byte: UInt8) {
+        if byte == Self.escapeByte {
+            state = .controlStringEscape
+        } else if state == .controlStringEscape {
+            // After an ESC inside the string a backslash ends it; any other byte is more of the string.
+            state = byte == UInt8(ascii: "\\") ? .ground : .controlString
+        } else if byte == Self.bell {
+            state = .ground
         }
     }
 
@@ -244,7 +257,7 @@ public struct Transcript: Sendable {
                 style.color = UInt8(code - 30)
             case 39?:
                 style.color = nil
-            case 38?, 48?:
+            case 38?, 48?, 58?:
                 switch parameters.dropFirst(index + 1).first {
                 case 5?:
                     index += 2
@@ -285,9 +298,11 @@ public struct Transcript: Sendable {
             styles.append(style)
         }
         cursor += 1
+        dropOldestColumns(beyond: Self.trimSlack)
     }
 
     private mutating func commit() {
+        dropOldestColumns()
         let line = Self.line(bytes, styles, shared: shared)
         lines.append(line)
         committedBytes += line.byteCount
@@ -296,9 +311,10 @@ public struct Transcript: Sendable {
         cursor = 0
     }
 
-    /// The cap on the line in progress: its oldest characters go, whole, until it fits.
-    private mutating func dropOldestColumns() {
-        guard bytes.count > Self.lineByteLimit else { return }
+    /// The cap on the line in progress: once it is more than `slack` bytes over, its oldest characters
+    /// go, whole, until it fits.
+    private mutating func dropOldestColumns(beyond slack: Int = 0) {
+        guard bytes.count > Self.lineByteLimit + slack else { return }
         var drop = bytes.count - Self.lineByteLimit
         while drop < bytes.count, Self.isContinuation(bytes[drop]) {
             drop += 1
