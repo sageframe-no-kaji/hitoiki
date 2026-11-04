@@ -7,11 +7,11 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 12,
+    "hos": 13,
     "drafted": 0,
     "complete": 12,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -126,6 +126,15 @@
           "shape": "ha",
           "status": "complete",
           "doc": "ho-process/hos/ho-04-transcript.md"
+        },
+        {
+          "ho": "04x",
+          "title": "Review of Transcript — the one monospace zone",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "04",
+          "run": 1,
+          "doc": "ho-process/hos/ho-04x-review-of-transcript.md"
         }
       ]
     }
