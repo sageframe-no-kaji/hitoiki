@@ -7,11 +7,11 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 14,
+    "hos": 15,
     "drafted": 0,
     "complete": 13,
     "planned": 0,
-    "ready": 1
+    "ready": 2
   },
   "phases": [
     {
@@ -143,6 +143,14 @@
           "status": "complete",
           "fixes": "04",
           "doc": "ho-process/hos/ho-04.1-fix-pass.md"
+        },
+        {
+          "ho": "04.2",
+          "title": "Second fix pass for Transcript — answer ho-04x run 2",
+          "shape": "ri",
+          "status": "ready",
+          "fixes": "04",
+          "doc": "ho-process/hos/ho-04.2-fix-pass.md"
         }
       ]
     }
