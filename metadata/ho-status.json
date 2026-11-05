@@ -8,8 +8,8 @@
   },
   "summary": {
     "hos": 18,
-    "drafted": 1,
-    "complete": 17,
+    "drafted": 0,
+    "complete": 18,
     "planned": 0,
     "ready": 0
   },
@@ -172,9 +172,10 @@
           "ho": "04.5x",
           "title": "Review of Rename to Hitoiki",
           "shape": "x",
-          "status": "drafted",
+          "status": "complete",
           "reviews": "04.5",
-          "doc": "ho-process/hos/ho-04.5x-review-of-rename-to-hitoiki.md"
+          "doc": "ho-process/hos/ho-04.5x-review-of-rename-to-hitoiki.md",
+          "run": 1
         }
       ]
     }
