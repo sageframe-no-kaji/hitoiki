@@ -19,4 +19,4 @@
 | 04x | Review of Transcript — the one monospace zone | x | ready |
 | 04.1 | Fix pass for Transcript — answer ho-04x run 1 | ri | complete |
 | 04.2 | Second fix pass for Transcript — answer ho-04x run 2 | ri | complete |
-| 04.3 | Third fix pass for Transcript — answer ho-04x run 3 | ri | ready |
+| 04.3 | Third fix pass for Transcript — answer ho-04x run 3 | ri | complete |

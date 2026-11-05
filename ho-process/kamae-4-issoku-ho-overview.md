@@ -657,3 +657,13 @@ Opening hash: `4028969c97e7d4154c590693e5d1eb3d8863d0ac` (ho-04.2's closing comm
 - **NEXT** — Checkpoint ruled 2026-11-05: the fix-pass specs were at fault, not the brief or the builder; a fourth pass runs under an invariant-only spec, `ho-process/hos/ho-04.3-fix-pass.md`, and is to end the sequence.
 - **ACTION ITEMS / BLOCKS** — Unblocked by the ruling. The orchestrator's proposal, if the decision is a fourth pass: the spec states the invariant only, all three ceilings hold after every byte with no check at feed end, and the equivalence tests feed one byte at a time with multibyte overwrites at every ceiling. N1 (endpoint resident reading, not peak) and N2 (foreground codes 30–37 not each asserted; overwrite with changing styles; selection across eviction) stay as recorded.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-04.3 — Third fix pass for Transcript — closed 2026-11-05
+
+Opening hash: `da65ba3` (the checkpoint commit after the run-3 report `de83565`). The fix-pass document opened in `5c42be9` and was corrected in `079ad95`; its closing commit is `ho-04.3: third fix pass for transcript — answer ho-04x run 3`, recorded as the range end of ho-04x run 4. Spec: `ho-process/hos/ho-04.3-fix-pass.md`, an invariant-only spec by the checkpoint ruling. The subagent halted once, on the spec's expected result contradicting its invariant, which the orchestrator corrected; then built in one return. No app launch.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.3. Every ceiling holds after every byte: eviction runs after each byte in `put` and the continuation join, and `feed` checks nothing. Equivalence under every partition of the tail, down to one byte per feed, with multibyte overwrites at each ceiling; the reviewer's probe gives ten lines under all of them. SGR 30–37 each asserted; styled overwrite; selection across eviction. The memory test now samples the allocator's peak during the feed (2.7 MB with the fix, 124.6 MB with ho-04.1's model). 43 app and 70 core tests; IssokuCore 95.75%, `Sources/Issoku` 91.88%; `Transcript.swift` 362 nonblank lines; Transcript suite 87 s.
+- **NEXT** — ho-04x run 4 from `ho-process/hos/ho-04x-review-of-transcript.md`, over `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a` through this fix pass's closing commit. Report: `ho-process/reviews/ho-04x-report-4.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. For run 4: the memory reading's method changed from the spec's endpoint reading to a sampled peak, the orchestrator's change, recorded in Results. Replan: the 87 s suite. After a Pass: ho-04.5 Rename to Hitoiki, ho-04.6 the Escape ladder, then the replan week.
+- **PROJECT LIFECYCLE** — kamae

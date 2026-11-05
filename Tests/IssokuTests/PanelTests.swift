@@ -890,4 +890,30 @@ extension PanelTests {
         fixture.panel.keystroke(.write([0x0D]))
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
     }
+
+    @Test("A selection the line ceiling evicts through still describes storage that exists, and copies it")
+    internal func selectionAcrossEviction() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
+        let transcript = fixture.window.transcript
+        transcript.append(Array((0..<10_000).map { "line \($0)\n" }.joined().utf8))
+        let text = transcript.string as NSString
+        let from = text.range(of: "line 5990\n").location
+        let through = NSMaxRange(text.range(of: "line 6009\n"))
+        transcript.setSelectedRange(NSRange(location: from, length: through - from))
+
+        transcript.append(Array((10_000..<16_000).map { "line \($0)\n" }.joined().utf8))
+        #expect(transcript.string.hasPrefix("line 6000\n"))
+        let storage = try #require(transcript.textStorage)
+        for range in transcript.selectedRanges.map(\.rangeValue) {
+            #expect(NSMaxRange(range) <= storage.length)
+        }
+        NSPasteboard.general.clearContents()
+        transcript.copy(nil)
+        let copied = try #require(NSPasteboard.general.string(forType: .string))
+        #expect(!copied.isEmpty)
+        #expect(transcript.string.contains(copied))
+    }
 }

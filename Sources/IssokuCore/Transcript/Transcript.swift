@@ -135,8 +135,7 @@ public struct Transcript: Sendable {
         for byte in input {
             step(byte)
         }
-        // The line in progress may have grown since the last commit.
-        evict()
+        // Every ceiling already holds at the byte that would break it; the feed only compacts.
         lines.removeFirst(head)
         head = 0
         compact()
@@ -199,6 +198,7 @@ public struct Transcript: Sendable {
             styles.insert(styles[cursor - 1], at: cursor)
             cursor += 1
             advanceOrigin()
+            evict()
         case 0x09, 0x20...0xFF:
             put(byte)
         default:
@@ -312,6 +312,7 @@ public struct Transcript: Sendable {
         }
         cursor += 1
         advanceOrigin()
+        evict()
     }
 
     /// Commits the retained line, then evicts from the top what the ceilings no longer hold.
@@ -328,6 +329,9 @@ public struct Transcript: Sendable {
 
     /// Drops the oldest committed lines while more than `lineLimit` remain or more than `byteLimit`
     /// bytes are retained; they are counted, and released at once.
+    ///
+    /// Called after every byte that adds a line or changes the line in progress, so the ceilings hold
+    /// after every byte and no partition of the bytes into feeds changes what is dropped.
     private mutating func evict() {
         while head < lines.count, lines.count - head > Self.lineLimit || retainedBytes > Self.byteLimit {
             committedBytes -= lines[head].byteCount

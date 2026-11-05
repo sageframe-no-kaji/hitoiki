@@ -1,5 +1,7 @@
 import Darwin
+import Foundation
 import Testing
+import os
 
 @testable import IssokuCore
 
@@ -40,16 +42,76 @@ private func fed(_ input: [UInt8], by size: Int) -> (transcript: Transcript, las
     return (transcript, last)
 }
 
-/// The test process's resident size now, from the kernel's basic task information.
-private func residentBytes() -> UInt64 {
-    var info = mach_task_basic_info()
-    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
-    let result = withUnsafeMutablePointer(to: &info) { pointer in
-        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { raw in
-            task_info(task_self_trap(), task_flavor_t(MACH_TASK_BASIC_INFO), raw, &count)
+/// One way of feeding the same bytes, and the transcript it left.
+private struct Partition {
+    let name: String
+    let transcript: Transcript
+    let last: Transcript.Change?
+}
+
+/// `prefix` then `tail` fed whole, and under every partition the tests name; the one-feed transcript.
+///
+/// The partitions: the whole input in 16,384- and 1,024-byte feeds, and the prefix in 16 KiB feeds
+/// with the tail split at every point and one byte per feed. Each must leave the lines, the line in
+/// progress and the retained count of one feed.
+private func equivalent(
+    _ prefix: [UInt8], _ tail: [UInt8], sourceLocation: SourceLocation = #_sourceLocation
+) -> Transcript {
+    var whole = Transcript()
+    let all = whole.feed(prefix + tail)
+    var partitions: [Partition] = []
+    for size in [16_384, 1_024] {
+        let (transcript, last) = fed(prefix + tail, by: size)
+        partitions.append(Partition(name: "\(size)-byte feeds", transcript: transcript, last: last))
+    }
+    let (start, _) = fed(prefix, by: 16_384)
+    var tails = (0...tail.count).map { split in
+        (name: "tail split at \(split)", feeds: [Array(tail[..<split]), Array(tail[split...])])
+    }
+    tails.append((name: "tail one byte per feed", feeds: tail.map { [$0] }))
+    for (name, feeds) in tails {
+        var transcript = start
+        var last: Transcript.Change?
+        for feed in feeds {
+            last = transcript.feed(feed)
+        }
+        partitions.append(Partition(name: name, transcript: transcript, last: last))
+    }
+    for partition in partitions {
+        #expect(partition.transcript.lines == whole.lines, "\(partition.name)", sourceLocation: sourceLocation)
+        #expect(partition.last?.inProgress == all.inProgress, "\(partition.name)", sourceLocation: sourceLocation)
+        #expect(
+            partition.transcript.retainedBytes == whole.retainedBytes, "\(partition.name)",
+            sourceLocation: sourceLocation)
+    }
+    return whole
+}
+
+/// The most bytes the allocator had in use at any sampled instant while `work` ran, less what it
+/// had before: the peak, not an endpoint difference.
+///
+/// The allocator's own count, not the kernel's resident size, which is reclaimed lazily: a resident
+/// reading fell by tens of MB during the feed as earlier tests' pages went back, hiding any growth.
+/// A thread samples every millisecond; a feed that holds its lines until it returns is seen at its
+/// largest. An endpoint reading would not see it at all.
+private func peakAllocatedGrowth(during work: () -> Void) -> Int {
+    let peak = OSAllocatedUnfairLock(initialState: mstats().bytes_used)
+    let before = peak.withLock { $0 }
+    let sampling = OSAllocatedUnfairLock(initialState: true)
+    let sampler = Thread {
+        while sampling.withLock({ $0 }) {
+            let used = mstats().bytes_used
+            peak.withLock { $0 = max($0, used) }
+            usleep(1_000)
         }
     }
-    return result == KERN_SUCCESS ? info.resident_size : 0
+    sampler.start()
+    work()
+    sampling.withLock { $0 = false }
+    while !sampler.isFinished {
+        usleep(1_000)
+    }
+    return peak.withLock { $0 } - before
 }
 
 /// What one feed reported, and what the transcript held after it.
@@ -59,18 +121,23 @@ private struct Feed {
     let lines: Int
 }
 
-/// `count` bytes, byte `index` being `byte(index)`, in 16 KiB feeds; every feed read, and the last change.
+/// `count` bytes, byte `index` being `byte(index)` and repeating every `period`, in 16 KiB feeds;
+/// every feed read, and the last change.
 private func stream(
     _ transcript: inout Transcript,
     count: Int,
+    period: Int,
     byte: (Int) -> UInt8
 ) -> (feeds: [Feed], last: Transcript.Change?) {
+    // One period, tiled past a feed's length, so each feed is a slice rather than a call per byte.
+    let tile = Array(repeating: (0..<period).map(byte), count: 16_384 / period + 2).flatMap(\.self)
     var feeds: [Feed] = []
     var last: Transcript.Change?
     var offset = 0
     while offset < count {
         let end = min(offset + 16_384, count)
-        let change = transcript.feed((offset..<end).map(byte))
+        let phase = offset % period
+        let change = transcript.feed(Array(tile[phase..<phase + end - offset]))
         feeds.append(
             Feed(evicted: change.evicted, retainedBytes: transcript.retainedBytes, lines: transcript.lines.count))
         last = change
@@ -276,7 +343,7 @@ internal struct TranscriptTests {
         var transcript = Transcript()
         let count = 2 << 20
         let digit = { (index: Int) in UInt8(ascii: "0") + UInt8(index % 10) }
-        let (feeds, last) = stream(&transcript, count: count, byte: digit)
+        let (feeds, last) = stream(&transcript, count: count, period: 10, byte: digit)
         let largest = feeds.map(\.retainedBytes).max() ?? 0
         print("transcript: 2 MiB line, largest retained \(largest), final \(transcript.retainedBytes)")
         #expect(largest <= 1_048_576)
@@ -307,7 +374,7 @@ internal struct TranscriptTests {
         var transcript = Transcript()
         let width = columns + 1
         let fed = 50_000_000 / width
-        let (feeds, _) = stream(&transcript, count: fed * width) { index in
+        let (feeds, _) = stream(&transcript, count: fed * width, period: width) { index in
             index % width == columns ? 0x0A : UInt8(ascii: "A") + UInt8(index % width % 26)
         }
         let largest = feeds.map(\.retainedBytes).max() ?? 0
@@ -320,7 +387,7 @@ internal struct TranscriptTests {
     @Test("50 MB on one line in 16 KiB feeds: at most 1 MiB retained after every feed, 1 MiB committed at the LF")
     internal func streamedLine() {
         var transcript = Transcript()
-        let (feeds, _) = stream(&transcript, count: 50_000_000) { _ in UInt8(ascii: "Q") }
+        let (feeds, _) = stream(&transcript, count: 50_000_000, period: 1) { _ in UInt8(ascii: "Q") }
         let largest = feeds.map(\.retainedBytes).max() ?? 0
         print("transcript: one 50 MB line, largest retained \(largest), final \(transcript.retainedBytes)")
         #expect(largest <= 1_048_576)
@@ -367,14 +434,16 @@ internal struct TranscriptTests {
 extension TranscriptTests {
     @Test("Fed whole or in 16 KiB or 1,024-byte chunks across all three ceilings, with overwrites, it is the same")
     internal func ceilingsChunked() {
-        var input = Array(String(repeating: "ab\rZ\n", count: 11_000).utf8)
-        let wide = [UInt8](repeating: UInt8(ascii: "w"), count: 1_999) + Array("\rZZ\n".utf8)
-        for _ in 0..<6_000 {
-            input += wide
+        var input = Array(String(repeating: "éa\rZ\n", count: 5_500).utf8)
+        input += Array(String(repeating: "ab\ré\n", count: 5_500).utf8)
+        let grows = [UInt8](repeating: UInt8(ascii: "w"), count: 1_999) + Array("\réé\n".utf8)
+        let shrinks = Array((String(repeating: "é", count: 999) + "w\rZZ\n").utf8)
+        for _ in 0..<3_000 {
+            input += grows + shrinks
         }
-        input += [UInt8](repeating: UInt8(ascii: "L"), count: 2_097_152)
+        input += [UInt8](repeating: UInt8(ascii: "L"), count: 2_097_152) + Array("\ré".utf8)
         input += [UInt8](repeating: UInt8(ascii: "y"), count: 1_023) + Array("\rZ\n".utf8)
-        input += [UInt8](repeating: UInt8(ascii: "t"), count: 1_572_864) + Array("\rQ".utf8)
+        input += Array(String(repeating: "é", count: 786_432).utf8) + Array("\rQ".utf8)
         input += [UInt8](repeating: UInt8(ascii: "u"), count: 1_000)
 
         var whole = Transcript()
@@ -387,11 +456,10 @@ extension TranscriptTests {
         }
         #expect(whole.lines.count <= 10_000)
         #expect(whole.retainedBytes <= 10_485_760)
-        #expect(whole.lines.first?.text.hasPrefix("ZZw") == true)
-        #expect(whole.lines.last?.byteCount == 1_048_576)
-        #expect(whole.lines.last?.text.hasPrefix("ZL") == true)
-        #expect(all.inProgress.byteCount == 1_048_576)
-        #expect(all.inProgress.text.hasPrefix("Q" + String(repeating: "u", count: 1_000) + "t") == true)
+        #expect(whole.lines.allSatisfy { $0.byteCount <= 1_048_576 })
+        #expect(whole.lines.last?.text.hasPrefix("Z") == true)
+        #expect(all.inProgress.byteCount == 1_048_576 - 1 - 1_000)
+        #expect(all.inProgress.text.hasPrefix("Q" + String(repeating: "u", count: 1_000) + "é") == true)
     }
 
     @Test("A carriage return after the oldest columns go lands on the first retained column, however fed")
@@ -416,20 +484,58 @@ extension TranscriptTests {
             .flatMap(\.self)
         #expect(input.count == 50_000_000)
         var whole = Transcript()
-        // Freed pages go back to the system first: otherwise the feed reuses pages earlier tests left
-        // resident, and holding its lines would not show in the reading.
-        _ = malloc_zone_pressure_relief(nil, 0)
-        let before = residentBytes()
-        let change = whole.feed(input)
-        let after = residentBytes()
-        let growth = Int64(after) - Int64(before)
-        print("transcript: one 50 MB feed, resident \(before) -> \(after), growth \(growth)")
-        // A reading of zero is the kernel call failing, and a bound on nothing proves nothing.
-        #expect(before > 0 && after > 0)
+        var change: Transcript.Change?
+        let growth = peakAllocatedGrowth { change = whole.feed(input) }
+        print("transcript: one 50 MB feed, peak allocated growth \(growth)")
         #expect(growth < 32 << 20)
-        #expect(change.committed.count == 10_000)
-        #expect(change.evicted == 0)
+        #expect(change?.committed.count == 10_000)
+        #expect(change?.evicted == 0)
         #expect(whole.retainedBytes == 990_000)
         #expect(fed(input, by: 16_384).transcript.lines == whole.lines)
+    }
+
+    @Test("The reviewer's probe: the oldest line goes at the byte that passes 10 MiB, under every partition")
+    internal func aggregateCeilingPerByte() {
+        var prefix: [UInt8] = []
+        for letter in "ABCDEFGHI".utf8 {
+            prefix += [UInt8](repeating: letter, count: 1_048_576) + [0x0A]
+        }
+        prefix += [UInt8](repeating: UInt8(ascii: "J"), count: 1_048_575) + [0x0A]
+        let whole = equivalent(prefix, Array("é\rZ\n".utf8))
+        #expect(whole.lines.count == 10)
+        #expect(whole.lines.first?.text.hasPrefix("B") == true)
+        #expect(whole.lines.last?.text == "Z")
+        #expect(whole.retainedBytes == 9_437_184)
+    }
+
+    @Test("The line window: a character that passes 1 MiB moves the origin, under every partition")
+    internal func lineWindowPerByte() {
+        let whole = equivalent([UInt8](repeating: UInt8(ascii: "x"), count: 1_048_575), Array("é\rZ\n".utf8))
+        #expect(whole.lines.map(\.byteCount) == [1_048_576])
+        #expect(whole.lines.first?.text.hasPrefix("Zx") == true)
+        #expect(whole.lines.first?.text.hasSuffix("xé") == true)
+    }
+
+    @Test("The line count: each commit past 10,000 drops the oldest, under every partition")
+    internal func lineCountPerByte() {
+        let prefix = Array((0..<10_000).map { "line \($0)\n" }.joined().utf8)
+        let whole = equivalent(prefix, Array("é\rZ\né\rZ\n".utf8))
+        #expect(whole.lines.count == 10_000)
+        #expect(whole.lines.first?.text == "line 2")
+        #expect(whole.lines.suffix(2).map(\.text) == ["Z", "Z"])
+    }
+
+    @Test("Each of SGR 30–37 sets its colour index", arguments: 0...7)
+    internal func foreground(index: Int) {
+        #expect(spans("\(escape)[3\(index)mx\n") == [Span(text: "x", style: Style(color: UInt8(index)))])
+    }
+
+    @Test("A CR overwrite in another style replaces the styled columns it covers and keeps the rest")
+    internal func styledOverwrite() {
+        #expect(
+            spans("\(escape)[31mabcd\r\(escape)[1;34mXY\(escape)[0m\n") == [
+                Span(text: "XY", style: Style(bold: true, color: 4)),
+                Span(text: "cd", style: Style(color: 1)),
+            ])
     }
 }
