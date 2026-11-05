@@ -654,6 +654,6 @@ Opening hash: `4028969c97e7d4154c590693e5d1eb3d8863d0ac` (ho-04.2's closing comm
 
 **STATE-SUMMARY**
 - **COMPLETED** — ho-04x run 3, Return.
-- **NEXT** — The standing checkpoint: the practitioner's decision.
-- **ACTION ITEMS / BLOCKS** — BLOCKED on the checkpoint decision. The orchestrator's proposal, if the decision is a fourth pass: the spec states the invariant only, all three ceilings hold after every byte with no check at feed end, and the equivalence tests feed one byte at a time with multibyte overwrites at every ceiling. N1 (endpoint resident reading, not peak) and N2 (foreground codes 30–37 not each asserted; overwrite with changing styles; selection across eviction) stay as recorded.
+- **NEXT** — Checkpoint ruled 2026-11-05: the fix-pass specs were at fault, not the brief or the builder; a fourth pass runs under an invariant-only spec, `ho-process/hos/ho-04.3-fix-pass.md`, and is to end the sequence.
+- **ACTION ITEMS / BLOCKS** — Unblocked by the ruling. The orchestrator's proposal, if the decision is a fourth pass: the spec states the invariant only, all three ceilings hold after every byte with no check at feed end, and the equivalence tests feed one byte at a time with multibyte overwrites at every ceiling. N1 (endpoint resident reading, not peak) and N2 (foreground codes 30–37 not each asserted; overwrite with changing styles; selection across eviction) stay as recorded.
 - **PROJECT LIFECYCLE** — kamae
