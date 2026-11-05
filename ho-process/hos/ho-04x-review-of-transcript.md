@@ -8,14 +8,15 @@ kamae: 5
 shape: x
 phase: 2 — The Surface
 title: Review of Transcript — the one monospace zone
-description: Rechecks the Transcript build and its ho-04.1 fix pass against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
+description: Rechecks the Transcript build and its two fix passes against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
 reviews: ho-04
-run: 2
+run: 3
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
   - ho-process/hos/ho-04-transcript.md
   - ho-process/hos/ho-04.1-fix-pass.md
+  - ho-process/hos/ho-04.2-fix-pass.md
 ---
 
 # ho-04x — Review of Transcript — the one monospace zone
@@ -26,6 +27,8 @@ The unit is `Sources/IssokuCore/Transcript/Transcript.swift` (the model: bytes i
 
 **Run 2.** Run 1 (`ho-process/reviews/ho-04x-report-1.md`) returned ho-04 with three Must-fix findings, one Should-fix and three Notes. The fix pass `ho-process/hos/ho-04.1-fix-pass.md` answers the four and takes all three Notes: the per-line cap is enforced as bytes arrive, through a 16 KiB slack in `put` and a trim in `commit()`, so an LF commits at most 1 MiB however the bytes were chunked; a control string ends only at BEL or `ESC \`, through a control-string-escape state; `Theme.swift` has its SwiftUI accessors back as at the range start; SGR 58 is consumed with its arguments, by the practitioner's ruling, added to the consumed-and-ignored set of Decision 1; the ceiling and bound tests assert the specified literals and the large lines commit; scroll-follow and Command-C-while-Running have tests; the reversed counts are corrected with marks. Its Results record three facts for you: the feed-end trim stays beside the mid-feed trim, so a carriage-return overwrite in the instant after an end trim could still differ by chunking, untested; Decision 1's terminator rule differs from the DEC parser, which ends a control string at any ESC, a difference only for malformed streams, and the fix implements Decision 1; `Theme.swift` reads 84.21% with the accessors unused by the panel, which the practitioner ruled. Read the whole unit again, not just the fixes, against both specs. Rate any earlier finding you judge unanswered as you would any other.
 
+**Run 3.** Run 2 (`ho-process/reviews/ho-04x-report-2.md`) judged run 1's M2 leak, M3 and N3 answered and returned on three findings with one cause: ho-04.1 bounded the model at moments that depend on where a feed ends. The second fix pass `ho-process/hos/ho-04.2-fix-pass.md` answers them by one definition: nothing the model reports depends on where a feed ends. The line in progress is the newest 1 MiB of columns at every byte, through an origin index that moves by whole characters after each byte; CR returns to the origin; the arrays are compacted when the origin passes the 16 KiB slack and at feed end, and compaction changes nothing reported. BEL ends a control string after an ESC as well. `commit()` evicts as each line is committed, replacing the evicted line by an empty one behind a `head` index so its text is released at once, with the array compacted every 10,000 evictions and at feed end; `feed` keeps a final eviction for the line in progress growing since the last commit. Its Results record facts for you: the evicted placeholders are visible only within a feed, never in `lines` between feeds; the resident-size test reads `mach_task_basic_info` across one 50 MB feed after `malloc_zone_pressure_relief`, bound 32 MiB, measured 1.6 MB after the fix and 74–77 MB before; the Transcript suite is now `.serialized` for that reading, 16 s → 72 s. Read the whole unit again, not just the fixes, against all three specs. Rate any earlier finding you judge unanswered as you would any other. This is the third run; a third Return stops the build at the standing checkpoint, so state each Must-fix against the exact line of the spec it violates.
+
 **Goal**
 
 A written report at the path named under Files, answering every question in the brief with file and line references or the word "none", with each finding rated, ending in one verdict: Pass or Return.
@@ -33,16 +36,16 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-04-transcript.md`
-- Fix-pass spec: `ho-process/hos/ho-04.1-fix-pass.md`
-- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff`
+- Fix-pass specs: `ho-process/hos/ho-04.1-fix-pass.md`, `ho-process/hos/ho-04.2-fix-pass.md`
+- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac`
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff`
+- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac`
 - Read-only: the three inputs above
-- Create: `ho-process/reviews/ho-04x-report-2.md`
+- Create: `ho-process/reviews/ho-04x-report-3.md`
 
 No other file is created or modified.
 
@@ -77,9 +80,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-04x report, run 2
+# ho-04x report, run 3
 
-Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff
+Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -126,8 +129,8 @@ Every finding carries a `file:line`. A question with no finding is answered "non
 swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 swift test --enable-code-coverage >/dev/null 2>&1 && scripts/coverage-floor.sh
-git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..1b42564a4e50cde41dede933e2186eae189c24ff
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-2.md
+git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-3.md
 ```
 
 **Do not**
@@ -146,7 +149,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-2
 Commit only the report.
 
 ```
-ho-04x: review of ho-04, run 2 — <Pass | Return>
+ho-04x: review of ho-04, run 3 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.
