@@ -637,3 +637,13 @@ Opening hash: `1b42564a4e50cde41dede933e2186eae189c24ff` (ho-04.1's closing comm
 - **NEXT** — ho-04.2: `ho-process/hos/ho-04.2-fix-pass.md`.
 - **ACTION ITEMS / BLOCKS** — Ruled 2026-11-04 for the replan: an update check against GitHub with an off switch (see Other deferred decisions). Answer M1–M3 and S1. The fix defines the line in progress as the newest 1 MiB of columns at every byte, with an origin index and compaction as the optimisation; BEL ends a control string in the escape state too; `commit()` evicts. Run 3 reads the whole original range through both fix passes. N1 stays as recorded.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-04.2 — Second fix pass for Transcript — closed 2026-11-04
+
+Opening hash: `9807437b970533cab079b00acffeb3a38ea1bc9b` (the run-2 report commit). The fix-pass document opened in `a8c5969`; its closing commit is `ho-04.2: second fix pass for transcript — answer ho-04x run 2`, recorded as the range end of ho-04x run 3. Spec: `ho-process/hos/ho-04.2-fix-pass.md`. The practitioner approved the spec; the ho-04 subagent, resumed, built it test first in one return; the orchestrator read the diff, added one assertion, ran the six checks and committed. No app launch.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.2. The line in progress is the newest 1 MiB of columns at every byte, through an origin index; CR returns to the origin; compaction at the slack and at feed end changes nothing reported. BEL ends a control string after an ESC too. `commit()` evicts as lines are committed, releasing each at once. Tests cross each interaction, and one reads the process's resident size across a single 50 MB feed (bound 32 MiB; measured 1.6 MB after, 74–77 MB before). 42 app and 65 core tests; IssokuCore 95.75%, `Sources/Issoku` 91.88%; `Transcript.swift` 322 → 358 nonblank lines. Cost: the Transcript suite is serialized for the reading, 16 s → 72 s.
+- **NEXT** — ho-04x run 3 from `ho-process/hos/ho-04x-review-of-transcript.md`, over `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a` through this fix pass's closing commit. Report: `ho-process/reviews/ho-04x-report-3.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. A third Return is the standing checkpoint: the practitioner decides whether the spec, the brief or the builder is the problem before any ho-04.3. For run 3: evicted lines are placeholders behind `head` until compaction, visible only within a feed; the resident reading depends on `malloc_zone_pressure_relief`; the 72 s suite. Replan: the suite's time. After a Pass: ho-04.5 Rename to Hitoiki, ho-04.6 the Escape ladder, then the replan week.
+- **PROJECT LIFECYCLE** — kamae

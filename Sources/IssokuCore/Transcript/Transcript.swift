@@ -71,9 +71,9 @@ public struct Transcript: Sendable {
     /// Ten times the per-line cap, so 10,000 lines of wide output stay bounded too (ho-04 Decision 3,
     /// from ho-01 findings, §4).
     public static let byteLimit = 10 << 20
-    /// How far the line in progress may pass `lineByteLimit` before it is trimmed mid-feed, so the
-    /// trimming is paid once per this many bytes, not per byte; Run's read size (16 KiB), so a chunk
-    /// from Run trims at most once before the end-of-feed trim.
+    /// How far the origin of the line in progress may move before the bytes behind it are dropped,
+    /// so the dropping is paid once per this many bytes, not per byte; Run's read size (16 KiB), so a
+    /// chunk from Run compacts at most once before the end-of-feed compaction.
     internal static let trimSlack = 16_384
     /// The longest escape or control sequence, ESC included, before it is abandoned (ho-01.1).
     public static let sequenceByteLimit = 256
@@ -89,22 +89,35 @@ public struct Transcript: Sendable {
 
     private static let escapeByte: UInt8 = 0x1B
     private static let bell: UInt8 = 0x07
+    /// What an evicted line leaves in its place until the array is compacted: nothing held.
+    private static let evictedLine = Line(spans: [], byteCount: 0)
 
     /// The committed lines retained, oldest first.
     public private(set) var lines: [Line] = []
+    /// The first retained line of `lines` during a feed.
+    ///
+    /// The lines before it are evicted and hold nothing; zero between feeds.
+    private var head = 0
+    /// Lines evicted since the feed began.
+    private var dropped = 0
     private var committedBytes = 0
     private var state = State.ground
     /// The parameter and intermediate bytes of the control sequence being read.
     private var sequence: [UInt8] = []
     private var sequenceLength = 0
     private var style = Style()
-    /// The line in progress, whole characters, and the style of each of its bytes.
+    /// The line in progress, whole characters, and the style of each of its bytes, from `origin` on.
     private var bytes: [UInt8] = []
     private var styles: [Style] = []
+    /// The first retained byte of the line in progress.
+    ///
+    /// It moves forward, by whole characters, so at most `lineByteLimit` bytes are retained after
+    /// every byte; zero between feeds.
+    private var origin = 0
     /// The style every byte of the line in progress has, or nil once two have differed; it spares
     /// the comparison of every byte when the line is reported on each feed.
     private var shared: Style?
-    /// The byte offset of the column the next character takes.
+    /// The byte offset of the column the next character takes; never before `origin`.
     private var cursor = 0
 
     /// An empty transcript in the default style.
@@ -113,26 +126,25 @@ public struct Transcript: Sendable {
     }
 
     /// The bytes held across the committed lines and the line in progress.
-    public var retainedBytes: Int { committedBytes + bytes.count }
+    public var retainedBytes: Int { committedBytes + bytes.count - origin }
 
     /// Reads `input` and returns what changed since the last feed.
     public mutating func feed(_ input: [UInt8]) -> Change {
         let reported = lines.count
+        dropped = 0
         for byte in input {
             step(byte)
         }
-        dropOldestColumns()
-        var dropped = 0
-        while dropped < lines.count, lines.count - dropped > Self.lineLimit || retainedBytes > Self.byteLimit {
-            committedBytes -= lines[dropped].byteCount
-            dropped += 1
-        }
-        lines.removeFirst(dropped)
+        // The line in progress may have grown since the last commit.
+        evict()
+        lines.removeFirst(head)
+        head = 0
+        compact()
         let evicted = min(dropped, reported)
         return Change(
             evicted: evicted,
             committed: Array(lines[(reported - evicted)...]),
-            inProgress: Self.line(bytes, styles, shared: shared))
+            inProgress: Self.line(bytes[...], styles[...], shared: shared))
     }
 
     /// Forgets every line, the line in progress, the style and any sequence half read.
@@ -179,14 +191,14 @@ public struct Transcript: Sendable {
             state = .escape
             sequenceLength = 1
         case 0x0D:
-            cursor = 0
+            cursor = origin
         case 0x0A:
             commit()
-        case 0x80...0xBF where cursor > 0:
+        case 0x80...0xBF where cursor > origin:
             bytes.insert(byte, at: cursor)
             styles.insert(styles[cursor - 1], at: cursor)
             cursor += 1
-            dropOldestColumns(beyond: Self.trimSlack)
+            advanceOrigin()
         case 0x09, 0x20...0xFF:
             put(byte)
         default:
@@ -217,11 +229,12 @@ public struct Transcript: Sendable {
     private mutating func controlString(_ byte: UInt8) {
         if byte == Self.escapeByte {
             state = .controlStringEscape
-        } else if state == .controlStringEscape {
-            // After an ESC inside the string a backslash ends it; any other byte is more of the string.
-            state = byte == UInt8(ascii: "\\") ? .ground : .controlString
         } else if byte == Self.bell {
             state = .ground
+        } else if state == .controlStringEscape {
+            // After an ESC inside the string a backslash ends it, as BEL does above, and another ESC
+            // waits again for one; any other byte is more of the string.
+            state = byte == UInt8(ascii: "\\") ? .ground : .controlString
         }
     }
 
@@ -298,42 +311,67 @@ public struct Transcript: Sendable {
             styles.append(style)
         }
         cursor += 1
-        dropOldestColumns(beyond: Self.trimSlack)
+        advanceOrigin()
     }
 
+    /// Commits the retained line, then evicts from the top what the ceilings no longer hold.
     private mutating func commit() {
-        dropOldestColumns()
-        let line = Self.line(bytes, styles, shared: shared)
+        let line = Self.line(bytes[origin...], styles[origin...], shared: shared)
         lines.append(line)
         committedBytes += line.byteCount
         bytes.removeAll()
         styles.removeAll()
+        origin = 0
         cursor = 0
+        evict()
     }
 
-    /// The cap on the line in progress: once it is more than `slack` bytes over, its oldest characters
-    /// go, whole, until it fits.
-    private mutating func dropOldestColumns(beyond slack: Int = 0) {
-        guard bytes.count > Self.lineByteLimit + slack else { return }
-        var drop = bytes.count - Self.lineByteLimit
-        while drop < bytes.count, Self.isContinuation(bytes[drop]) {
-            drop += 1
+    /// Drops the oldest committed lines while more than `lineLimit` remain or more than `byteLimit`
+    /// bytes are retained; they are counted, and released at once.
+    private mutating func evict() {
+        while head < lines.count, lines.count - head > Self.lineLimit || retainedBytes > Self.byteLimit {
+            committedBytes -= lines[head].byteCount
+            lines[head] = Self.evictedLine
+            head += 1
+            dropped += 1
         }
-        bytes.removeFirst(drop)
-        styles.removeFirst(drop)
-        cursor = max(cursor - drop, 0)
+        if head >= Self.lineLimit {
+            lines.removeFirst(head)
+            head = 0
+        }
+    }
+
+    /// Moves the origin past the oldest characters, whole, until at most `lineByteLimit` bytes are
+    /// retained, and drops what lies behind it once that passes the slack.
+    private mutating func advanceOrigin() {
+        while bytes.count - origin > Self.lineByteLimit {
+            origin += 1
+            while origin < bytes.count, Self.isContinuation(bytes[origin]) {
+                origin += 1
+            }
+        }
+        cursor = max(cursor, origin)
+        if origin > Self.trimSlack { compact() }
+    }
+
+    /// Drops the bytes before the origin; what is reported does not change.
+    private mutating func compact() {
+        bytes.removeFirst(origin)
+        styles.removeFirst(origin)
+        cursor -= origin
+        origin = 0
     }
 
     private static func isContinuation(_ byte: UInt8) -> Bool {
         byte & 0xC0 == 0x80
     }
 
-    private static func line(_ bytes: [UInt8], _ styles: [Style], shared: Style?) -> Line {
+    private static func line(_ bytes: ArraySlice<UInt8>, _ styles: ArraySlice<Style>, shared: Style?) -> Line {
         var spans: [Span] = []
-        var start = 0
-        while start < bytes.count {
-            var end = shared == nil ? start + 1 : bytes.count
-            while end < bytes.count, styles[end] == styles[start] {
+        var start = bytes.startIndex
+        while start < bytes.endIndex {
+            var end = shared == nil ? start + 1 : bytes.endIndex
+            while end < bytes.endIndex, styles[end] == styles[start] {
                 end += 1
             }
             // Decoding repairs, never drops: a byte that is not UTF-8 becomes U+FFFD, and the failable

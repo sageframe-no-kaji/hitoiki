@@ -1,3 +1,4 @@
+import Darwin
 import Testing
 
 @testable import IssokuCore
@@ -29,6 +30,28 @@ private func spans(_ text: String) -> [Span] {
     return transcript.feed(Array(text.utf8)).committed.first?.spans ?? []
 }
 
+/// `input` in feeds of `size` bytes: the transcript after the last, and the last change.
+private func fed(_ input: [UInt8], by size: Int) -> (transcript: Transcript, last: Transcript.Change?) {
+    var transcript = Transcript()
+    var last: Transcript.Change?
+    for start in stride(from: 0, to: input.count, by: size) {
+        last = transcript.feed(Array(input[start..<min(start + size, input.count)]))
+    }
+    return (transcript, last)
+}
+
+/// The test process's resident size now, from the kernel's basic task information.
+private func residentBytes() -> UInt64 {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { raw in
+            task_info(task_self_trap(), task_flavor_t(MACH_TASK_BASIC_INFO), raw, &count)
+        }
+    }
+    return result == KERN_SUCCESS ? info.resident_size : 0
+}
+
 /// What one feed reported, and what the transcript held after it.
 private struct Feed {
     let evicted: Int
@@ -56,7 +79,8 @@ private func stream(
     return (feeds, last)
 }
 
-@Suite("Transcript")
+// Serialized: the resident-size reading must not see another test's allocations.
+@Suite("Transcript", .serialized)
 internal struct TranscriptTests {
     @Test("LF commits a line; the line in progress is reported on every feed")
     internal func lines() {
@@ -159,6 +183,8 @@ internal struct TranscriptTests {
             "\(escape)(B", "\(escape)7", "\(escape)\(escape)7", "\u{07}", "\u{08}", "\u{0C}", "\u{0B}", "\u{00}",
             "\(escape)]0;before\(escape)7LEAK\u{07}", "\(escape)Pbefore\(escape)7LEAK\(escape)\\",
             "\(escape)]0;t\(escape)\(escape)\\",
+            "\(escape)]before\(escape)\u{07}", "\(escape)Pbefore\(escape)\u{07}", "\(escape)Xbefore\(escape)\u{07}",
+            "\(escape)^before\(escape)\u{07}", "\(escape)_before\(escape)\u{07}",
         ])
     internal func removed(sequence: String) {
         #expect(spans("a\(sequence)b\n") == [Span(text: "ab", style: Style())])
@@ -324,32 +350,6 @@ internal struct TranscriptTests {
         #expect(tail.committed.first?.text.hasSuffix(String(repeating: "y", count: 1_023)) == true)
     }
 
-    @Test("Fed whole or in 1,024-byte chunks across all three ceilings, the transcript is the same")
-    internal func ceilingsChunked() {
-        var input = Array(String(repeating: "x\n", count: 11_000).utf8)
-        let wide = [UInt8](repeating: UInt8(ascii: "w"), count: 1_999) + [0x0A]
-        for _ in 0..<6_000 {
-            input += wide
-        }
-        input += [UInt8](repeating: UInt8(ascii: "L"), count: 2_097_152) + [0x0A]
-        input += [UInt8](repeating: UInt8(ascii: "t"), count: 1_572_864)
-
-        var whole = Transcript()
-        let all = whole.feed(input)
-        var chunked = Transcript()
-        var last: Transcript.Change?
-        for start in stride(from: 0, to: input.count, by: 1_024) {
-            last = chunked.feed(Array(input[start..<min(start + 1_024, input.count)]))
-        }
-        #expect(chunked.lines == whole.lines)
-        #expect(last?.inProgress == all.inProgress)
-        #expect(chunked.retainedBytes == whole.retainedBytes)
-        #expect(whole.lines.count <= 10_000)
-        #expect(whole.retainedBytes <= 10_485_760)
-        #expect(whole.lines.last?.byteCount == 1_048_576)
-        #expect(all.inProgress.byteCount == 1_048_576)
-    }
-
     @Test("clear() empties the lines, resets the style and starts a fresh line")
     internal func clear() {
         var transcript = Transcript()
@@ -359,5 +359,77 @@ internal struct TranscriptTests {
         #expect(transcript.retainedBytes == 0)
         let change = transcript.feed(Array("tle\u{07}x\n".utf8))
         #expect(change.committed.map(\.spans) == [[Span(text: "tlex", style: Style())]])
+    }
+}
+
+// The ceilings across feed ends and within one feed (ho-04.2): an extension, not a second suite, so
+// these stay serialized with the rest of the suite.
+extension TranscriptTests {
+    @Test("Fed whole or in 16 KiB or 1,024-byte chunks across all three ceilings, with overwrites, it is the same")
+    internal func ceilingsChunked() {
+        var input = Array(String(repeating: "ab\rZ\n", count: 11_000).utf8)
+        let wide = [UInt8](repeating: UInt8(ascii: "w"), count: 1_999) + Array("\rZZ\n".utf8)
+        for _ in 0..<6_000 {
+            input += wide
+        }
+        input += [UInt8](repeating: UInt8(ascii: "L"), count: 2_097_152)
+        input += [UInt8](repeating: UInt8(ascii: "y"), count: 1_023) + Array("\rZ\n".utf8)
+        input += [UInt8](repeating: UInt8(ascii: "t"), count: 1_572_864) + Array("\rQ".utf8)
+        input += [UInt8](repeating: UInt8(ascii: "u"), count: 1_000)
+
+        var whole = Transcript()
+        let all = whole.feed(input)
+        for size in [16_384, 1_024] {
+            let (chunked, last) = fed(input, by: size)
+            #expect(chunked.lines == whole.lines, "in \(size)-byte feeds")
+            #expect(last?.inProgress == all.inProgress, "in \(size)-byte feeds")
+            #expect(chunked.retainedBytes == whole.retainedBytes, "in \(size)-byte feeds")
+        }
+        #expect(whole.lines.count <= 10_000)
+        #expect(whole.retainedBytes <= 10_485_760)
+        #expect(whole.lines.first?.text.hasPrefix("ZZw") == true)
+        #expect(whole.lines.last?.byteCount == 1_048_576)
+        #expect(whole.lines.last?.text.hasPrefix("ZL") == true)
+        #expect(all.inProgress.byteCount == 1_048_576)
+        #expect(all.inProgress.text.hasPrefix("Q" + String(repeating: "u", count: 1_000) + "t") == true)
+    }
+
+    @Test("A carriage return after the oldest columns go lands on the first retained column, however fed")
+    internal func overwriteAcrossFeedEnds() {
+        let input =
+            [UInt8](repeating: UInt8(ascii: "x"), count: 1_048_576)
+            + [UInt8](repeating: UInt8(ascii: "y"), count: 1_023)
+            + Array("\rZ\n".utf8)
+        var whole = Transcript()
+        let line = whole.feed(input).committed
+        #expect(line.map(\.byteCount) == [1_048_576])
+        #expect(line.first?.text.hasPrefix("Zxxx") == true)
+        #expect(line.first?.text.hasSuffix(String(repeating: "y", count: 1_023)) == true)
+        for size in [16_384, 1_024] {
+            #expect(fed(input, by: size).transcript.lines == whole.lines, "in \(size)-byte feeds")
+        }
+    }
+
+    @Test("One 50 MB feed of short lines holds only what the ceilings keep, while it is read too")
+    internal func oneFeedCeiling() {
+        let input = Array(repeating: [UInt8](repeating: UInt8(ascii: "x"), count: 99) + [0x0A], count: 500_000)
+            .flatMap(\.self)
+        #expect(input.count == 50_000_000)
+        var whole = Transcript()
+        // Freed pages go back to the system first: otherwise the feed reuses pages earlier tests left
+        // resident, and holding its lines would not show in the reading.
+        _ = malloc_zone_pressure_relief(nil, 0)
+        let before = residentBytes()
+        let change = whole.feed(input)
+        let after = residentBytes()
+        let growth = Int64(after) - Int64(before)
+        print("transcript: one 50 MB feed, resident \(before) -> \(after), growth \(growth)")
+        // A reading of zero is the kernel call failing, and a bound on nothing proves nothing.
+        #expect(before > 0 && after > 0)
+        #expect(growth < 32 << 20)
+        #expect(change.committed.count == 10_000)
+        #expect(change.evicted == 0)
+        #expect(whole.retainedBytes == 990_000)
+        #expect(fed(input, by: 16_384).transcript.lines == whole.lines)
     }
 }
