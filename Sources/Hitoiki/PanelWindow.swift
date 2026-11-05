@@ -1,5 +1,5 @@
 import AppKit
-import IssokuCore
+import HitoikiCore
 
 /// The panel: one borderless, non-activating floating window, shown and hidden, never closed.
 ///
@@ -98,7 +98,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         gear.contentTintColor = Theme.Token.inkFaint.nsColor
         gear.target = self
         gear.action = #selector(gearPressed)
-        gearMenu.addItem(withTitle: "Settings…", action: #selector(IssokuApp.showSettings(_:)), keyEquivalent: "")
+        gearMenu.addItem(withTitle: "Settings…", action: #selector(HitoikiApp.showSettings(_:)), keyEquivalent: "")
         gearMenu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
 
         scroll.documentView = transcript

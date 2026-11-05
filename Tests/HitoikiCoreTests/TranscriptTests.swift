@@ -3,7 +3,7 @@ import Foundation
 import Testing
 import os
 
-@testable import IssokuCore
+@testable import HitoikiCore
 
 internal typealias Span = Transcript.Span
 internal typealias Style = Transcript.Style

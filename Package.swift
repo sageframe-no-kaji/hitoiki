@@ -3,43 +3,43 @@
 import PackageDescription
 
 let package = Package(
-    name: "Issoku",
+    name: "Hitoiki",
     platforms: [
         .macOS(.v14),
     ],
     products: [
         .library(
-            name: "IssokuCore",
-            targets: ["IssokuCore"]
+            name: "HitoikiCore",
+            targets: ["HitoikiCore"]
         ),
         .executable(
-            name: "Issoku",
-            targets: ["Issoku"]
+            name: "Hitoiki",
+            targets: ["Hitoiki"]
         ),
     ],
     dependencies: [],
     targets: [
         .target(
-            name: "IssokuCore",
+            name: "HitoikiCore",
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
         .executableTarget(
-            name: "Issoku",
-            dependencies: ["IssokuCore"],
+            name: "Hitoiki",
+            dependencies: ["HitoikiCore"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
         .testTarget(
-            name: "IssokuCoreTests",
-            dependencies: ["IssokuCore"],
+            name: "HitoikiCoreTests",
+            dependencies: ["HitoikiCore"],
             resources: [.copy("Fixtures")]
         ),
         .testTarget(
-            name: "IssokuTests",
-            dependencies: ["Issoku"]
+            name: "HitoikiTests",
+            dependencies: ["Hitoiki"]
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -1,11 +1,11 @@
 import Foundation
 import Testing
 
-@testable import IssokuCore
+@testable import HitoikiCore
 
 /// A fresh directory under the temporary directory, removed by the caller.
 internal func makeDirectory() throws -> String {
-    let path = NSTemporaryDirectory() + "issoku-tests-" + UUID().uuidString
+    let path = NSTemporaryDirectory() + "hitoiki-tests-" + UUID().uuidString
     try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     return path
 }

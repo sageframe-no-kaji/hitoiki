@@ -1,7 +1,7 @@
 import Carbon.HIToolbox
 import Testing
 
-@testable import Issoku
+@testable import Hitoiki
 
 // The handler firing needs a real key press and is not tested; the run sheet records it.
 @Suite("Hotkey")

@@ -1,17 +1,17 @@
 import AppKit
-import IssokuCore
+import HitoikiCore
 
 /// The application: no Dock icon and no menu bar; one Run, one Panel and one hotkey for its life.
 @main
 @MainActor
-internal final class IssokuApp: NSObject, NSApplicationDelegate {
+internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     private var panel: Panel?
     private var hotkey = noErr
     private var settings: SettingsWindow?
 
     internal static func main() {
         let application = NSApplication.shared
-        let delegate = IssokuApp()
+        let delegate = HitoikiApp()
         application.delegate = delegate
         application.run()
         withExtendedLifetime(delegate) {}

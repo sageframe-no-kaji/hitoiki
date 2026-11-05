@@ -1,15 +1,15 @@
 {
   "schema": "ho-status/1",
-  "project": "issoku",
+  "project": "hitoiki",
   "generated_at": "2026-11-05",
   "source": {
-    "overview": "ho-process/kamae-4-issoku-ho-overview.md",
+    "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 16,
-    "drafted": 0,
-    "complete": 16,
+    "hos": 18,
+    "drafted": 1,
+    "complete": 17,
     "planned": 0,
     "ready": 0
   },
@@ -160,6 +160,21 @@
           "status": "complete",
           "fixes": "04",
           "doc": "ho-process/hos/ho-04.3-fix-pass.md"
+        },
+        {
+          "ho": "04.5",
+          "title": "Rename to Hitoiki",
+          "shape": "ri",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-04.5-rename-to-hitoiki.md"
+        },
+        {
+          "ho": "04.5x",
+          "title": "Review of Rename to Hitoiki",
+          "shape": "x",
+          "status": "drafted",
+          "reviews": "04.5",
+          "doc": "ho-process/hos/ho-04.5x-review-of-rename-to-hitoiki.md"
         }
       ]
     }

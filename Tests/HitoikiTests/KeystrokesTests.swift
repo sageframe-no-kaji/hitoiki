@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import Testing
 
-@testable import Issoku
+@testable import Hitoiki
 
 @Suite("Keystrokes")
 internal struct KeystrokesTests {

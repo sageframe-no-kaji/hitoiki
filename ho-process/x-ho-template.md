@@ -1,6 +1,6 @@
 # x ho template — the review spec
 
-Repo-local for now. This is the skeleton the Kamae 5 skill fills when a build ho closes and its x ho opens. It produces one file, `ho-process/hos/ho-NNx-review-of-<title>.md`, which the antagonist reads as its whole instruction. If the pattern holds across Issoku it moves into the skill; until then it lives here and the skill is told to read it.
+Repo-local for now. This is the skeleton the Kamae 5 skill fills when a build ho closes and its x ho opens. It produces one file, `ho-process/hos/ho-NNx-review-of-<title>.md`, which the antagonist reads as its whole instruction. If the pattern holds across Hitoiki it moves into the skill; until then it lives here and the skill is told to read it.
 
 ## How an x ho runs
 
@@ -20,7 +20,7 @@ Repo-local for now. This is the skeleton the Kamae 5 skill fills when a build ho
 created: <YYYY-MM-DD>
 status: ready
 type: ho-document
-project: issoku
+project: hitoiki
 ho: <NN>x
 kamae: 5
 shape: x
@@ -29,7 +29,7 @@ reviews: ho-<NN>
 run: <1 on the first run; 2, 3 after each Return>
 model: <exact Codex model id in use>
 builds-on:
-  - kamae-4-issoku-ho-overview
+  - kamae-4-hitoiki-ho-overview
   - ho-process/hos/ho-<NN>-<title>.md
 ---
 
@@ -45,8 +45,8 @@ A written report at the path named under Files, answering every question in the 
 
 - Build ho spec: `ho-process/hos/ho-<NN>-<title>.md`
 - Commit range: `<opening-hash>..<closing-hash>`
-- The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
-- The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
+- The seed, sections 8 and 12: `ho-process/kamae-1-hitoiki-seed.md`
+- The System Design, for the component boundaries: `ho-process/kamae-2-hitoiki-system-design.md`
 
 **Files**
 

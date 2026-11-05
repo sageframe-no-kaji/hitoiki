@@ -69,7 +69,7 @@ prompts/
 
 # ─── Project-specific (add below) ───────────────────────────────────────
 # State Memory (Kamae 6): the hot working register stays local; the cold record is the build record
-ho-process/kamae-6-issoku-state-memory.md
+ho-process/kamae-6-hitoiki-state-memory.md
 
 # icon sources and design docs, not part of the build
 design/

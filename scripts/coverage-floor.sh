@@ -2,10 +2,10 @@
 # Enforces the line-coverage floor on two sets. Assumes
 # `swift test --enable-code-coverage` has already run.
 #
-#   IssokuCore ≥ $1 (default 90) — the headless library: Run and the
+#   HitoikiCore ≥ $1 (default 90) — the headless library: Run and the
 #   Transcript model. The truth lives in the core.
 #
-#   Sources/Issoku ≥ $1 — the surface's logic (ho-03 Decision 14): Panel,
+#   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14): Panel,
 #   Keystrokes, Hotkey and Theme. Four files are excluded by name, below.
 #
 # The exit is non-zero if either set is under the floor.
@@ -34,9 +34,9 @@ for binary in "${BINARIES[@]:1}"; do
     OBJECTS+=(-object "$binary")
 done
 
-IGNORE='(Tests/|\.build/|Sources/Issoku/)'
+IGNORE='(Tests/|\.build/|Sources/Hitoiki/)'
 
-echo "== IssokuCore =="
+echo "== HitoikiCore =="
 xcrun llvm-cov report "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
     -instr-profile "$PROFDATA" \
     -ignore-filename-regex="$IGNORE"
@@ -50,12 +50,12 @@ xcrun llvm-cov export "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
 import json, sys
 data = json.load(sys.stdin)['data'][0]
 files = [f['filename'] for f in data['files']]
-# ho-02 turns this into a failure once IssokuCore holds code.
+# ho-02 turns this into a failure once HitoikiCore holds code.
 if not files:
-    print('IssokuCore: nothing to measure yet; the floor applies from the first code in Sources/IssokuCore')
+    print('HitoikiCore: nothing to measure yet; the floor applies from the first code in Sources/HitoikiCore')
     sys.exit(0)
 percent = data['totals']['lines']['percent']
-print(f'IssokuCore line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
+print(f'HitoikiCore line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
 sys.exit(0 if percent >= $FLOOR else 1)
 "
 
@@ -63,11 +63,11 @@ sys.exit(0 if percent >= $FLOOR else 1)
 # The surface. Excluded by name: App.swift, because the delegate needs a running
 # application; PanelWindow.swift, TranscriptView.swift and SettingsWindow.swift,
 # because they hold layout, drawing and event forwarding that cannot be driven
-# headless. The transcript's logic is the model, measured with IssokuCore.
-APP_IGNORE='(Tests/|\.build/|Sources/IssokuCore/|Sources/Issoku/(App|PanelWindow|TranscriptView|SettingsWindow)\.swift)'
+# headless. The transcript's logic is the model, measured with HitoikiCore.
+APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow)\.swift)'
 
 echo
-echo "== Sources/Issoku =="
+echo "== Sources/Hitoiki =="
 xcrun llvm-cov report "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
     -instr-profile "$PROFDATA" \
     -ignore-filename-regex="$APP_IGNORE"
@@ -82,6 +82,6 @@ import json, sys
 data = json.load(sys.stdin)['data'][0]
 files = [f['filename'] for f in data['files']]
 percent = data['totals']['lines']['percent']
-print(f'Sources/Issoku line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
+print(f'Sources/Hitoiki line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
 sys.exit(0 if files and percent >= $FLOOR else 1)
 "

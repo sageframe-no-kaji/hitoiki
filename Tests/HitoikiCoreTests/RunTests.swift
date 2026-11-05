@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import Testing
 
-@testable import IssokuCore
+@testable import HitoikiCore
 
 /// A command run to Done: every byte it sent, how it ended, the offer, and its pid and group.
 internal struct Outcome {
@@ -124,7 +124,7 @@ internal struct RunTests {
         let home = try makeDirectory()
         defer { try? FileManager.default.removeItem(atPath: home) }
         var given = ownedEnvironment(home: home)
-        given["ISSOKU_PROBE"] = "a b=c"
+        given["HITOIKI_PROBE"] = "a b=c"
         #expect(try await printedEnvironment(given) == given)
 
         given["TERM"] = nil
@@ -539,9 +539,9 @@ extension RunTests {
         defer { try? FileManager.default.removeItem(atPath: home) }
         let shell = try writeScript("fake-shell", in: home, body: "exit 3")
         var environment = ownedEnvironment(home: home)
-        environment["ISSOKU_ORIGINAL"] = "kept"
+        environment["HITOIKI_ORIGINAL"] = "kept"
         let outcome = try await drive(
-            "echo $ISSOKU_ORIGINAL",
+            "echo $HITOIKI_ORIGINAL",
             environment: environment,
             captureShell: shell
         ) { run in

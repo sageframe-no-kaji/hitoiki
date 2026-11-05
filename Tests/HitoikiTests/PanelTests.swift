@@ -5,14 +5,14 @@
 import AppKit
 import Darwin
 import Foundation
-import IssokuCore
+import HitoikiCore
 import Testing
 
-@testable import Issoku
+@testable import Hitoiki
 
 /// A directory the test owns, removed by the test.
 private func makeDirectory() throws -> String {
-    let path = NSTemporaryDirectory() + "issoku-panel-tests-" + UUID().uuidString
+    let path = NSTemporaryDirectory() + "hitoiki-panel-tests-" + UUID().uuidString
     try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     return path
 }

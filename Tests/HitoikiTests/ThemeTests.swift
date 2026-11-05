@@ -1,6 +1,6 @@
 import Testing
 
-@testable import Issoku
+@testable import Hitoiki
 
 @Suite("Theme")
 internal struct ThemeTests {

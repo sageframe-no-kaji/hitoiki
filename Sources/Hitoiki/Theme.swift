@@ -7,7 +7,7 @@
 // §2. Their dark values are copied from pālana's `Sources/Palana/Theme.swift`,
 // its ho-15 port of Sharibako's dark mode. pālana is the source of truth for
 // both; a change there is copied here, never made here first. The three
-// transcript colours are Issoku's own, derived from those eight (ho-04
+// transcript colours are Hitoiki's own, derived from those eight (ho-04
 // Decision 2).
 //
 // The pure `resolved(dark:)` seam is unit-tested per token, so the palette

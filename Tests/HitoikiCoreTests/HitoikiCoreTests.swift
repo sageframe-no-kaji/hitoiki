@@ -1,11 +1,11 @@
 import Testing
 
-@testable import IssokuCore
+@testable import HitoikiCore
 
 @Suite("Smoke")
 internal struct SmokeTests {
     @Test("Version is non-empty")
     internal func versionIsSet() {
-        #expect(!IssokuCore.version.isEmpty)
+        #expect(!HitoikiCore.version.isEmpty)
     }
 }

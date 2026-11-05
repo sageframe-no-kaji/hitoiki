@@ -2,14 +2,14 @@
 created: 2026-10-24
 status: active
 type: ho-overview
-project: issoku
+project: hitoiki
 stage: kamae-4
 kamae-chain: seed → system-design → readme → **ho-overview**
-builds-on: kamae-2-issoku-system-design, kamae-3 README.md
+builds-on: kamae-2-hitoiki-system-design, kamae-3 README.md
 next: ho-00 (kamae-5 authoring)
 ---
 
-# Issoku — Ho Overview
+# Hitoiki — Ho Overview
 
 Seven build hos in five phases, ho-00 through ho-06, each build ho from ho-01 on followed by a review ho that carries an x: ho-01x, ho-02x, and so on. Thirteen hos in all. The overview commits to the order, the phase boundaries, the decisions each ho resolves, the review that closes each build ho, and the two points where the plan is re-examined before continuing.
 
@@ -251,6 +251,23 @@ Terminal-control handling is where "minimal" quietly becomes a parser for the wh
 - Is the memory ceiling enforced by measurement in a test, or asserted in a comment?
 - Does Transcript know anything about Run beyond receiving bytes?
 
+### ho-04.5 — Rename to Hitoiki
+
+Inserted by the ruling of 2026-11-04. The app is 一息; *hitoiki* is the everyday reading, "a breather"; *issoku* is the on-reading the project was started under by mistake. The rename changes the package and product names, the source, the tests, the coverage script, the living documents, the three Kamae file names (ruled 2026-11-05) and the State Memory's path. The seed, the System Design, the closed hos, the reviews and the build record keep "Issoku" as the historical name; the README says so once. No behaviour changes. Spec: `ho-process/hos/ho-04.5-rename-to-hitoiki.md`.
+
+**Depends on:** ho-04x.
+
+**What's out of scope:** Any change beyond the name. The repository directory, which the practitioner renames by hand after the closing commit.
+
+### ho-04.5x — Review of Rename to Hitoiki
+
+A rename is where a word gets changed in one more place than the spec listed, or one fewer. The antagonist checks the invariant held, and nothing else needs checking.
+
+**Depends on:** ho-04.5.
+
+**Ho-specific questions:**
+- Did the invariant hold? In every tracked file outside the protected set, the old name appears only in the README's one historical sentence and the overview's body and build record below its title; every protected file is byte-identical to `36e3785`; the tree at `36e3785` under the four substitutions is identical to the closing tree at `Package.swift`, `Sources/`, `Tests/` and `scripts/`; the stack is green with 43 and 70 tests and the same coverage. Check each by command, not by reading the spec's Results.
+
 **Phase boundary — replan checkpoint.** After ho-04x passes. First real use. The practitioner runs Issoku for a week of actual work before ho-05. Friction found here changes ho-05's scope or inserts a ho-04.5. See Replan checkpoints.
 
 ## Phase 3 — Memory
@@ -370,6 +387,7 @@ Hos are numbered in sequence. A ho that splits becomes decimals of itself: ho-03
 - **App Store build.** After 1.0, if ever. Run is the boundary a sandboxed build would change entitlements behind.
 - **ControlMaster.** An SSH config recommendation in the README's Requirements, not an app feature.
 - **Update check (practitioner, 2026-11-04).** The app pings GitHub to learn whether a newer release exists, and the check can be turned off. Placed at the replan checkpoint; the orchestrator's recommendation is ho-06, The Ship, since the check reads GitHub Releases and needs a release to compare against, with the switch in the settings window from ho-05. An outward network call from the app is a System Design question the practitioner settles there: what is sent, how often, and the default.
+- **The project webpage (practitioner, 2026-11-05).** The page carries the README footer's line, "Lovingly made by hand, in collaboration with AI, using the [Ho process](https://hosystem.sageframe.net/)", with the link. Placed at ho-06, The Ship, where the page is built.
 - **The brief itself.** The antagonist brief is a first draft. After ho-02x, the first review of shipping code, the practitioner reads the report against the diff and edits the brief for whatever it missed or over-flagged. The edit is recorded in the build record.
 
 ## Dependency summary
@@ -681,3 +699,13 @@ The two Notes record limits, not defects. N1: the memory reading is a sampled al
 - **NEXT** — ho-04.5, Rename to Hitoiki (ruled 2026-11-04): author its spec with the Kamae 5 skill in a fresh session, since the rename moves the working directory. Then ho-04.6, the Escape ladder and the click-out rule. Then the replan week.
 - **ACTION ITEMS / BLOCKS** — For ho-04.5: repository directory and remote, package and product names `IssokuCore`/`Issoku`, CLAUDE.md, README (one sentence on the historical name), K4, the State Memory path and `.gitignore`, scripts, metadata, the source and tests; the seed, closed hos and reviews keep "Issoku". For ho-04.6: the ladder as ruled in ho-04's Reflect; revises System Design 2.1 and ho-03. For the replan: the Transcript suite at 87 s; the unbroken-line streaming cost; the input at 18; the update check against GitHub with an off switch (recommended ho-06). For ho-05: up-arrow history recall and the list carried from ho-03.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-04.5 — Rename to Hitoiki — closed 2026-11-05
+
+Opening hash: `36e3785` (ho-04's closing commit); the spec opened in `aa1c06b`. Spec: `ho-process/hos/ho-04.5-rename-to-hitoiki.md`, an invariant-only spec. Think rulings 2026-11-05: the three Kamae files move with the project (`kamae-1-hitoiki-seed.md`, `kamae-2-hitoiki-system-design.md`, `kamae-4-hitoiki-ho-overview.md`), their content untouched; the ho gets a review, ho-04.5x, with one question. The practitioner also ruled the README footer's line, "Lovingly made by hand, in collaboration with AI, using the Ho process", with the link to hosystem.sageframe.net, and the same line for the project's webpage at ho-06. One Opus subagent did the code paths by `git mv` and four substitutions; the orchestrator did the documents. The builder reported two slips in the spec (27 identifier lines in 17 files, not 26 in 16; `IssokuCoreTests.swift` missing from the move list), corrected in place. The invariant was checked by command: the old name survives only in the README's historical sentence and the overview's body and build record; the seed, the System Design and the fixture are `R100`; the old tree under substitution is byte-identical to the new at `Package.swift`, `Sources`, `Tests` and `scripts`; the stack is green before and after with 43 and 70 tests and 95.75% / 91.88%. No app launch. The build record and every closed document keep "Issoku".
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.5. The project is Hitoiki in the package, the products and targets, the source, the tests, the coverage script, CLAUDE.md, the README, the three Kamae files, the x-ho template, the roster, the gitignore and the State Memory's path. The protected set is byte-identical to `36e3785`. Same numbers before and after.
+- **NEXT** — ho-04.5x run 1 from `ho-process/hos/ho-04.5x-review-of-rename-to-hitoiki.md`, over `aa1c06b` through this ho's closing commit. Report: `ho-process/reviews/ho-04.5x-report-1.md`. The practitioner renames the directory `issoku` → `hitoiki` by hand after the closing commit; the next orchestrator session opens in `hitoiki`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. After a Pass: ho-04.6, the Escape ladder and the click-out rule (revises System Design 2.1 and ho-03); then the replan week under the right name. For ho-06: the webpage line, recorded under deferred decisions. Every path in a closed ho or review that names `Sources/Issoku/...` or `kamae-N-issoku-...` is historical and no longer resolves; that is forward-only's cost and the README says so.
+- **PROJECT LIFECYCLE** — kamae.

@@ -1,6 +1,6 @@
-<!-- GENERATED — do not hand-edit. Sources: ho-process/kamae-4-issoku-ho-overview.md + ho-process/hos/ -->
+<!-- GENERATED — do not hand-edit. Sources: ho-process/kamae-4-hitoiki-ho-overview.md + ho-process/hos/ -->
 
-# issoku — ho status
+# hitoiki — ho status
 
 | Ho | Title | Shape | Status |
 |---|---|---|---|
@@ -20,3 +20,5 @@
 | 04.1 | Fix pass for Transcript — answer ho-04x run 1 | ri | complete |
 | 04.2 | Second fix pass for Transcript — answer ho-04x run 2 | ri | complete |
 | 04.3 | Third fix pass for Transcript — answer ho-04x run 3 | ri | complete |
+| 04.5 | Rename to Hitoiki | ri | complete |
+| 04.5x | Review of Rename to Hitoiki | x | drafted |

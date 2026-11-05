@@ -1,5 +1,5 @@
 import AppKit
-import IssokuCore
+import HitoikiCore
 
 /// The one monospace zone: what the command printed, drawn from the Transcript model.
 ///

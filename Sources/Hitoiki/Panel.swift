@@ -1,5 +1,5 @@
 import AppKit
-import IssokuCore
+import HitoikiCore
 
 /// The controller behind the only visible surface: the last state Run reported, the one dismiss
 /// rule, and what each control and each key does to the Run.

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import IssokuCore
+@testable import HitoikiCore
 
 /// sudo's real refusal when it has no terminal: 164 bytes from sudo 1.9.13p3.
 internal func sudoFixtureURL() throws -> URL {

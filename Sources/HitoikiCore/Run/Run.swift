@@ -44,7 +44,7 @@ public actor Run {
     private let chunks: AsyncStream<[UInt8]>
     private let chunksOut: AsyncStream<[UInt8]>.Continuation
     private let statesOut: AsyncStream<RunState>.Continuation
-    private let queue = DispatchSerialQueue(label: "issoku.run")
+    private let queue = DispatchSerialQueue(label: "hitoiki.run")
     private var environment: [String: String]
     private let captureShell: String?
     private var child: Child?

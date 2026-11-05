@@ -11,7 +11,7 @@ internal final class SettingsWindow: NSWindow {
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: true)
-        title = "Issoku Settings"
+        title = "Hitoiki Settings"
         isReleasedWhenClosed = false
         let label = NSTextField(wrappingLabelWithString: text)
         label.font = .systemFont(ofSize: 12)
