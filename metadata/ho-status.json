@@ -1,7 +1,7 @@
 {
   "schema": "ho-status/1",
   "project": "issoku",
-  "generated_at": "2026-11-04",
+  "generated_at": "2026-11-05",
   "source": {
     "overview": "ho-process/kamae-4-issoku-ho-overview.md",
     "hos_dir": "ho-process/hos/"
@@ -9,9 +9,9 @@
   "summary": {
     "hos": 16,
     "drafted": 0,
-    "complete": 15,
+    "complete": 16,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -131,10 +131,11 @@
           "ho": "04x",
           "title": "Review of Transcript — the one monospace zone",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "reviews": "04",
           "run": 4,
-          "doc": "ho-process/hos/ho-04x-review-of-transcript.md"
+          "doc": "ho-process/hos/ho-04x-review-of-transcript.md",
+          "verdict": "Pass"
         },
         {
           "ho": "04.1",
