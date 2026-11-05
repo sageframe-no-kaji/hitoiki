@@ -8,15 +8,16 @@ kamae: 5
 shape: x
 phase: 2 — The Surface
 title: Review of Transcript — the one monospace zone
-description: Rechecks the Transcript build and its two fix passes against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
+description: Rechecks the Transcript build and its three fix passes against the standing brief and the three ho-04x questions, with a report and a Pass or Return verdict.
 reviews: ho-04
-run: 3
+run: 4
 model: gpt-6.1-sol
 builds-on:
   - kamae-4-issoku-ho-overview
   - ho-process/hos/ho-04-transcript.md
   - ho-process/hos/ho-04.1-fix-pass.md
   - ho-process/hos/ho-04.2-fix-pass.md
+  - ho-process/hos/ho-04.3-fix-pass.md
 ---
 
 # ho-04x — Review of Transcript — the one monospace zone
@@ -29,6 +30,8 @@ The unit is `Sources/IssokuCore/Transcript/Transcript.swift` (the model: bytes i
 
 **Run 3.** Run 2 (`ho-process/reviews/ho-04x-report-2.md`) judged run 1's M2 leak, M3 and N3 answered and returned on three findings with one cause: ho-04.1 bounded the model at moments that depend on where a feed ends. The second fix pass `ho-process/hos/ho-04.2-fix-pass.md` answers them by one definition: nothing the model reports depends on where a feed ends. The line in progress is the newest 1 MiB of columns at every byte, through an origin index that moves by whole characters after each byte; CR returns to the origin; the arrays are compacted when the origin passes the 16 KiB slack and at feed end, and compaction changes nothing reported. BEL ends a control string after an ESC as well. `commit()` evicts as each line is committed, replacing the evicted line by an empty one behind a `head` index so its text is released at once, with the array compacted every 10,000 evictions and at feed end; `feed` keeps a final eviction for the line in progress growing since the last commit. Its Results record facts for you: the evicted placeholders are visible only within a feed, never in `lines` between feeds; the resident-size test reads `mach_task_basic_info` across one 50 MB feed after `malloc_zone_pressure_relief`, bound 32 MiB, measured 1.6 MB after the fix and 74–77 MB before; the Transcript suite is now `.serialized` for that reading, 16 s → 72 s. Read the whole unit again, not just the fixes, against all three specs. Rate any earlier finding you judge unanswered as you would any other. This is the third run; a third Return stops the build at the standing checkpoint, so state each Must-fix against the exact line of the spec it violates.
 
+**Run 4.** Run 3 (`ho-process/reviews/ho-04x-report-3.md`) judged every earlier finding answered and returned on one: the aggregate ceiling was still checked at feed end, and a narrowing multibyte overwrite made that moment partition-dependent. The third Return invoked the standing checkpoint; the practitioner ruled on 2026-11-05 that the fix-pass specs were at fault, not this brief or the builder, and opened a fourth pass under an invariant-only spec, `ho-process/hos/ho-04.3-fix-pass.md`. Its section "The invariant" is the rule you review against: every ceiling holds after every byte, enforced at the byte that breaks it; `feed` reads, compacts and reports, and checks nothing; compaction and release change nothing reported; every check reads retained counts. The code change is four lines: `evict()` after the origin moves in `put` and the continuation join, and nothing after `feed`'s loop. The tests feed a prefix in 16 KiB chunks and a tail under every partition, every split point and one byte per feed, with multibyte overwrites at each ceiling; your run-3 probe is pinned verbatim with the invariant's result, ten lines, the second first, 9,437,184 bytes. Its Results record two facts for you: the subagent halted when the spec's first expected result for that probe (the old code's eleven lines) contradicted the invariant, and the orchestrator corrected the spec in `079ad95`; and the memory test's method changed from the endpoint reading the spec named to a sampled peak of the allocator's bytes in use during the feed, the orchestrator's change after the endpoint reading read negative growth under the new tests, answering your N1 (measured 2.7 MB with the fix and 124.6 MB with ho-04.1's model). Read the whole unit again against all four specs. Rate any earlier finding you judge unanswered as you would any other.
+
 **Goal**
 
 A written report at the path named under Files, answering every question in the brief with file and line references or the word "none", with each finding rated, ending in one verdict: Pass or Return.
@@ -36,16 +39,16 @@ A written report at the path named under Files, answering every question in the 
 **Inputs**
 
 - Build ho spec: `ho-process/hos/ho-04-transcript.md`
-- Fix-pass specs: `ho-process/hos/ho-04.1-fix-pass.md`, `ho-process/hos/ho-04.2-fix-pass.md`
-- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac`
+- Fix-pass specs: `ho-process/hos/ho-04.1-fix-pass.md`, `ho-process/hos/ho-04.2-fix-pass.md`, `ho-process/hos/ho-04.3-fix-pass.md`
+- Commit range: `e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..dd110402e715317a085485b362606d2b0f7108fa`
 - The seed, sections 8 and 12: `ho-process/kamae-1-issoku-seed.md`
 - The System Design, for the component boundaries: `ho-process/kamae-2-issoku-system-design.md`
 
 **Files**
 
-- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac`
+- Read-only: everything in the commit range, via `git diff e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..dd110402e715317a085485b362606d2b0f7108fa`
 - Read-only: the three inputs above
-- Create: `ho-process/reviews/ho-04x-report-3.md`
+- Create: `ho-process/reviews/ho-04x-report-4.md`
 
 No other file is created or modified.
 
@@ -80,9 +83,9 @@ Do not praise the code. Do not summarise what it does. Do not propose redesigns.
 **Report format**
 
 ```markdown
-# ho-04x report, run 3
+# ho-04x report, run 4
 
-Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac
+Commit range: e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..dd110402e715317a085485b362606d2b0f7108fa
 Build: <pass | fail, with the command's last lines if fail>
 Tests: <N passed, M failed>
 Coverage: <percent, from the coverage script>
@@ -129,8 +132,8 @@ Every finding carries a `file:line`. A question with no finding is answered "non
 swift build 2>&1 | tail -5
 swift test 2>&1 | tail -5
 swift test --enable-code-coverage >/dev/null 2>&1 && scripts/coverage-floor.sh
-git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..4028969c97e7d4154c590693e5d1eb3d8863d0ac
-git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-3.md
+git diff --stat e08c5ea0be1ed6443a6327869dda6f39ba7cab0a..dd110402e715317a085485b362606d2b0f7108fa
+git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-4.md
 ```
 
 **Do not**
@@ -149,7 +152,7 @@ git status --porcelain      # expect only: ?? ho-process/reviews/ho-04x-report-3
 Commit only the report.
 
 ```
-ho-04x: review of ho-04, run 3 — <Pass | Return>
+ho-04x: review of ho-04, run 4 — <Pass | Return>
 ```
 
 No trailers, no co-author lines.
