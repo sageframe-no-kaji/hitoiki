@@ -95,6 +95,8 @@ A fifth component, Hand-off, was proposed and dissolved during the conversation.
 
 **Interface to Run.** `start(line, cwd)`, `interrupt()`, `kill()`. Receives `stateChanged(.running | .done(status))`.
 
+**Amendment, 2026-11-05 (ho-04.6).** The text above stands as written. ho-04.6 (`ho-process/hos/ho-04.6-escape-ladder-and-click-out.md`) revises the three states' exits, by the practitioner's rulings of 2026-11-04 and 2026-11-05. Escape is a deliberate path that peels one layer at a time: while Running it stops the command as Stop does; a stopped, Done or typed panel it clears to a clean panel still on screen, killing anything alive; a clean panel it hides. Click-out hides the panel and keeps everything on it, and the next summons brings it back as it was; it never hides a running command, which stays on screen without the keyboard. The hotkey shows a hidden panel, gives the keyboard to a visible one without it, and hides one with it, except while Running, where it never hides. "Nothing survives the panel" and "there is no background mode" stand. "Escape and click-out never kill a running process; they are the accident paths and are inert while Running" is superseded for Escape and confirmed for click-out. Escape never reaches the command as a key.
+
 ### 2.2 Run
 
 **Responsibility.** One command's life. Run is the only component that touches processes, and the only boundary a sandboxed build would ever change entitlements behind.
