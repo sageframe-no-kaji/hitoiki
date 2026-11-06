@@ -268,6 +268,25 @@ A rename is where a word gets changed in one more place than the spec listed, or
 **Ho-specific questions:**
 - Did the invariant hold? In every tracked file outside the protected set, the old name appears only in the README's one historical sentence and the overview's body and build record below its title; every protected file is byte-identical to `36e3785`; the tree at `36e3785` under the four substitutions is identical to the closing tree at `Package.swift`, `Sources/`, `Tests/` and `scripts/`; the stack is green with 43 and 70 tests and the same coverage. Check each by command, not by reading the spec's Results.
 
+### ho-04.6 — The Escape ladder and the click-out rule
+
+Inserted by the ruling of 2026-11-04 in ho-04's Reflect, reshaped in its Think on 2026-11-05. The panel's one dismiss rule becomes three moves — hide, show, clear — and an Escape that peels one layer at a time: a running command stops, a stopped command, a result or a typed line clears (killing anything alive), a clean panel hides. Click-out hides and keeps everything; it never hides a running panel. The hotkey toggles visibility except while Running. Stated as a table of state × event → result with a test under every cell. Revises System Design 2.1 by a dated amendment note and supersedes ho-03's Decisions 5, 6, 8 and 17 without editing them. Spec: `ho-process/hos/ho-04.6-escape-ladder-and-click-out.md`.
+
+**Depends on:** ho-04.5x.
+
+**What's out of scope:** Stop and Control-C, Quit, the submission in flight, history and recall (ho-05), any change under `Sources/HitoikiCore/`.
+
+### ho-04.6x — Review of The Escape ladder and the click-out rule
+
+The ladder is six states by five events; the antagonist checks that every cell is tested in a way that would fail if the cell were wrong, that nothing of the ladder is stored rather than derived, and that no path hides a panel with a command alive.
+
+**Depends on:** ho-04.6.
+
+**Ho-specific questions:**
+- Does every cell of the table have a test that would fail if the cell were wrong? Name any cell whose test would still pass with the wrong result, including the "nothing" cells.
+- Is any state of the ladder stored rather than derived from `state`, `stopped`, `submission`, the input's text and the window's visibility and key status? The spec allows one stored property, `cleared`, for the start that waits on a killed command's Done.
+- Can any path hide a panel with a command alive or a start in flight? Read every call that orders the window out.
+
 **Phase boundary — replan checkpoint.** After ho-04x passes. First real use. The practitioner runs Issoku for a week of actual work before ho-05. Friction found here changes ho-05's scope or inserts a ho-04.5. See Replan checkpoints.
 
 ## Phase 3 — Memory
@@ -388,6 +407,7 @@ Hos are numbered in sequence. A ho that splits becomes decimals of itself: ho-03
 - **ControlMaster.** An SSH config recommendation in the README's Requirements, not an app feature.
 - **Update check (practitioner, 2026-11-04).** The app pings GitHub to learn whether a newer release exists, and the check can be turned off. Placed at the replan checkpoint; the orchestrator's recommendation is ho-06, The Ship, since the check reads GitHub Releases and needs a release to compare against, with the switch in the settings window from ho-05. An outward network call from the app is a System Design question the practitioner settles there: what is sent, how often, and the default.
 - **The project webpage (practitioner, 2026-11-05).** The page carries the README footer's line, "Lovingly made by hand, in collaboration with AI, using the [Ho process](https://hosystem.sageframe.net/)", with the link. Placed at ho-06, The Ship, where the page is built.
+- **Recall and a history control (practitioner, 2026-11-05, ho-04.6 Think).** Two items for ho-05 beside the history file: up-arrow recall in the input of the commands run since launch, held in session memory first since the history file is off by default; and a control on the bar that drops the list. Refused the same day: output history by scrolling (one command, one result is the product's shape) and a Clear button (Escape is the clear, by ho-04.6's ladder).
 - **The brief itself.** The antagonist brief is a first draft. After ho-02x, the first review of shipping code, the practitioner reads the report against the diff and edits the brief for whatever it missed or over-flagged. The edit is recorded in the build record.
 
 ## Dependency summary
@@ -720,4 +740,14 @@ The Note records a wording defect in the closed spec, not a defect in the work: 
 - **COMPLETED** — ho-04.5x run 1, Pass. ho-04.5 closed: the project is Hitoiki in the package, the code, the tests, the script and every living document; the historical documents keep Issoku. The practitioner renamed the directory to `hitoiki` after the closing commit.
 - **NEXT** — ho-04.6, the Escape ladder and the click-out rule (the ruling is in ho-04's Reflect; it revises System Design 2.1 and ho-03), in a fresh session: author its spec with the Kamae 5 skill.
 - **ACTION ITEMS / BLOCKS** — None blocking. For ho-04.6: the ladder as ruled. For the replan week after it: the Transcript suite at 91 s; the unbroken-line streaming cost; the input at 18; the update check against GitHub with an off switch (recommended ho-06). For ho-06: the webpage line. For the next x-ho spec whose ho adds its own document: say in the invariant that the ho's own documents are outside the old-name clause, so the wording and the command agree.
+- **PROJECT LIFECYCLE** — kamae.
+
+### ho-04.6 — The Escape ladder and the click-out rule — closed 2026-11-05
+
+Opening hash: `9a1b8be` (ho-04.5's closing commit); the spec and the §2.1 amendment note opened in `2bd72a0`; the build is `3a3ec54`. Spec: `ho-process/hos/ho-04.6-escape-ladder-and-click-out.md`, a state × event table with seven invariants and no recipe. Five Think rulings 2026-11-05: the hotkey is a pure visibility toggle except while Running (with the keyboard it does nothing; without, it takes the keyboard; a hotkey that hid a running command was refused twice as the background mode); the ladder begins at Running, the in-flight gap keeps ho-03.2's rule; click-out hides and keeps everything, never a running panel (replacing the 2026-11-04 ruling's "dismisses only a clean panel" after walking the paste case); Escape peels one layer — stop, clear, hide — and the clear takes the input's text too; Keystrokes maps Escape to `.escape`. One Opus subagent built it with no halt; the orchestrator read the diff against the invariants, fixed one stale comment, ran the stack once and committed. Tests 43 → 62 app (19 new, 10 rewritten, none deleted), 70 core; coverage 95.75% and 92.44%. The practitioner's six-item sheet passed 6/6 in the release build. Recorded for the review: the absorbed-Done test has no sync point; a start after a clear waits on the killed command's Done without a bound; the stop counter resets at Running; the supersedes note's "Quit alone" was the spec's slip. Cost: the Panel suite takes the practitioner's screen and keyboard on every run; a Tart VM for test runs is the replan week's first item. Deferred to ho-05: up-arrow recall and a history control; refused: output history, a Clear button.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.6. Three moves and the ladder in Panel; every Escape route, the click-out and the hotkey each reach one function; the six states derived, not stored; the table tested cell by cell; System Design 2.1 amended by note; six live items passed.
+- **NEXT** — ho-04.6x run 1 from `ho-process/hos/ho-04.6x-review-of-escape-ladder-and-click-out.md`, over `2bd72a0` through this ho's closing commit. Report: `ho-process/reviews/ho-04.6x-report-1.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. After a Pass: the replan week — first a Tart macOS VM so the tests run off the practitioner's screen; then the Transcript suite at ~92 s, the unbroken-line streaming cost, the input at 18, the update check with an off switch (ho-06). For ho-05: recall and the history control, with the list carried from ho-03. For ho-06: the webpage line.
 - **PROJECT LIFECYCLE** — kamae.

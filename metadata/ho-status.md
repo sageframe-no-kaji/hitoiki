@@ -22,3 +22,5 @@
 | 04.3 | Third fix pass for Transcript — answer ho-04x run 3 | ri | complete |
 | 04.5 | Rename to Hitoiki | ri | complete |
 | 04.5x | Review of Rename to Hitoiki | x | complete |
+| 04.6 | The Escape ladder and the click-out rule | ha | complete |
+| 04.6x | Review of The Escape ladder and the click-out rule | x | ready |

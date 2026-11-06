@@ -176,6 +176,22 @@
           "reviews": "04.5",
           "doc": "ho-process/hos/ho-04.5x-review-of-rename-to-hitoiki.md",
           "run": 1
+        },
+        {
+          "ho": "04.6",
+          "title": "The Escape ladder and the click-out rule",
+          "shape": "ha",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-04.6-escape-ladder-and-click-out.md"
+        },
+        {
+          "ho": "04.6x",
+          "title": "Review of The Escape ladder and the click-out rule",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "04.6",
+          "doc": "ho-process/hos/ho-04.6x-review-of-escape-ladder-and-click-out.md",
+          "run": 1
         }
       ]
     }
