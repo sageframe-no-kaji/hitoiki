@@ -136,12 +136,12 @@ public actor Run {
         exits.resume()
     }
 
-    /// Sends `SIGINT` to the command's process group.
+    /// Sends `SIGINT` to the command's process group, until Done, whether or not its leader has exited.
     public func interrupt() {
         signalGroup(SIGINT)
     }
 
-    /// Sends `SIGKILL` to the command's process group.
+    /// Sends `SIGKILL` to the command's process group, until Done, whether or not its leader has exited.
     public func kill() {
         signalGroup(SIGKILL)
     }
@@ -195,10 +195,13 @@ public actor Run {
         child?.writes = nil
     }
 
+    /// Signals the group for as long as Run holds the command, until Done: a reaped leader can leave
+    /// members of its group holding the terminal, and they are still the command's.
     private func signalGroup(_ signal: Int32) {
-        guard let child, child.exit == nil else { return }
-        // Before forkpty's child calls setsid, its new process group may not exist yet.
-        if killpg(child.pid, signal) < 0, errno == ESRCH { Darwin.kill(child.pid, signal) }
+        guard let child else { return }
+        // Before forkpty's child calls setsid, its new process group may not exist yet. Only an
+        // unreaped child is signalled by pid: once reaped, its pid is free for another process.
+        if killpg(child.pid, signal) < 0, errno == ESRCH, child.exit == nil { Darwin.kill(child.pid, signal) }
     }
 
     /// False at end of output or on a read error other than `EINTR` or `EAGAIN` (nothing now).

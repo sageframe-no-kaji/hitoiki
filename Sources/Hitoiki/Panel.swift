@@ -31,6 +31,9 @@ internal final class Panel {
     /// Starts waiting for the Done of a command a clear killed: non-nil from that clear until the Done
     /// arrives, which Run sends before it can start another.
     private var cleared: [CheckedContinuation<Void, Never>]?
+    /// Why the last start failed before Running, shown on the strip until the next submission, the next
+    /// Running or a clear; `apply` derives the strip from it, so a hide and a show keep it.
+    private var failedStart: String?
     private var notices: [String] = []
 
     /// True while a command runs or a start is in flight: nothing hides the panel, and Quit kills.
@@ -38,6 +41,10 @@ internal final class Panel {
         if case .running = state { return true }
         return submission != nil
     }
+
+    /// True from a clear that killed a running command until that command's Done has reached the panel
+    /// and changed nothing on it.
+    internal var awaitsClearedDone: Bool { cleared != nil }
 
     /// Drives `run` through `window` for the app's life.
     ///
@@ -133,6 +140,7 @@ internal final class Panel {
         var line = blank ? nil : typed
         if blank, case .done(_, let offer?) = state { line = offer }
         guard let line, submission == nil else { return }
+        failedStart = nil
         let size = window.terminalSize
         submission = Task {
             // A failed capture is the notice's to report; the command runs with the app's environment.
@@ -142,11 +150,9 @@ internal final class Panel {
             do {
                 try await run.start(line: line, cwd: directory, size: size)
             } catch RunError.spawnFailed(let code) {
-                submission = nil
-                apply(failure: "Could not start: " + String(cString: strerror(code)))
+                failStart("Could not start: " + String(cString: strerror(code)))
             } catch {
-                submission = nil
-                apply(failure: "Could not start: \(error)")
+                failStart("Could not start: \(error)")
             }
         }
     }
@@ -217,8 +223,16 @@ internal final class Panel {
             Task { await run.kill() }
         }
         state = nil
+        failedStart = nil
         window.input.stringValue = ""
         window.transcript.clear()
+        apply()
+    }
+
+    /// The start ended before Running: the reason is held and shown until something replaces it.
+    private func failStart(_ reason: String) {
+        submission = nil
+        failedStart = reason
         apply()
     }
 
@@ -230,6 +244,7 @@ internal final class Panel {
         switch next {
         case .running:
             submission = nil
+            failedStart = nil
             stops = 0
             stopped = false
             window.transcript.clear()
@@ -244,8 +259,10 @@ internal final class Panel {
         apply()
     }
 
-    /// Derives every control's visibility, the status line and the keyboard's place from `state`.
-    private func apply(failure: String? = nil) {
+    /// Derives every control's visibility, the status line and the keyboard's place from `state` and a
+    /// failed start's reason; `failure` is a one-time reason that is not a start's (Open in Terminal's).
+    private func apply(failure shown: String? = nil) {
+        let failure = shown ?? failedStart
         var running = false
         var exit: Exit?
         var offer: String?

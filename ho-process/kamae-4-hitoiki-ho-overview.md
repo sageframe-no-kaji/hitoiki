@@ -761,3 +761,13 @@ Range `2bd72a0..a5ee29a`; x document `39e3ffa`; Codex (`gpt-6.1-sol`) committed 
 - **NEXT** — ho-04.6.1, the fix pass: the Run guard, the restated invariant 3 with its survivor test, the conclusive late-Done test, the failed start kept through hide and show, the keyboard test's branch. Then ho-04.6x run 2.
 - **ACTION ITEMS / BLOCKS** — ho-04.6 reopened by the Return. The fix pass touches `Sources/HitoikiCore/Run/Run.swift` and its tests, authorised by the ruling. For the replan week: the Tart VM first.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-04.6.1 — Fix pass for the Escape ladder — closed 2026-11-06
+
+Opening hash: `eb2f0ad` (Codex's run-1 report); the spec opened in `aa176b3`. Spec: `ho-process/hos/ho-04.6.1-fix-pass.md`, invariant-only: invariant 3 restated to ho-02's hang-up rule (practitioner, option A, 2026-11-05), invariant 2 extended to a failed start's reason, and Run's signal rule stated. One Opus subagent, no halt: `Run.signalGroup` signals while a command is held, with the by-pid fallback only for an unreaped leader; Panel holds `failedStart` and derives the strip from it, and exposes `awaitsClearedDone`; four tests — the reaped-leader kill in the core suite (failed against the old guard), the survivor that records the ruling, the race test made conclusive by waiting on the exposed fact (the mutation now fails every run), the failed start forced by `RLIMIT_NPROC` 1 for one spawn and kept through hide and show — and `hotkeyTakesKeyboard` branching on the rung. The spec's example line for the core test was wrong (the hang-up kills it, as ho-02 found); the builder used the reviewer's line under the invariant. Tests 62 → 64 app, 70 → 71 core; coverage 95.76% / 93.73%. Named for run 2: Open in Terminal's message still one-shot; group-id reuse before Done; a `file_length` suppression in `RunTests.swift`. No app launch.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.6.1: M1 (the Run guard and the restated invariant with its survivor test), M2, M3 and S1 answered; N1 and N2 stand.
+- **NEXT** — ho-04.6x run 2 over `2bd72a0` through this ho's closing commit, both specs, report `ho-process/reviews/ho-04.6x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. After a Pass: the replan week, the Tart VM first. The builder's process-limit window in the Panel suite is one spawn long; keep it that way.
+- **PROJECT LIFECYCLE** — kamae.

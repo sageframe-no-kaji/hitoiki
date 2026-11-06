@@ -316,6 +316,9 @@ extension PanelTests {
         case doneTyped = "Done, typed"
 
         var testDescription: String { rawValue }
+
+        /// A submission in flight or a command running: the states nothing may hide.
+        var busy: Bool { [.inFlight, .live, .stopped].contains(self) }
     }
 }
 
@@ -376,6 +379,30 @@ private func expectUntouched(_ rung: PanelTests.Rung, _ fixture: Fixture, openin
         Issue.record("\(rung) is not busy")
     }
     try await fixture.end(opening: open)
+}
+
+/// Submits `line` while this process may create no process, so the start fails in forkpty before
+/// Running, and restores the limit as soon as the panel has taken the failure.
+///
+/// The kernel lowers the hard limit to its per-user ceiling at the first set, so the soft limit goes
+/// back under the hard limit as it then stands.
+@MainActor
+private func failStart(_ line: String, in fixture: Fixture) async throws {
+    var limit = rlimit()
+    try #require(getrlimit(RLIMIT_NPROC, &limit) == 0)
+    var none = rlimit(rlim_cur: 1, rlim_max: limit.rlim_max)
+    try #require(setrlimit(RLIMIT_NPROC, &none) == 0)
+    defer {
+        var now = rlimit()
+        #expect(getrlimit(RLIMIT_NPROC, &now) == 0)
+        var restored = rlimit(rlim_cur: min(limit.rlim_cur, now.rlim_max), rlim_max: now.rlim_max)
+        #expect(setrlimit(RLIMIT_NPROC, &restored) == 0)
+    }
+    fixture.panel.submit(line)
+    let deadline = ContinuousClock.now + .seconds(10)
+    while fixture.panel.isBusy, ContinuousClock.now < deadline {
+        await Task.yield()
+    }
 }
 
 // Serialized and on the main actor: Panel is main-actor bound, and two Runs spawning at once
@@ -1209,7 +1236,7 @@ extension PanelTests {
         #expect(before.visible && !before.key)
         fixture.panel.toggle()
         #expect(fixture.look() == before.withKeyboard)
-        if fixture.panel.isBusy {
+        if rung.busy {
             try await expectUntouched(rung, fixture, opening: open)
         }
     }
@@ -1250,13 +1277,20 @@ extension PanelTests {
         try await fixture.alive("a")
         #expect(fixture.panel.state == .running(pid: pid))
         fixture.panel.escape()
+        #expect(fixture.panel.awaitsClearedDone)
         #expect(fixture.look() == .clean)
         #expect(fixture.keyboardInInput)
         #expect(!fixture.window.transcript.showsCursor)
         #expect(try await survivors(ofGroup: pid).isEmpty)
 
-        // Run sends the killed command's Done before it starts another, so by the next command's Done
-        // the cleared Done has been through the panel: Clean until then, and nothing of it after.
+        // The killed command's Done has reached the panel once it is no longer awaited; the panel is
+        // read after that, so a Done applied there would be seen, not overwritten unseen.
+        try await fixture.until { !fixture.panel.awaitsClearedDone }
+        #expect(fixture.look() == .clean)
+        #expect(fixture.window.outputCard.isHidden)
+        #expect(fixture.keyboardInInput)
+
+        // Nothing of it reaches the next command either.
         fixture.panel.escape()
         #expect(fixture.look() == Look.clean.hidden)
         fixture.panel.toggle()
@@ -1284,6 +1318,85 @@ extension PanelTests {
         #expect(fixture.look() == .clean)
         #expect(fixture.keyboardInInput)
         #expect(try await survivors(ofGroup: pid).isEmpty)
+    }
+
+    // ho-02's ruling (2026-10-26), which the practitioner kept for the panel on 2026-11-05 (ho-04.6.1):
+    // once the leader exits, the kernel's hang-up on the closing terminal is what reaches the rest of
+    // the group, as a closed terminal window's does. A job that ignores it outlives the panel, and
+    // nothing is built for it. The test records that, then kills the group itself.
+    @Test("A job that ignores the hang-up outlives its leader's Done, a clear and a hide (ho-02's ruling, ho-04.6.1)")
+    internal func survivorOfHangUp() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        var group: pid_t?
+        // Cleanup only: the group is killed here if the test ends early with members left.
+        defer {
+            if let group, (try? ps(["-o", "pid=", "-g", "\(group)"]))?.isEmpty == false { killpg(group, SIGKILL) }
+        }
+        fixture.panel.show()
+        fixture.panel.submit("sh -c 'trap \"\" HUP INT; echo ready; sleep 30' & wait")
+        let pid = try await fixture.running()
+        group = pid
+        try await fixture.transcriptContains("ready")
+        fixture.panel.escape()
+        guard case .done = try await fixture.done() else { throw TimedOut() }
+        // The leader is gone and the job is not; its sleep may still be starting, so later reads keep
+        // every pid this one lists.
+        let members = Set(try ps(["-o", "pid=", "-g", "\(pid)"]).split(whereSeparator: \.isNewline))
+        #expect(try ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty)
+        #expect(!members.isEmpty)
+
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        fixture.panel.escape()
+        #expect(fixture.look() == Look.clean.hidden)
+        #expect(members.isSubset(of: try ps(["-o", "pid=", "-g", "\(pid)"]).split(whereSeparator: \.isNewline)))
+
+        killpg(pid, SIGKILL)
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+    }
+
+    @Test("Invariant 2: a start that fails before Running keeps its reason through a hide and a show")
+    internal func failedStartKept() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let window = fixture.window
+        fixture.panel.show()
+        window.input.stringValue = "echo never"
+        try await failStart(window.input.stringValue, in: fixture)
+        #expect(!fixture.panel.isBusy)
+        let before = fixture.look()
+        #expect(before.state == nil && before.input == "echo never")
+        #expect(before.status.hasPrefix("Could not start: "))
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+        #expect(!window.outputCard.isHidden)
+
+        fixture.clickOut()
+        #expect(fixture.look() == before.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+        #expect(!window.outputCard.isHidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+        #expect(!window.outputCard.isHidden)
+
+        // The next submission and its Running end the reason.
+        fixture.panel.submit("echo after")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(window.status.stringValue == "exit 0")
+        #expect(same(window.status.textColor, Theme.Token.inkFaint))
+
+        // So does a clear.
+        window.input.stringValue = "echo never"
+        try await failStart(window.input.stringValue, in: fixture)
+        #expect(window.status.stringValue.hasPrefix("Could not start: "))
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        #expect(window.outputCard.isHidden)
     }
 
     @Test("Invariant 1: in flight, live and stopped, neither click-out nor the hotkey hides the panel")

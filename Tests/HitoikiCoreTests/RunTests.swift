@@ -1,3 +1,7 @@
+// One serialized suite in the one test file ho-02 named for Run: ho-04.6.1's reaped-leader test cannot
+// move to a second file, since that ho allows none, so the file runs past the length rule.
+// swiftlint:disable file_length
+
 import Darwin
 import Foundation
 import Testing
@@ -303,6 +307,40 @@ internal struct RunTests {
         }
         #expect(outcome.exit == .status(0))
         #expect(left.isEmpty)
+    }
+
+    // ho-04.6.1: interrupt and kill reach the group until Done, not only until the leader is reaped.
+    // The leader, a shell waiting on its background job, dies of the interrupt; the job ignores the
+    // interrupt and the hang-up of the leader's exit, so it lives on in the group. Done is withheld
+    // while the chunk holding the marker is untaken, so Run still holds the command at the kill.
+    @Test("kill() after the leader is reaped, before Done, still empties the group")
+    internal func killAfterLeaderReaped() async throws {
+        let home = try makeDirectory()
+        defer { try? FileManager.default.removeItem(atPath: home) }
+        var group: pid_t?
+        // Cleanup only: the group is killed here if the test ends with it still holding members.
+        defer {
+            if let group, (try? ps(["-o", "pid=", "-g", "\(group)"]))?.isEmpty == false { killpg(group, SIGKILL) }
+        }
+        let outcome = try await drive(
+            "sh -c 'trap \"\" HUP INT; echo ready; sleep 30' & wait",
+            environment: ownedEnvironment(home: home),
+            after: "ready"
+        ) { run, pid in
+            group = pid
+            await run.interrupt()
+            let deadline = ContinuousClock.now + .seconds(10)
+            while try !ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty || ps(["-o", "pid=", "-g", "\(pid)"]).isEmpty {
+                guard ContinuousClock.now < deadline else {
+                    Issue.record("the leader was not reaped with a member of its group alive")
+                    return
+                }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            await run.kill()
+        }
+        #expect(try await survivors(ofGroup: outcome.pid).isEmpty)
+        #expect(outcome.exit != .status(0))
     }
 
     @Test("One command at a time: a second start throws until Done")

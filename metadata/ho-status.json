@@ -191,7 +191,15 @@
           "status": "ready",
           "reviews": "04.6",
           "doc": "ho-process/hos/ho-04.6x-review-of-escape-ladder-and-click-out.md",
-          "run": 1
+          "run": 2
+        },
+        {
+          "ho": "04.6.1",
+          "title": "Fix pass for the Escape ladder — answer ho-04.6x run 1",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "04.6",
+          "doc": "ho-process/hos/ho-04.6.1-fix-pass.md"
         }
       ]
     }
