@@ -35,7 +35,7 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     }
 
     internal func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let panel, !panel.canDismiss else { return .terminateNow }
+        guard let panel, panel.isBusy else { return .terminateNow }
         Task {
             await panel.killForQuit()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)

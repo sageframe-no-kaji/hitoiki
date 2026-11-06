@@ -21,7 +21,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let transcript = TranscriptView(width: width - 2 * inset)
     /// The input, the gear and the notice; in Composing, the whole panel.
     internal let bar = NSView()
-    /// The transcript and the strip, beneath the bar; Panel shows it from Running until a dismissal.
+    /// The transcript and the strip, beneath the bar; Panel shows it from Running until a clear.
     internal let outputCard = NSView()
 
     private static let width: CGFloat = 640
@@ -125,18 +125,19 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         return firstResponder?.tryToPerform(action, with: nil) == true || super.performKeyEquivalent(with: event)
     }
 
+    // Escape with no text responder to take it.
     override internal func cancelOperation(_ sender: Any?) {
-        panel?.dismissIfAllowed()
+        panel?.escape()
     }
 
     // The click-out: another window, in this app or another, took the keyboard.
     override internal func resignKey() {
         super.resignKey()
-        panel?.dismissIfAllowed()
+        panel?.hide()
     }
 
     /// A key pressed in the transcript while no command runs: the input takes the keyboard and the key,
-    /// as if it had been pressed there, so Escape dismisses, Return submits and characters type.
+    /// as if it had been pressed there, so Escape reaches the ladder, Return submits and characters type.
     internal func typeInInput(_ event: NSEvent) {
         makeFirstResponder(input)
         guard let editor = input.currentEditor() else { return }
@@ -216,7 +217,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             }
             return true
         case #selector(NSResponder.cancelOperation(_:)):
-            panel?.dismissIfAllowed()
+            panel?.escape()
             return true
         default:
             return false

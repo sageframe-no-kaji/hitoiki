@@ -13,6 +13,8 @@ internal enum Keystrokes {
         case stop
         /// The general pasteboard's string, as bytes for the pseudoterminal.
         case paste
+        /// The panel's Escape ladder; nothing reaches the command.
+        case escape
         /// Nothing reaches the command.
         case ignore
     }
@@ -20,8 +22,8 @@ internal enum Keystrokes {
     /// The action for a key, from the event's characters, modifier flags and virtual key code.
     ///
     /// Return and keypad Enter write a carriage return, Delete writes DEL, Command-V pastes,
-    /// Control-C stops; printable characters, with or without Shift or Option, are written as
-    /// UTF-8. Everything else, Escape and the cursor keys included, is ignored.
+    /// Control-C stops, Escape is the panel's; printable characters, with or without Shift or Option,
+    /// are written as UTF-8. Everything else, the cursor keys included, is ignored.
     internal static func action(characters: String?, modifiers: NSEvent.ModifierFlags, keyCode: UInt16) -> Action {
         let flags = modifiers.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) {
@@ -35,6 +37,8 @@ internal enum Keystrokes {
             return .write([0x0D])
         case kVK_Delete:
             return .write([0x7F])
+        case kVK_Escape:
+            return .escape
         default:
             break
         }

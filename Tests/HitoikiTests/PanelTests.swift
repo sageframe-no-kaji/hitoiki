@@ -3,6 +3,7 @@
 // swiftlint:disable file_length
 
 import AppKit
+import Carbon.HIToolbox
 import Darwin
 import Foundation
 import HitoikiCore
@@ -121,6 +122,41 @@ private func key(
 /// A condition the test waited ten seconds for.
 private struct TimedOut: Error {}
 
+/// The panel in the vocabulary of ho-04.6: visibility, key status, `state`, transcript text, status
+/// text, the offer, and the input's text.
+private struct Look: Equatable {
+    /// Clean, on screen, with the keyboard.
+    static let clean = Self(visible: true, key: true, state: nil, transcript: "", status: "", offer: false, input: "")
+
+    let visible: Bool
+    let key: Bool
+    let state: RunState?
+    let transcript: String
+    let status: String
+    let offer: Bool
+    let input: String
+
+    /// The same panel off screen: a hide changes nothing else.
+    var hidden: Self { on(screen: false, key: false) }
+
+    /// The same panel on screen with the keyboard, as a show or taking the keyboard leaves it.
+    var withKeyboard: Self { on(screen: true, key: true) }
+
+    /// The same panel on screen without the keyboard, as a click-out leaves a running one.
+    var withoutKeyboard: Self { on(screen: true, key: false) }
+
+    private func on(screen: Bool, key: Bool) -> Self {
+        Self(
+            visible: screen,
+            key: key,
+            state: state,
+            transcript: transcript,
+            status: status,
+            offer: offer,
+            input: input)
+    }
+}
+
 /// A launch task that returns only once the test calls `open`.
 @MainActor
 private func gate() -> (launch: Task<Void, any Error>, open: () -> Void) {
@@ -134,6 +170,12 @@ private struct Fixture {
     let home: String
     let panel: Panel
     let window: PanelWindow
+    /// Another window, in this app, for a click-out to give the keyboard to.
+    let other = NSPanel(
+        contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+        styleMask: [.titled, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false)
 
     /// `homeOnPath` makes the test's directory the whole `PATH`, for a fake `ssh`.
     init(
@@ -198,10 +240,142 @@ private struct Fixture {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ssh)
     }
 
+    /// The panel as the vocabulary reads it.
+    func look() -> Look {
+        Look(
+            visible: window.isVisible,
+            key: window.isKeyWindow,
+            state: panel.state,
+            transcript: window.transcript.string,
+            status: window.status.stringValue,
+            offer: !window.retryButton.isHidden,
+            input: window.input.stringValue)
+    }
+
+    /// The keyboard is in the input: its field editor is the window's first responder.
+    var keyboardInInput: Bool {
+        guard let editor = window.input.currentEditor() else { return false }
+        return window.firstResponder === editor
+    }
+
+    /// A click into another window: that window takes the keyboard, and the panel's resign-key path runs.
+    func clickOut() {
+        other.makeKeyAndOrderFront(nil)
+    }
+
+    /// The panel on screen without the keyboard: after a click-out, ordered front if the click-out hid it.
+    func loseKeyboard() {
+        clickOut()
+        if !window.isVisible { window.orderFront(nil) }
+    }
+
+    /// The command alive and reading: writes `tag` and a carriage return to it and waits for the file
+    /// `Fixture.held` touches for that line.
+    func alive(_ tag: String) async throws {
+        panel.keystroke(.write(Array("\(tag)\r".utf8)))
+        try await until { FileManager.default.fileExists(atPath: home + "/got-" + tag) }
+    }
+
+    /// Opens the launch, and if a command runs or is in flight, kills it, waits for its Done and
+    /// checks that its group is gone.
+    func end(opening open: () -> Void) async throws {
+        open()
+        guard panel.isBusy else { return }
+        let group = try await running()
+        panel.stop()
+        panel.stop()
+        _ = try await done()
+        #expect(try await survivors(ofGroup: group).isEmpty)
+    }
+
     func tearDown() {
+        other.orderOut(nil)
         window.orderOut(nil)
         try? FileManager.default.removeItem(atPath: home)
     }
+
+    /// A command that ignores SIGINT, prints `ready`, then for each line it reads prints and touches a file.
+    ///
+    /// The line `x` prints `got x` and touches `got-x` in the command's directory: a Stop leaves it alive,
+    /// and the file shows it alive whether or not its output is drawn. The file follows the print, so by
+    /// the command's Done the print has been read.
+    static let held =
+        "sh -c 'trap \"\" INT; echo ready; while read -r line; do echo \"got $line\"; touch \"got-$line\"; done'"
+}
+
+extension PanelTests {
+    /// The ladder's six states, as ho-04.6's vocabulary names them, with Done also reached with a
+    /// typed line (the table does not distinguish the two).
+    internal enum Rung: String, Sendable, CustomTestStringConvertible {
+        case clean = "Clean"
+        case typed = "Typed"
+        case inFlight = "In flight"
+        case live = "Running, live"
+        case stopped = "Running, stopped"
+        case done = "Done"
+        case doneTyped = "Done, typed"
+
+        var testDescription: String { rawValue }
+    }
+}
+
+/// A panel shown, with the keyboard, in `rung`, and the opener of its launch task: held shut for
+/// In flight, open for every other state.
+///
+/// Running states run `Fixture.held` at its readiness point; Running, stopped is reached with
+/// `stop()`, the Stop button's call. Done is `echo shown; exit 3`.
+@MainActor
+private func reach(_ rung: PanelTests.Rung) async throws -> (fixture: Fixture, open: () -> Void) {
+    let (launch, open) = gate()
+    if rung != .inFlight { open() }
+    let fixture = try Fixture(launch: launch)
+    fixture.panel.show()
+    switch rung {
+    case .clean:
+        break
+    case .typed:
+        fixture.window.input.stringValue = "typed line"
+    case .inFlight:
+        fixture.window.input.stringValue = Fixture.held
+        fixture.panel.submit(fixture.window.input.stringValue)
+        await Task.yield()
+    case .live, .stopped:
+        fixture.panel.submit(Fixture.held)
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        if rung == .stopped { fixture.panel.stop() }
+    case .done, .doneTyped:
+        fixture.panel.submit("echo shown; exit 3")
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        if rung == .doneTyped { fixture.window.input.stringValue = "typed line" }
+    }
+    return (fixture, open)
+}
+
+/// After an event that did nothing to a busy panel, the command is as it was: an In flight line still
+/// starts; a live command still draws what it prints; a stopped one is still alive and still not drawn.
+@MainActor
+private func expectUntouched(_ rung: PanelTests.Rung, _ fixture: Fixture, opening open: () -> Void) async throws {
+    switch rung {
+    case .inFlight:
+        #expect(fixture.panel.isBusy)
+        open()
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+    case .live:
+        try await fixture.alive("after")
+        try await fixture.transcriptContains("got after")
+    case .stopped:
+        let drawn = fixture.window.transcript.string
+        try await fixture.alive("after")
+        // At Done every chunk has been through the panel, the line's print among them.
+        try await fixture.end(opening: open)
+        #expect(fixture.window.transcript.string == drawn)
+        return
+    default:
+        Issue.record("\(rung) is not busy")
+    }
+    try await fixture.end(opening: open)
 }
 
 // Serialized and on the main actor: Panel is main-actor bound, and two Runs spawning at once
@@ -209,21 +383,21 @@ private struct Fixture {
 @Suite("Panel", .serialized)
 @MainActor
 internal struct PanelTests {
-    @Test("Composing: dismissable; show focuses the input; dismiss hides; the hotkey toggles")
-    internal func composing() throws {
+    @Test("Clean: not busy; show focuses the input; Escape hides; the hotkey shows and hides")
+    internal func clean() throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         #expect(fixture.panel.state == nil)
-        #expect(fixture.panel.canDismiss)
+        #expect(!fixture.panel.isBusy)
         fixture.panel.show()
-        #expect(fixture.window.isVisible)
-        #expect(fixture.window.input.currentEditor() != nil)
-        fixture.panel.dismissIfAllowed()
-        #expect(!fixture.window.isVisible)
+        #expect(fixture.look() == .clean)
+        #expect(fixture.keyboardInInput)
+        fixture.panel.escape()
+        #expect(fixture.look() == Look.clean.hidden)
         fixture.panel.toggle()
-        #expect(fixture.window.isVisible)
+        #expect(fixture.look() == .clean)
         fixture.panel.toggle()
-        #expect(!fixture.window.isVisible)
+        #expect(fixture.look() == Look.clean.hidden)
     }
 
     @Test("A command goes Running then Done; a failing status is shown in the alarm colour")
@@ -253,16 +427,17 @@ internal struct PanelTests {
         #expect(fixture.panel.state == nil)
     }
 
-    @Test("Running cannot be dismissed; keys go to the transcript; Stop ends it and its group")
-    internal func runningIsUndismissable() async throws {
+    @Test("Running stays up through click-out and the hotkey; keys go to the transcript; Stop ends it and its group")
+    internal func runningStaysUp() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         fixture.panel.show()
         fixture.panel.submit("sleep 30")
         let pid = try await fixture.running()
-        #expect(!fixture.panel.canDismiss)
-        fixture.panel.dismissIfAllowed()
+        #expect(fixture.panel.isBusy)
+        fixture.clickOut()
         #expect(fixture.window.isVisible)
+        fixture.panel.toggle()
         fixture.panel.toggle()
         #expect(fixture.window.isVisible)
         #expect(fixture.window.isKeyWindow)
@@ -274,9 +449,9 @@ internal struct PanelTests {
         let ended = try await fixture.done()
         #expect(ended != .done(.status(0), retry: nil))
         #expect(try await survivors(ofGroup: pid).isEmpty)
-        #expect(fixture.panel.canDismiss)
+        #expect(!fixture.panel.isBusy)
         #expect(fixture.window.stopButton.isHidden)
-        fixture.panel.dismissIfAllowed()
+        fixture.clickOut()
         #expect(!fixture.window.isVisible)
     }
 
@@ -359,25 +534,25 @@ internal struct PanelTests {
         #expect(fixture.window.retryButton.isHidden)
     }
 
-    @Test("A dismissal takes a showing offer with it; an empty line then starts nothing")
-    internal func dismissalClearsOffer() async throws {
+    @Test("A clear takes a showing offer with it; an empty line then starts nothing")
+    internal func clearTakesOffer() async throws {
         let fixture = try Fixture(homeOnPath: true)
         defer { fixture.tearDown() }
         try fixture.writeFakeSSH()
         fixture.panel.show()
         fixture.panel.submit("ssh host 'sudo true'")
         #expect(try await fixture.done() == .done(.status(1), retry: "ssh -tt host 'sudo true'"))
-        fixture.panel.dismissIfAllowed()
+        fixture.panel.escape()
         #expect(fixture.panel.state == nil)
         #expect(fixture.window.retryButton.isHidden)
-        fixture.panel.show()
+        #expect(fixture.look() == .clean)
         fixture.panel.submit("")
         try await Task.sleep(for: .milliseconds(300))
         #expect(fixture.panel.state == nil)
     }
 
-    @Test("Dismissing returns the panel to Composing: no state, no transcript, no status, no buttons")
-    internal func dismissalClears() async throws {
+    @Test("A clear then a hide: the next summons is Clean — no state, no transcript, no status, no buttons")
+    internal func clearThenHide() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         fixture.panel.show()
@@ -386,9 +561,12 @@ internal struct PanelTests {
         try await fixture.transcriptContains("shown")
         #expect(!fixture.window.openButton.isHidden)
 
-        fixture.panel.dismissIfAllowed()
+        fixture.panel.escape()
+        #expect(fixture.window.isVisible)
+        fixture.panel.escape()
         #expect(!fixture.window.isVisible)
-        fixture.panel.show()
+        fixture.panel.toggle()
+        #expect(fixture.look() == .clean)
         #expect(fixture.panel.state == nil)
         #expect(fixture.window.transcript.string.isEmpty)
         #expect(fixture.window.status.stringValue.isEmpty)
@@ -396,7 +574,7 @@ internal struct PanelTests {
         #expect(fixture.window.openButton.isHidden)
     }
 
-    @Test("The block cursor shows only while Running and is never part of the transcript's text")
+    @Test("The block cursor shows only while Running, not after a clear, and is never part of the transcript's text")
     internal func cursor() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
@@ -413,7 +591,8 @@ internal struct PanelTests {
         #expect(!fixture.window.transcript.showsCursor)
         #expect(!fixture.window.transcript.string.contains("\u{2588}"))
         #expect(!fixture.window.transcript.string.contains("\u{FFFC}"))
-        fixture.panel.dismissIfAllowed()
+        fixture.panel.escape()
+        #expect(fixture.panel.state == nil)
         #expect(!fixture.window.transcript.showsCursor)
     }
 }
@@ -442,34 +621,37 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
     }
 
-    @Test("A submission in flight cannot be dismissed, through the launch wait and while it runs")
-    internal func inFlightIsUndismissable() async throws {
+    @Test("A submission in flight stays up through the launch wait and while it runs; at Done a click-out hides it")
+    internal func inFlightStaysUp() async throws {
         let (launch, open) = gate()
         let fixture = try Fixture(launch: launch)
         defer { fixture.tearDown() }
         fixture.panel.show()
         fixture.panel.submit("echo ready; read -r line")
         await Task.yield()
-        fixture.panel.dismissIfAllowed()
+        fixture.panel.escape()
         fixture.panel.toggle()
         #expect(fixture.window.isVisible)
         #expect(fixture.window.isKeyWindow)
-        #expect(!fixture.panel.canDismiss)
+        fixture.clickOut()
+        #expect(fixture.window.isVisible)
+        #expect(fixture.panel.isBusy)
         #expect(fixture.panel.state == nil)
 
         open()
         _ = try await fixture.running()
         try await fixture.transcriptContains("ready")
-        #expect(!fixture.panel.canDismiss)
+        #expect(fixture.panel.isBusy)
         fixture.panel.keystroke(.write([0x0D]))
         _ = try await fixture.done()
-        #expect(fixture.panel.canDismiss)
-        fixture.panel.dismissIfAllowed()
+        #expect(!fixture.panel.isBusy)
+        fixture.panel.toggle()
+        fixture.clickOut()
         #expect(!fixture.window.isVisible)
     }
 
-    @Test("A dismissal after start but before Running arrives leaves the panel up (ho-03x run 2)")
-    internal func dismissalBeforeRunning() async throws {
+    @Test("A click-out or the hotkey after start but before Running arrives leaves the panel up (ho-03x run 2)")
+    internal func hideBeforeRunning() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         fixture.panel.show()
@@ -477,7 +659,9 @@ extension PanelTests {
         await Task.yield()
         // Held, the main actor lets Run start the command without delivering Running.
         usleep(50_000)
-        fixture.panel.dismissIfAllowed()
+        fixture.panel.toggle()
+        #expect(fixture.window.isVisible)
+        fixture.clickOut()
         #expect(fixture.window.isVisible)
 
         let pid = try await fixture.running()
@@ -487,7 +671,7 @@ extension PanelTests {
             return
         }
         #expect(try await survivors(ofGroup: pid).isEmpty)
-        #expect(fixture.panel.canDismiss)
+        #expect(!fixture.panel.isBusy)
     }
 
     @Test("A second Return while the launch task is pending is ignored; one command runs")
@@ -512,7 +696,7 @@ extension PanelTests {
         }
     }
 
-    @Test("Every chunk is drawn before Done, and none reaches the panel after a dismissal clears it")
+    @Test("Every chunk is drawn before Done, and none reaches the panel after a clear")
     internal func outputBeforeDone() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
@@ -526,8 +710,8 @@ extension PanelTests {
         #expect(text.count == 65_536)
         #expect(text.allSatisfy { $0 == "x" })
 
-        fixture.panel.dismissIfAllowed()
-        fixture.panel.show()
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
         #expect(fixture.window.transcript.string.isEmpty)
         try await Task.sleep(for: .milliseconds(300))
         #expect(fixture.window.transcript.string.isEmpty)
@@ -662,7 +846,7 @@ extension PanelTests {
         #expect(pasteboard.string(forType: .string) == "first line\nsecond\n")
     }
 
-    @Test("Composing is the bar alone; the output card shows from Running with Copy and goes at dismissal")
+    @Test("Clean is the bar alone; the output card shows from Running with Copy and goes at a clear")
     internal func layout() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
@@ -690,8 +874,8 @@ extension PanelTests {
         fixture.panel.keystroke(.write([0x0D]))
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
         #expect(!fixture.window.outputCard.isHidden)
-        fixture.panel.dismissIfAllowed()
-        fixture.panel.show()
+        fixture.panel.escape()
+        #expect(fixture.window.isVisible)
         #expect(fixture.window.outputCard.isHidden)
         #expect(fixture.window.transcript.string.isEmpty)
         #expect(fixture.window.frame.height == fixture.window.bar.frame.height)
@@ -709,7 +893,7 @@ extension PanelTests {
         #expect(lines.last?.isEmpty == true)
     }
 
-    @Test("With no command running, Escape pressed in the transcript dismisses the panel")
+    @Test("Escape route: with no command running, Escape pressed in the transcript reaches the ladder — Done clears")
     internal func escapeInTranscript() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
@@ -718,9 +902,9 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
         let window = fixture.window
         #expect(window.makeFirstResponder(window.transcript))
-        window.transcript.keyDown(with: try key("\u{1B}", code: 53, in: window))
-        #expect(!window.isVisible)
-        #expect(fixture.panel.state == nil)
+        window.transcript.keyDown(with: try key("\u{1B}", code: UInt16(kVK_Escape), in: window))
+        #expect(fixture.look() == .clean)
+        #expect(fixture.keyboardInInput)
     }
 
     @Test("With no command running, a character pressed in the transcript types into the input; Return submits it")
@@ -915,5 +1099,321 @@ extension PanelTests {
         let copied = try #require(NSPasteboard.general.string(forType: .string))
         #expect(!copied.isEmpty)
         #expect(transcript.string.contains(copied))
+    }
+}
+
+// The Escape ladder and the click-out rule (ho-04.6): every reachable cell of the table, one test per
+// column and result, the state as the parameter. A cell that says "nothing" reads the panel before and
+// after, then shows the command untouched.
+extension PanelTests {
+    @Test("Escape × Clean: hide")
+    internal func escapeHidesClean() async throws {
+        let (fixture, _) = try await reach(.clean)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.panel.escape()
+        #expect(fixture.look() == before.hidden)
+    }
+
+    @Test("Escape × Typed, Done: clear", arguments: [Rung.typed, .done, .doneTyped])
+    internal func escapeClears(rung: Rung) async throws {
+        let (fixture, _) = try await reach(rung)
+        defer { fixture.tearDown() }
+        #expect(fixture.look() != .clean)
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        #expect(fixture.keyboardInInput)
+        #expect(fixture.window.outputCard.isHidden)
+    }
+
+    @Test("Escape × In flight: nothing")
+    internal func escapeInFlight() async throws {
+        let (fixture, open) = try await reach(.inFlight)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.panel.escape()
+        #expect(fixture.look() == before)
+        try await expectUntouched(.inFlight, fixture, opening: open)
+    }
+
+    @Test("Escape × Running, live: stop — the group is interrupted, the Stop count advances, nothing more is drawn")
+    internal func escapeStops() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        let pid = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        fixture.panel.escape()
+        #expect(fixture.window.isVisible)
+        guard case .done(.signal(SIGINT), _) = try await fixture.done() else {
+            Issue.record("not ended by SIGINT: \(String(describing: fixture.panel.state))")
+            return
+        }
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+
+        // The same counter and flag as Stop: after Escape, Stop kills, and what the command printed
+        // meanwhile was not drawn.
+        fixture.panel.submit(Fixture.held)
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let drawn = fixture.window.transcript.string
+        fixture.panel.escape()
+        try await fixture.alive("a")
+        fixture.panel.stop()
+        #expect(try await fixture.done() == .done(.signal(SIGKILL), retry: nil))
+        #expect(fixture.window.transcript.string == drawn)
+    }
+
+    @Test("Click-out × Clean, Typed, Done: hide, keeping everything", arguments: [Rung.clean, .typed, .done])
+    internal func clickOutHides(rung: Rung) async throws {
+        let (fixture, _) = try await reach(rung)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.clickOut()
+        #expect(fixture.look() == before.hidden)
+    }
+
+    @Test(
+        "Click-out × In flight, Running live, Running stopped: nothing; the panel stays",
+        arguments: [Rung.inFlight, .live, .stopped])
+    internal func clickOutStays(rung: Rung) async throws {
+        let (fixture, open) = try await reach(rung)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.clickOut()
+        #expect(fixture.look() == before.withoutKeyboard)
+        try await expectUntouched(rung, fixture, opening: open)
+    }
+
+    @Test("Hotkey, hidden × Clean, Typed, Done: show, as it was", arguments: [Rung.clean, .typed, .done])
+    internal func hotkeyShows(rung: Rung) async throws {
+        let (fixture, _) = try await reach(rung)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.clickOut()
+        #expect(!fixture.window.isVisible)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        #expect(fixture.keyboardInInput)
+    }
+
+    @Test(
+        "Hotkey, visible without the keyboard × every state: take the keyboard",
+        arguments: [Rung.clean, .typed, .inFlight, .live, .stopped, .done])
+    internal func hotkeyTakesKeyboard(rung: Rung) async throws {
+        let (fixture, open) = try await reach(rung)
+        defer { fixture.tearDown() }
+        fixture.loseKeyboard()
+        let before = fixture.look()
+        #expect(before.visible && !before.key)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before.withKeyboard)
+        if fixture.panel.isBusy {
+            try await expectUntouched(rung, fixture, opening: open)
+        }
+    }
+
+    @Test(
+        "Hotkey, visible with the keyboard × Clean, Typed, Done: hide, keeping everything",
+        arguments: [Rung.clean, .typed, .done])
+    internal func hotkeyHides(rung: Rung) async throws {
+        let (fixture, _) = try await reach(rung)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        fixture.panel.toggle()
+        #expect(fixture.look() == before.hidden)
+    }
+
+    @Test(
+        "Hotkey, visible with the keyboard × In flight, Running live, Running stopped: nothing",
+        arguments: [Rung.inFlight, .live, .stopped])
+    internal func hotkeyStays(rung: Rung) async throws {
+        let (fixture, open) = try await reach(rung)
+        defer { fixture.tearDown() }
+        let before = fixture.look()
+        #expect(before.visible && before.key)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        try await expectUntouched(rung, fixture, opening: open)
+    }
+}
+
+// The race of Escape in Running, stopped against Done, and the invariants ho-04.6 tests on their own.
+extension PanelTests {
+    @Test("Escape × Running, stopped, the command alive: clear, killing it; its Done lands on nothing")
+    internal func escapeClearsKilling() async throws {
+        let (fixture, _) = try await reach(.live)
+        defer { fixture.tearDown() }
+        guard case .running(let pid) = fixture.panel.state else { throw TimedOut() }
+        fixture.panel.escape()
+        try await fixture.alive("a")
+        #expect(fixture.panel.state == .running(pid: pid))
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        #expect(fixture.keyboardInInput)
+        #expect(!fixture.window.transcript.showsCursor)
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+
+        // Run sends the killed command's Done before it starts another, so by the next command's Done
+        // the cleared Done has been through the panel: Clean until then, and nothing of it after.
+        fixture.panel.escape()
+        #expect(fixture.look() == Look.clean.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == .clean)
+        fixture.panel.submit("echo after")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string == "after\n")
+        #expect(fixture.window.status.stringValue == "exit 0")
+    }
+
+    @Test("Escape × Running, stopped, Done landing first: the second Escape finds Done and clears")
+    internal func escapeClearsAfterDone() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        let pid = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        fixture.panel.escape()
+        guard case .done(.signal, _) = try await fixture.done() else {
+            Issue.record("not ended by a signal: \(String(describing: fixture.panel.state))")
+            return
+        }
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        #expect(fixture.keyboardInInput)
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+    }
+
+    @Test("Invariant 1: in flight, live and stopped, neither click-out nor the hotkey hides the panel")
+    internal func nothingAliveHidden() async throws {
+        let (fixture, open) = try await reach(.inFlight)
+        defer { fixture.tearDown() }
+        func attempt() {
+            fixture.clickOut()
+            #expect(fixture.window.isVisible)
+            fixture.panel.toggle()
+            #expect(fixture.window.isVisible)
+            #expect(fixture.window.isKeyWindow)
+            fixture.panel.toggle()
+            #expect(fixture.window.isVisible)
+        }
+        attempt()
+        #expect(fixture.panel.state == nil && fixture.panel.isBusy)
+        open()
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        attempt()
+        fixture.panel.stop()
+        attempt()
+        guard case .running = fixture.panel.state else { throw TimedOut() }
+        try await fixture.end(opening: open)
+    }
+
+    @Test("Invariant 2: a Done panel with an offer and a typed line, hidden and shown, is as it was")
+    internal func hidingLosesNothing() async throws {
+        let fixture = try Fixture(homeOnPath: true)
+        defer { fixture.tearDown() }
+        try fixture.writeFakeSSH()
+        fixture.panel.show()
+        fixture.panel.submit("ssh host 'sudo true'")
+        #expect(try await fixture.done() == .done(.status(1), retry: "ssh -tt host 'sudo true'"))
+        fixture.window.input.stringValue = "typed line"
+        let before = fixture.look()
+        #expect(before.offer && !before.transcript.isEmpty && !before.status.isEmpty)
+
+        fixture.clickOut()
+        #expect(fixture.look() == before.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        #expect(fixture.keyboardInInput)
+    }
+
+    @Test("Invariant 4: clear a live command, submit a new line at once, and it reaches Running")
+    internal func submitAfterClear() async throws {
+        let (fixture, _) = try await reach(.live)
+        defer { fixture.tearDown() }
+        guard case .running(let cleared) = fixture.panel.state else { throw TimedOut() }
+        fixture.panel.escape()
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        fixture.window.input.stringValue = "echo next; read -r line"
+        fixture.panel.submit(fixture.window.input.stringValue)
+        let next = try await fixture.running()
+        #expect(next != cleared)
+        try await fixture.transcriptContains("next")
+        #expect(fixture.window.status.stringValue == "running")
+        #expect(try await survivors(ofGroup: cleared).isEmpty)
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        // The terminal echoes the carriage return as an empty line; nothing of the cleared command is there.
+        #expect(fixture.window.transcript.string == "next\n\n")
+    }
+
+    @Test("Invariant 5: Escape never reaches the command; a line read after it has length zero")
+    internal func escapeNeverWritten() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        // The command ignores the interrupt Escape sends, and writes the length where the panel, now
+        // stopped, does not draw.
+        fixture.panel.submit("sh -c 'trap \"\" INT; echo ready; read -r secret; printf %s \"${#secret}\" > length'")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let window = fixture.window
+        #expect(window.firstResponder === window.transcript)
+        window.transcript.keyDown(with: try key("\u{1B}", code: UInt16(kVK_Escape), in: window))
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
+    }
+}
+
+// Every route by which AppKit delivers Escape reaches `Panel.escape()`; the fourth, the transcript
+// when no command runs, is `escapeInTranscript` above.
+extension PanelTests {
+    @Test("Escape route: the input's field editor, Clean: hides")
+    internal func escapeInInput() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        let editor = try #require(fixture.window.input.currentEditor())
+        editor.keyDown(with: try key("\u{1B}", code: UInt16(kVK_Escape), in: fixture.window))
+        #expect(fixture.look() == Look.clean.hidden)
+    }
+
+    @Test("Escape route: the transcript while Running: stops")
+    internal func escapeInTranscriptRunning() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line")
+        let pid = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let window = fixture.window
+        #expect(window.firstResponder === window.transcript)
+        window.transcript.keyDown(with: try key("\u{1B}", code: UInt16(kVK_Escape), in: window))
+        guard case .done(.signal(SIGINT), _) = try await fixture.done() else {
+            Issue.record("not ended by SIGINT: \(String(describing: fixture.panel.state))")
+            return
+        }
+        #expect(window.isVisible)
+        #expect(try await survivors(ofGroup: pid).isEmpty)
+    }
+
+    @Test("Escape route: the window's cancelOperation with no text responder, Clean: hides")
+    internal func escapeInWindow() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.panel.show()
+        #expect(fixture.window.makeFirstResponder(nil))
+        #expect(fixture.window.firstResponder === fixture.window)
+        fixture.window.cancelOperation(nil)
+        #expect(fixture.look() == Look.clean.hidden)
     }
 }

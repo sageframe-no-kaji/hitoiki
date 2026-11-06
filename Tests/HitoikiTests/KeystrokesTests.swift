@@ -40,7 +40,7 @@ internal struct KeystrokesTests {
         Case("Delete", "\u{7F}", [], kVK_Delete, .write([0x7F])),
         Case("Command-V", "v", .command, kVK_ANSI_V, .paste),
         Case("Control-C", "\u{03}", .control, kVK_ANSI_C, .stop),
-        Case("Escape", "\u{1B}", [], kVK_Escape, .ignore),
+        Case("Escape", "\u{1B}", [], kVK_Escape, .escape),
         Case("Command-C", "c", .command, kVK_ANSI_C, .ignore),
         Case("Control-D", "\u{04}", .control, kVK_ANSI_D, .ignore),
         Case("Up arrow", "\u{F700}", [.numericPad, .function], kVK_UpArrow, .ignore),

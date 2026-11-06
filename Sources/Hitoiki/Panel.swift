@@ -1,14 +1,17 @@
 import AppKit
 import HitoikiCore
 
-/// The controller behind the only visible surface: the last state Run reported, the one dismiss
-/// rule, and what each control and each key does to the Run.
+/// The controller behind the only visible surface: the last state Run reported, the three moves —
+/// hide, show, clear — and the Escape ladder, and what each control and each key does to the Run.
+///
+/// The ladder's six states are read, where an event arrives, from facts held here and in the window:
+/// `state`, `stopped`, `submission`, the input's text, and the window's visibility and key status.
 @MainActor
 internal final class Panel {
     /// Terminal.app, which every Mac has; the picker is ho-05's.
     internal static let terminal = "com.apple.Terminal"
 
-    /// The last state Run reported, or nil before the first command and after a dismissal.
+    /// The last state Run reported, or nil before the first command and after a clear.
     ///
     /// Nil is Composing, `.running` is Running, `.done` is Done.
     internal private(set) var state: RunState?
@@ -17,20 +20,23 @@ internal final class Panel {
     private let launch: Task<Void, any Error>
     private let window: PanelWindow
     private let directory: String
-    /// Stops since the last Done: the first interrupts, every later one kills.
+    /// Stops since the command started: the first interrupts, every later one kills.
     private var stops = 0
-    /// Set by Stop until the next command starts: the output is still taken from Run, so Done
-    /// arrives, but no more of it is drawn (practitioner's ruling, ho-04 run sheet, item 8).
+    /// Set by Stop, Control-C or Escape until the next command starts: the output is still taken from
+    /// Run, so Done arrives, but no more of it is drawn (practitioner's ruling, ho-04 run sheet, item 8).
     private var stopped = false
-    /// The submission from Return until Running arrives or the start fails; until then the panel is
-    /// undismissable, so nothing starts hidden.
+    /// The submission from Return until Running arrives or the start fails; until then nothing hides
+    /// the panel, so nothing starts hidden.
     private var submission: Task<Void, Never>?
+    /// Starts waiting for the Done of a command a clear killed: non-nil from that clear until the Done
+    /// arrives, which Run sends before it can start another.
+    private var cleared: [CheckedContinuation<Void, Never>]?
     private var notices: [String] = []
 
-    /// True unless a command runs or a submission is in flight; every dismiss path reads it.
-    internal var canDismiss: Bool {
-        if case .running = state { return false }
-        return submission == nil
+    /// True while a command runs or a start is in flight: nothing hides the panel, and Quit kills.
+    internal var isBusy: Bool {
+        if case .running = state { return true }
+        return submission != nil
     }
 
     /// Drives `run` through `window` for the app's life.
@@ -86,22 +92,37 @@ internal final class Panel {
         apply()
     }
 
-    /// Hides the panel unless a command runs, and returns it to Composing.
+    /// Takes the panel off screen and keeps everything on it, unless a command runs or a start is in
+    /// flight; the next summons shows it as it was.
     ///
-    /// Every summons starts clean. Escape, click-out and the hotkey all come here.
-    internal func dismissIfAllowed() {
-        guard canDismiss else { return }
+    /// The click-out comes here; so do Escape on a clean panel and the hotkey on a panel with the keyboard.
+    internal func hide() {
+        guard !isBusy else { return }
         window.orderOut(nil)
-        state = nil
-        window.transcript.clear()
-        apply()
     }
 
-    /// The hotkey: shows a hidden panel, hides a visible one, and brings a running one forward.
+    /// The hotkey: shows a hidden panel, gives the keyboard to a visible one without it, and hides one
+    /// with it, except while a command runs or a start is in flight.
     internal func toggle() {
         guard window.isVisible else { return show() }
-        dismissIfAllowed()
-        if window.isVisible { show() }
+        guard window.isKeyWindow else { return window.makeKeyAndOrderFront(nil) }
+        hide()
+    }
+
+    /// Escape, by every route: peels one layer.
+    ///
+    /// A running command not yet stopped is stopped; a stopped command, a result or a typed line is
+    /// cleared; a clean panel is hidden. In flight, nothing.
+    internal func escape() {
+        guard submission == nil else { return }
+        switch state {
+        case .running where !stopped:
+            stop()
+        case nil where window.input.stringValue.isEmpty:
+            hide()
+        default:
+            clear()
+        }
     }
 
     /// Starts `typed`; a blank line starts the `-tt` offer when there is one and otherwise nothing.
@@ -116,6 +137,8 @@ internal final class Panel {
         submission = Task {
             // A failed capture is the notice's to report; the command runs with the app's environment.
             _ = try? await launch.value
+            // Run starts nothing until the command a clear killed has reported its Done.
+            if cleared != nil { await withCheckedContinuation { cleared?.append($0) } }
             do {
                 try await run.start(line: line, cwd: directory, size: size)
             } catch RunError.spawnFailed(let code) {
@@ -128,7 +151,8 @@ internal final class Panel {
         }
     }
 
-    /// Stop and Control-C: the first since the last Done interrupts the group, later ones kill it.
+    /// Stop, Control-C and Escape on a live command: the first since the command started interrupts the
+    /// group, later ones kill it.
     internal func stop() {
         guard case .running = state else { return }
         stopped = true
@@ -149,6 +173,8 @@ internal final class Panel {
         case .paste:
             guard let text = NSPasteboard.general.string(forType: .string) else { return }
             keystroke(.write(Array(text.utf8)))
+        case .escape:
+            escape()
         case .ignore:
             break
         }
@@ -174,24 +200,47 @@ internal final class Panel {
     /// Quit: waits for a submission in flight, then kills the command and waits at most one second for its Done.
     internal func killForQuit() async {
         await submission?.value
-        guard !canDismiss else { return }
+        guard isBusy else { return }
         await run.kill()
         let deadline = ContinuousClock.now + .seconds(1)
-        while !canDismiss, ContinuousClock.now < deadline {
+        while isBusy, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
 
+    /// The panel becomes Clean and stays on screen with the keyboard in the input; a command still
+    /// running is killed, and nothing of it is drawn from here on.
+    private func clear() {
+        if case .running = state {
+            stopped = true
+            cleared = cleared ?? []
+            Task { await run.kill() }
+        }
+        state = nil
+        window.input.stringValue = ""
+        window.transcript.clear()
+        apply()
+    }
+
+    /// Takes what Run reports.
+    ///
+    /// A Done that finds no command on the panel is the Done of one a clear killed: it changes nothing,
+    /// and a start waiting for it goes ahead.
     private func enter(_ next: RunState) {
-        state = next
         switch next {
         case .running:
             submission = nil
+            stops = 0
             stopped = false
             window.transcript.clear()
         case .done:
-            stops = 0
+            guard state != nil else {
+                for waiting in cleared ?? [] { waiting.resume() }
+                cleared = nil
+                return
+            }
         }
+        state = next
         apply()
     }
 

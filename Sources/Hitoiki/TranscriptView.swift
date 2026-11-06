@@ -66,7 +66,7 @@ internal final class TranscriptView: NSTextView {
     override internal var acceptsFirstResponder: Bool { true }
 
     override internal func keyDown(with event: NSEvent) {
-        // No command runs: the key is the input's, so Escape still dismisses (System Design 2.1).
+        // No command runs: the key is the input's, so Escape reaches the ladder (ho-04.6).
         guard showsCursor else {
             (window as? PanelWindow)?.typeInInput(event)
             return
