@@ -751,3 +751,13 @@ Opening hash: `9a1b8be` (ho-04.5's closing commit); the spec and the §2.1 amend
 - **NEXT** — ho-04.6x run 1 from `ho-process/hos/ho-04.6x-review-of-escape-ladder-and-click-out.md`, over `2bd72a0` through this ho's closing commit. Report: `ho-process/reviews/ho-04.6x-report-1.md`.
 - **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. After a Pass: the replan week — first a Tart macOS VM so the tests run off the practitioner's screen; then the Transcript suite at ~92 s, the unbroken-line streaming cost, the input at 18, the update check with an off switch (ho-06). For ho-05: recall and the history control, with the list carried from ho-03. For ho-06: the webpage line.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-04.6x — run 1 — Return — 2026-11-05
+
+Range `2bd72a0..a5ee29a`; x document `39e3ffa`; Codex (`gpt-6.1-sol`) committed the report as `eb2f0ad`, `ho-process/reviews/ho-04.6x-report-1.md`. Verdict **Return**: 3 Must-fix, 1 Should-fix, 2 Notes. Build pass, 62 and 70 tests, 95.75% / 92.44%; the Panel suite was run once. The orchestrator read each finding against the code. M1: `Run.signalGroup` refuses to signal once the leader is reaped though Done is not yet reported — a defect in Run, confirmed; and a backgrounded process ignoring the hang-up survives the leader's exit and Done — ho-02's ruling of 2026-10-26, which invariant 3's wording overstated. **Practitioner's ruling 2026-11-05: ho-02's rule stands (option A)**; a process that detaches by the means a terminal requires survives the panel as it survives a closed window; the invariant is restated in the fix pass. M2 confirmed: the late-Done test polls and is inconclusive. M3 confirmed: a failed start's reason is lost by hide and show. S1 confirmed. N1 and N2 stand as Reflect recorded them. Fix pass: `ho-process/hos/ho-04.6.1-fix-pass.md`; then ho-04.6x run 2 over the whole range.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-04.6x run 1, Return, read against the code; the M1 ruling made.
+- **NEXT** — ho-04.6.1, the fix pass: the Run guard, the restated invariant 3 with its survivor test, the conclusive late-Done test, the failed start kept through hide and show, the keyboard test's branch. Then ho-04.6x run 2.
+- **ACTION ITEMS / BLOCKS** — ho-04.6 reopened by the Return. The fix pass touches `Sources/HitoikiCore/Run/Run.swift` and its tests, authorised by the ruling. For the replan week: the Tart VM first.
+- **PROJECT LIFECYCLE** — kamae.
