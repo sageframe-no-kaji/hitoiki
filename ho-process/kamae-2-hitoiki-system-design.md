@@ -137,6 +137,8 @@ A fifth component, Hand-off, was proposed and dissolved during the conversation.
 
 Transcripts are not stored. **(Confirms seed.)**
 
+**Amendment, 2026-11-08 (replan checkpoint after ho-04x, ruling 5).** The text above stands. The automatic update check's switch is one of these settings, built in ho-05.1, reading as on when its key is absent. The check keeps its last-checked time in memory only; no key is persisted for it. The request it makes is fixed in §6's amendment of the same date. Document: `ho-process/hos/replan-after-ho-04x.md`.
+
 ---
 
 ## 3. Core Interaction
@@ -211,6 +213,8 @@ Nothing else persists. There is no database, no custom configuration format, and
 **Build pipeline.** Inherited from palana: SwiftPM release build, bundle assembled by script, Developer ID signing with hardened runtime, notarisation of the app, stapling, then the `.dmg` notarised and stapled in turn. The script and `RELEASING.md` are adapted, not rewritten.
 
 **Updates.** An optional check against the GitHub Releases latest endpoint, on by default, disclosed in settings, with a manual Check for Updates. The 99-line update checker from palana is ported. No telemetry, no identifiers, no command text leaves the machine.
+
+**Amendment, 2026-11-08 (replan checkpoint after ho-04x, ruling 5).** The text above stands and is made exact. What is sent: one GET to GitHub's releases-latest endpoint for the Hitoiki repository, no body, no query, no account, no identifier; the User-Agent header is set explicitly to `Hitoiki/<version>` and nothing more, since GitHub requires one and the system's default names the networking library and OS versions. How often: at launch, and once a day while the app is running; the last-checked time is held in memory only. The default: on, with the switch in settings (§2.4). The README's Privacy section quotes the request in full and the ship review reads the code against it word for word. Built in ho-06. Document: `ho-process/hos/replan-after-ho-04x.md`.
 
 **Requirements.** macOS 14 or later, matching palana. OpenSSH as shipped with macOS. No other software; Open in Terminal uses Terminal.app unless another terminal is selected in settings.
 

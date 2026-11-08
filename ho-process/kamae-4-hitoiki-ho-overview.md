@@ -55,8 +55,8 @@ The Kamae 5 skill authors each x ho's dandori spec from the template at `ho-proc
 |---|---|---|
 | 0. Foundation | ho-00 | A scaffolded repo with the verification stack running and the design tokens in place |
 | 1. The Process Model | ho-01, ho-01x, ho-02, ho-02x | A proven, tested way to run one command under a pseudoterminal, headless, reviewed |
-| 2. The Surface | ho-03, ho-03x, ho-04, ho-04x | A usable app: shortcut, panel, run, read, dismiss, reviewed |
-| 3. Memory | ho-05, ho-05x | Settings, macros, history, reviewed |
+| 2. The Surface | ho-03, ho-03x, ho-04, ho-04x, ho-04.5, ho-04.5x, ho-04.6, ho-04.6x, ho-04.7 | A usable app: shortcut, panel, run, read, dismiss, reviewed; test runs off the practitioner's screen |
+| 3. Memory | ho-05.1, ho-05.1x, ho-05.2, ho-05.2x | Settings and macros, then history and recall, each reviewed |
 | 4. The Ship | ho-06, ho-06x | A signed, notarised release with updates, reviewed |
 
 ## Phase 0 — Foundation
@@ -289,46 +289,105 @@ The ladder is six states by five events; the antagonist checks that every cell i
 
 **Phase boundary — replan checkpoint.** After ho-04x passes. First real use. The practitioner runs Issoku for a week of actual work before ho-05. Friction found here changes ho-05's scope or inserts a ho-04.5. See Replan checkpoints.
 
+*Passed 2026-11-08.* The week's friction went into ho-04.5 and ho-04.6 before the checkpoint; the checkpoint itself ruled six items, recorded in `ho-process/hos/replan-after-ho-04x.md`: ho-04.7 below; the Transcript suite stays whole; the unbroken-line cost is deferred past v1 and named in the README; the input stays at 18; the update check's request, cadence and default are fixed and ho-06 builds it; ho-05 splits into ho-05.1 and ho-05.2.
+
+### ho-04.7 — The virtual Mac for test runs
+
+The Panel suite builds a real key window some sixty times a run, and every run takes the practitioner's screen and keyboard. This ho puts a macOS guest under Tart on the practitioner's Mac, from a base image with the Command Line Tools and the Swift 6.4 toolchain installed inside it, and writes `scripts/vm-test.sh`: start the guest headless, copy the working tree in over SSH without `.build`, run the six verification commands, bring the log back. Builders and the orchestrator call the script from then on. Nothing in the app changes.
+
+**Depends on:** the replan checkpoint after ho-04x (ruling 1).
+
+**What's in scope:**
+- Tart installed; the base image pulled; a guest cloned with 6 GB of memory and four cores
+- The toolchain inside the guest, verified by the stack running there
+- `scripts/vm-test.sh`, and a note in `CLAUDE.md` making it the way tests run
+
+**What "done" means:**
+- The whole stack is green inside the guest with the host's numbers (64 and 71 tests at the ruling), and nothing appears on the practitioner's screen while it runs
+- The practitioner typed nothing but his approval
+- About 35 GB of disk used, not 70; the Xcode image is the fallback only if the Command Line Tools fall short, and only after disk is cleared
+
+**What's out of scope:** Any change under `Sources/` or `Tests/`. A review ho: it writes no application code, as ho-00 did not.
+
+**Decisions required:**
+- **The image and the toolchain**: which published Tart image for macOS 27 exists, and whether the Command Line Tools alone give `swift test` what a package importing AppKit needs. Settled by the first run inside the guest.
+
 ## Phase 3 — Memory
 
-Settings, macros, and history. ho-05 builds the settings window with the shortcut recorder, the working-directory mode, the terminal picker, the history toggle, the menu bar toggle, and the update toggle; the nine macro slots loading into the input on `Command-1` through `Command-9`; and the history file with recall and Clear. ho-05x reviews it. At the end of the phase the app is feature-complete against the seed's first version.
+Settings, macros, and history. Two hos, cut at the storage boundary the review reads on: ho-05.1 builds everything that lives in user defaults, the settings window with the shortcut recorder, the working-directory mode, the terminal picker, the three toggles, Refresh Environment, and the nine macro slots; ho-05.2 builds everything that lives in the history file, the file itself, recall in the input, the control on the bar, and Clear. Each has its x. At the end of the phase the app is feature-complete against the seed's first version. (ho-05 was one ho until the replan checkpoint of 2026-11-08 split it; its original entry is superseded by the two below.)
 
 *Release on phase complete: v0.3*
 
-### ho-05 — Memory
+### ho-05.1 — Settings and macros
 
-Build the Memory component and the settings UI in SwiftUI hosted inside AppKit. Settings and macros live in user defaults; history is a plain text file in Application Support, off by default. The shortcut recorder captures a combination and re-registers the hotkey. The terminal picker lists Terminal.app and any detected terminals. The optional menu bar item appears when its toggle is on. History recall works in the input; Clear deletes the file.
+Build the settings window in SwiftUI hosted inside AppKit, and the macros. Settings and macros live in user defaults. The shortcut recorder captures a combination and re-registers the hotkey, refusing modifier-only and system-reserved combinations with a message. The terminal picker lists Terminal.app and any detected terminals. The optional menu bar item appears when its toggle is on. The update toggle is here; the checker it switches is ho-06's. Nine macro slots load into the input on `Command-1` through `Command-9` and run only on Return.
 
-**Depends on:** ho-04x.
+**Depends on:** ho-04.7.
 
 **What's in scope:**
 - Settings window: shortcut recorder, working-directory mode, terminal picker for Open in Terminal, history on/off, menu bar on/off, update check on/off, Refresh Environment
 - Macros: nine slots, name and command, load on key
-- History: file, recall, Clear
+- Carried from ho-03: `Panel.init(directory:)` and validating a stored directory; `Hotkey.combination` and `displayName` for the recorder; the terminal bundle-id list from ho-03 Decision 12; Refresh Environment with ho-02x's N2 test
+- Carried from ho-04.6x: Open in Terminal's "could not be found" message kept through hide and show, not one-shot (N3)
+- The comment on `inputSize` recording the 18 as a deliberate departure (replan ruling 4)
 
 **What "done" means:**
 - Every setting round-trips through relaunch
 - A macro loads and does not run until Return
-- History off by default; on, the file is readable in a text editor and Clear removes it
-- ho-05x passes
+- The update toggle reads as on when its key is absent
+- ho-05.1x passes
 
-**What's out of scope:** The update checker itself (ho-06). Transcript storage.
+**What's out of scope:** The history file, recall, the bar control (ho-05.2). The update checker itself (ho-06). Transcript storage.
 
 **Decisions required:**
-- **History write timing and duplicates**: write on Return; what counts as a duplicate for recall.
 - **Recorder edge cases**: modifier-only combinations and system-reserved combinations are refused with a message.
 
-### ho-05x — Review of Memory
+### ho-05.1x — Review of Settings and macros
 
-Settings code accumulates configuration surface. The antagonist checks that every setting in the window is one the System Design named, and that the storage is exactly user defaults and one text file.
+Settings code accumulates configuration surface. The antagonist checks that every setting in the window is one the System Design named, and that the storage is exactly user defaults.
 
-**Depends on:** ho-05.
+**Depends on:** ho-05.1.
 
 **Ho-specific questions:**
 - List every persisted key. Match each to a setting the System Design names. Any extra key is a finding.
-- Is there a configuration file, a plist of the app's own design, or a cache anywhere besides user defaults and the history file?
-- Is the history file written on Return and nowhere else?
+- Is there a configuration file, a plist of the app's own design, or a cache anywhere besides user defaults?
 - Does any macro path execute without Return?
+- Does the recorder refuse what it says it refuses, and does a refused combination leave the previous hotkey registered?
+
+### ho-05.2 — History
+
+Build the history file and recall. The file is plain text, one command per line, in Application Support, off by default and written on Return when on. Up-arrow in the input recalls the commands run since launch from session memory, and the file's commands too when history is on. A control on the bar drops the same list. Clear in settings deletes the file. The 2026-11-05 refusals stand: no output history by scrolling, no Clear button on the panel.
+
+**Depends on:** ho-05.1x.
+
+**What's in scope:**
+- History: file, written on Return, off by default
+- Recall: up-arrow in the input, session memory first, the file when on
+- The history control on the bar
+- Clear in settings
+
+**What "done" means:**
+- History off by default; on, the file is readable in a text editor and Clear removes it
+- Recall works with history off (session) and on (session and file)
+- ho-05.2x passes
+
+**What's out of scope:** Output history. A Clear button on the panel. Transcript storage.
+
+**Decisions required:**
+- **History write timing and duplicates**: write on Return; what counts as a duplicate for recall.
+- **The bar control's shape**: what the dropped list shows, and what selecting an entry does (loads into the input, by the macro rule; nothing runs until Return).
+
+### ho-05.2x — Review of History
+
+The antagonist checks that the history file is the only file the app writes, that it is written on Return and nowhere else, and that recall never runs anything.
+
+**Depends on:** ho-05.2.
+
+**Ho-specific questions:**
+- Is the history file written on Return and nowhere else? Is it written at all when the toggle is off?
+- Does any recall path, the up-arrow or the bar control, execute a command without Return?
+- Is there any file written besides the history file?
+- Does Clear delete the file and nothing else, and does recall then show only the session?
 
 ## Phase 4 — The Ship
 
@@ -340,13 +399,13 @@ The app leaves the practitioner's machine. ho-06 adapts palana's build script fo
 
 Adapt `scripts/build_macos.sh` and `RELEASING.md` from palana: release build, bundle assembly, Developer ID signing with hardened runtime, app notarisation and staple, `.dmg` notarisation and staple. Port the 99-line update checker. Publish the first GitHub Release as Latest. Create the Payhip listing. Update the README's Installation and Development sections with the real steps. Package the icon the practitioner has designed by then.
 
-**Depends on:** ho-05x.
+**Depends on:** ho-05.2x.
 
 **What's in scope:**
 - Build and release pipeline
-- Update checker
+- Update checker, as the replan ruled it (2026-11-08): one GET to the releases-latest endpoint, no body, no query, no identifier, User-Agent `Hitoiki/<version>`; at launch and once a day while running, the last time in memory only; on by default behind ho-05.1's switch
 - Payhip listing
-- README finalisation
+- README finalisation, including the Privacy section quoting the request in full and one sentence naming the unbroken-line limit (one line past 1 MiB streams slowly; lines that end stream at full speed)
 - Icon packaging
 
 **What "done" means:**
@@ -383,7 +442,7 @@ The last review before anyone else runs the code. The antagonist reads the updat
 
 **After ho-01x.** The spike is first contact with the stack, and its review has confirmed the evidence. Two questions: did the spawn mechanism come in at a cost the seed accepts, and is the terminal-control list empty? If the mechanism is costly, ho-02's shape changes before it starts. If the list is not empty, a ho-01.5 is inserted to choose and wire an emulator, libghostty considered first, and ho-04's scope shrinks to hosting it.
 
-**After ho-04x.** First real use, a week of actual work. The practitioner records friction. Friction that belongs to settings or macros adjusts ho-05's scope. Friction in the core interaction inserts a ho-04.5 before ho-05 begins.
+**After ho-04x.** First real use, a week of actual work. The practitioner records friction. Friction that belongs to settings or macros adjusts ho-05's scope. Friction in the core interaction inserts a ho-04.5 before ho-05 begins. *Passed 2026-11-08; the document is `ho-process/hos/replan-after-ho-04x.md`, the entry is in the build record.*
 
 A third, standing checkpoint has no fixed place: **the third Return.** If any single build ho receives three Return verdicts, the problem is not the code. It is the spec, the brief, or the builder's instructions, and the practitioner stops to decide which before a fourth fix pass.
 
@@ -396,7 +455,8 @@ Hos are numbered in sequence. A ho that splits becomes decimals of itself: ho-03
 - **ho-02** may split into launch-and-termination and environment-and-retry.
 - **ho-03** may split into panel-and-states and hotkey-and-recorder, with the recorder possibly moving to ho-05.
 - **ho-01.5** inserts if the spike finds an emulator necessary.
-- **ho-04.5** was reserved for friction found in first real use; ruled 2026-11-04 to be **Rename to Hitoiki**, after ho-04x passes and before the replan week. **ho-04.6** follows it with the Escape ladder and the click-out rule (revises System Design 2.1 and ho-03). Friction from the replan week takes the next half number.
+- **ho-04.5** was reserved for friction found in first real use; ruled 2026-11-04 to be **Rename to Hitoiki**, after ho-04x passes and before the replan week. **ho-04.6** follows it with the Escape ladder and the click-out rule (revises System Design 2.1 and ho-03). Friction from the replan week takes the next half number: **ho-04.7**, the virtual Mac for test runs, ruled 2026-11-08.
+- **ho-05** split at the replan checkpoint of 2026-11-08, before its Think, into **ho-05.1** (settings and macros, user defaults) and **ho-05.2** (history and recall, the text file), each with its x. The recorder stays in ho-05.1.
 - **ho-06** may split into pipeline and icon if the icon is not ready.
 - **Fix passes** (ho-NN.1) insert after any Return verdict; they are expected, not exceptional.
 
@@ -405,7 +465,10 @@ Hos are numbered in sequence. A ho that splits becomes decimals of itself: ho-03
 - **App icon.** The practitioner is leaning toward a digitised terminal symbol. Designed outside the ho sequence; ho-06 packages what exists.
 - **App Store build.** After 1.0, if ever. Run is the boundary a sandboxed build would change entitlements behind.
 - **ControlMaster.** An SSH config recommendation in the README's Requirements, not an app feature.
-- **Update check (practitioner, 2026-11-04).** The app pings GitHub to learn whether a newer release exists, and the check can be turned off. Placed at the replan checkpoint; the orchestrator's recommendation is ho-06, The Ship, since the check reads GitHub Releases and needs a release to compare against, with the switch in the settings window from ho-05. An outward network call from the app is a System Design question the practitioner settles there: what is sent, how often, and the default.
+- **Update check (practitioner, 2026-11-04).** The app pings GitHub to learn whether a newer release exists, and the check can be turned off. Placed at the replan checkpoint; the orchestrator's recommendation is ho-06, The Ship, since the check reads GitHub Releases and needs a release to compare against, with the switch in the settings window from ho-05. An outward network call from the app is a System Design question the practitioner settles there: what is sent, how often, and the default. *Ruled 2026-11-08 (replan ruling 5): one GET to the releases-latest endpoint, no body, no query, no identifier, User-Agent `Hitoiki/<version>`; at launch and once a day while running, the last time in memory only; on by default; built in ho-06, switched in ho-05.1. K2 §2.4 and §6 carry the amendment notes. The practitioner's standard for every project.*
+- **The unbroken-line cost (replan ruling 3, 2026-11-08).** One line past 1 MiB streams at about 5 KB/s while it runs, because the view lays the whole megabyte-long paragraph out again on every chunk; lines that end stream at full speed. Deferred past v1 and named in the README by ho-06. The cure, when it returns: ho-04 Decision 5 showing only the tail of a line grown past a size, a change to `TranscriptView` with a run sheet and a review.
+- **The input at 18 (replan ruling 4, 2026-11-08).** Kept, as a deliberate departure from the pālana scale's top of 15: one line that is the whole interface when the panel appears, judged in the live app. ho-05.1 writes the comment on the constant.
+- **The Transcript suite's time (replan ruling 2, 2026-11-08).** Stays whole at about 89 seconds; revisit only if a run in the ho-04.7 guest passes three or four minutes.
 - **The project webpage (practitioner, 2026-11-05).** The page carries the README footer's line, "Lovingly made by hand, in collaboration with AI, using the [Ho process](https://hosystem.sageframe.net/)", with the link. Placed at ho-06, The Ship, where the page is built.
 - **Recall and a history control (practitioner, 2026-11-05, ho-04.6 Think).** Two items for ho-05 beside the history file: up-arrow recall in the input of the commands run since launch, held in session memory first since the history file is off by default; and a control on the bar that drops the list. Refused the same day: output history by scrolling (one command, one result is the product's shape) and a Clear button (Escape is the clear, by ho-04.6's ladder).
 - **The brief itself.** The antagonist brief is a first draft. After ho-02x, the first review of shipping code, the practitioner reads the report against the diff and edits the brief for whatever it missed or over-flagged. The edit is recorded in the build record.
@@ -426,10 +489,16 @@ Phase 2  The Surface
   ho-03 Panel ───────► ho-03x
           │
   ho-04 Transcript ──► ho-04x
+          │
+  ho-04.5 Rename ────► ho-04.5x
+          │
+  ho-04.6 Escape ladder ► ho-04.6x
           │               ◆ replan: a week of real use ────── v0.2
-          │               └─ (ho-04.5 friction, if needed)
+          │               └─ ho-04.7 the virtual Mac for test runs
 Phase 3  Memory
-  ho-05 Memory ──────► ho-05x ─────────────────────────────── v0.3
+  ho-05.1 Settings and macros ► ho-05.1x
+          │
+  ho-05.2 History ───► ho-05.2x ───────────────────────────── v0.3
           │
 Phase 4  The Ship
   ho-06 The Ship ────► ho-06x ─────────────────────────────── v1.0
@@ -780,4 +849,14 @@ Range `2bd72a0..f9c039e`; x document advanced to run 2 as `7e315dd`; Codex (`gpt
 - **COMPLETED** — ho-04.6x run 2, Pass. ho-04.6 closed: the Escape ladder (stop, clear, hide), click-out that hides and keeps, the hotkey as a visibility toggle except while Running, Escape as the panel's event, System Design 2.1 amended by note; ho-04.6.1's Run guard and the failed start kept through hide and show.
 - **NEXT** — The replan week, in a fresh session: first the Tart macOS VM for test runs; then the Transcript suite's time, the unbroken-line streaming cost, the input at 18, the update check with an off switch (ho-06), and the Escape ladder's priority against ho-05 is settled. Then ho-05 Memory, carrying recall and the history control.
 - **ACTION ITEMS / BLOCKS** — None blocking. For the next ho that touches Panel's strip: Open in Terminal's message through the one-time parameter (N3). For ho-05: the list carried from ho-03 plus recall and the history control; refused: output history, a Clear button. For ho-06: the webpage line; demonstrate reopen with the bundle. Known: a process that detaches by a terminal's means survives the panel (ho-02's rule, kept 2026-11-05).
+- **PROJECT LIFECYCLE** — kamae.
+
+### Replan checkpoint — after ho-04x — passed 2026-11-08
+
+Opening hash: `def1383` (ho-04.6x's closing commit; the tree was clean). Document: `ho-process/hos/replan-after-ho-04x.md`, orientation shape, closed in the session. The practitioner ruled six items in order, each with the orchestrator's recommendation stated first, and every ruling agreed with it: (1) a Tart macOS guest for test runs, base image with the Command Line Tools and the Swift 6.4 toolchain inside, about 35 GB, as ho-04.7 before ho-05, ri shape, one Opus subagent, no review ho; until it closes, one stack run per verification, asked for first. (2) The Transcript suite stays whole at about 89 s. (3) The unbroken-line cost is deferred past v1, named in the README by ho-06, the cure recorded under deferred decisions. (4) The input stays at 18 as a recorded departure from the pālana scale; ho-05.1 writes the comment. (5) The update check: one GET to the releases-latest endpoint, no body, no query, no identifier, User-Agent `Hitoiki/<version>`, at launch and daily while running with the last time in memory, on by default, built in ho-06 and switched in ho-05.1; K2 §2.4 and §6 amended by note; declared the practitioner's standard for every project. (6) ho-05 splits at the storage boundary into ho-05.1 Settings and macros and ho-05.2 History, each with its x; the practitioner confirmed command history stays whole and only output history and a panel Clear button were refused. The overview's Phase 2, 3 and 4 entries, phase table, checkpoint and splits sections, deferred decisions and dependency summary were revised in the session. No code.
+
+**STATE-SUMMARY**
+- **COMPLETED** — The replan checkpoint after ho-04x: six rulings recorded, the overview and K2 revised to match.
+- **NEXT** — ho-04.7, the virtual Mac for test runs: author its spec with the Kamae 5 skill in a fresh session, ri shape, from ruling 1; its first discovery is the image and whether the Command Line Tools suffice.
+- **ACTION ITEMS / BLOCKS** — None blocking. Until ho-04.7 closes: one stack run per verification, asked for first, pointer on the chosen screen. For ho-05.1: the carried list, N3, the comment on the 18, the update toggle. For ho-05.2: the file, recall, the bar control, Clear. For ho-06: the checker as ruled, the Privacy section quoting the request, the unbroken-line sentence, the webpage line, reopen with the bundle.
 - **PROJECT LIFECYCLE** — kamae.

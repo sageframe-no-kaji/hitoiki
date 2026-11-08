@@ -25,3 +25,4 @@
 | 04.6 | The Escape ladder and the click-out rule | ha | complete |
 | 04.6x | Review of The Escape ladder and the click-out rule | x | complete |
 | 04.6.1 | Fix pass for the Escape ladder — answer ho-04.6x run 1 | ri | complete |
+| — | Replan checkpoint — after ho-04x | orientation | complete |
