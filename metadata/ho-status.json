@@ -7,9 +7,9 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 19,
+    "hos": 20,
     "drafted": 0,
-    "complete": 19,
+    "complete": 20,
     "planned": 0,
     "ready": 0
   },
@@ -200,6 +200,13 @@
           "status": "complete",
           "fixes": "04.6",
           "doc": "ho-process/hos/ho-04.6.1-fix-pass.md"
+        },
+        {
+          "ho": "04.7",
+          "title": "The virtual Mac for test runs",
+          "shape": "ri",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-04.7-virtual-mac-for-test-runs.md"
         },
         {
           "ho": "replan-after-04x",

@@ -24,6 +24,8 @@ Run after every implementation, before every commit:
 - `swift test`
 - `swift test --enable-code-coverage && scripts/coverage-floor.sh`
 
+Tests run through `scripts/vm-test.sh` (ho-04.7). It starts the Tart guest `hitoiki-test` headless, copies the working tree in, runs the five commands above and then `swift build -c release` inside the guest, saves the log to `.build/vm-test/<UTC timestamp>.log`, and stops the guest; it exits 0 only when all six pass. The Panel suite's windows open in the guest, not on the practitioner's screen. The bullets above stay as the list of what the script runs. Running the stack on the host is the exception, and is asked for before it runs.
+
 Coverage floor: **≥90% line coverage on HitoikiCore**, enforced by `scripts/coverage-floor.sh`.
 
 ## Kokoroe
