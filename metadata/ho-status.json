@@ -9,9 +9,9 @@
   "summary": {
     "hos": 23,
     "drafted": 0,
-    "complete": 22,
+    "complete": 23,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -233,7 +233,7 @@
           "ho": "05.1x",
           "title": "Review of Settings and macros",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "reviews": "05.1",
           "doc": "ho-process/hos/ho-05.1x-review-of-settings-and-macros.md",
           "run": 2
