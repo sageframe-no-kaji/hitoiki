@@ -14,7 +14,7 @@ internal enum Terminals {
         "org.alacritty",
     ]
 
-    /// The known terminals installed on this Mac, in the order of `known`.
+    /// The known terminals installed on this Mac, in the order of `known` so that Terminal.app leads the pop-up.
     internal static func installed() -> [String] {
         known.filter { url(for: $0) != nil }
     }

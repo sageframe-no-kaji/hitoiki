@@ -24,6 +24,18 @@ internal struct ThrowawaySuite {
     }
 }
 
+/// Waits, between main-actor jobs, until `condition` holds; ten seconds is a failure, not a pause.
+///
+/// The settings and menu bar suites both wait with it.
+@MainActor
+internal func until(_ condition: () -> Bool) async throws {
+    let deadline = ContinuousClock.now + .seconds(10)
+    while !condition() {
+        try #require(ContinuousClock.now < deadline, "waited ten seconds")
+        try await Task.sleep(for: .milliseconds(5))
+    }
+}
+
 /// The ten keys of ho-05.1 Decision 1, written out here rather than read from the code.
 private let decisionOneKeys: Set<String> = [
     "shortcutKeyCode", "shortcutModifiers", "directoryMode", "directoryPath", "terminal", "appearance",
@@ -256,7 +268,8 @@ internal struct SettingsTests {
             box = descendants(of: window.contentView).compactMap { $0 as? NSTextField }.first(where: \.isEditable)
             return box != nil
         }
-        #expect(window.makeFirstResponder(try #require(box)))
+        let field = try #require(box)
+        #expect(window.makeFirstResponder(field))
         #expect(window.firstResponder is NSTextView)
         window.sendEvent(try escape(in: window))
         #expect(!window.isVisible)
@@ -327,14 +340,4 @@ private func escape(modifiers: NSEvent.ModifierFlags = [], in window: NSWindow) 
 @MainActor
 private final class Seen {
     var values: [Appearance] = []
-}
-
-/// Waits, between main-actor jobs, until `condition` holds; ten seconds is a failure, not a pause.
-@MainActor
-private func until(_ condition: () -> Bool) async throws {
-    let deadline = ContinuousClock.now + .seconds(10)
-    while !condition() {
-        try #require(ContinuousClock.now < deadline, "waited ten seconds")
-        try await Task.sleep(for: .milliseconds(5))
-    }
 }

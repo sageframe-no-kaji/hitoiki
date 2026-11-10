@@ -122,14 +122,16 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers ?? ""
         // Command-1 through Command-9 are the macros' in every state; Panel ignores them while a command
-        // runs, and they go nowhere else.
-        if flags == .command, let slot = Int(key), (1...Settings.macroSlots).contains(slot) {
+        // runs, and they go nowhere else. The four modifier keys alone decide it: Caps Lock and the other
+        // state the flags carry change nothing (ho-05.1.1).
+        let held = flags.intersection([.control, .option, .shift, .command])
+        if held == .command, let slot = Int(key), (1...Settings.macroSlots).contains(slot) {
             panel?.loadMacro(slot)
             return true
         }
         // Command-Q quits in every state, as Quit in settings does (ho-05.1 Decision 18): an accessory app
-        // has no menu to route it. Caps Lock does not stop it, as it does not stop a menu's Command-Q.
-        if flags.subtracting(.capsLock) == .command, key.lowercased() == "q" {
+        // has no menu to route it. The same four keys decide it, so Caps Lock does not stop it.
+        if held == .command, key.lowercased() == "q" {
             _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
             return true
         }

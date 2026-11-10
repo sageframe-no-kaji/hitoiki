@@ -10,16 +10,6 @@ private func statusWindows() -> Int {
     NSApplication.shared.windows.filter { $0.className.contains("StatusBarWindow") && $0.isVisible }.count
 }
 
-/// Waits, between main-actor jobs, until `condition` holds; ten seconds is a failure, not a pause.
-@MainActor
-private func until(_ condition: () -> Bool) async throws {
-    let deadline = ContinuousClock.now + .seconds(10)
-    while !condition() {
-        try #require(ContinuousClock.now < deadline, "waited ten seconds")
-        try await Task.sleep(for: .milliseconds(5))
-    }
-}
-
 /// How many times Show Hitoiki was chosen.
 @MainActor
 private final class Shown {

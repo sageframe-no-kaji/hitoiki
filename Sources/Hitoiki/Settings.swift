@@ -204,7 +204,7 @@ internal final class Settings {
         number(key)?.boolValue ?? absent
     }
 
-    /// Writes `value`, or removes the key for nil.
+    /// Nil removes the key rather than storing an empty string, so an absent value reads as the default.
     private func store(_ value: String?, _ key: Key) {
         if let value {
             defaults.set(value, forKey: key.rawValue)

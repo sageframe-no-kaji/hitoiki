@@ -39,7 +39,7 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
         menu.delegate = self
     }
 
-    /// True while the item is in the menu bar; setting it makes or removes the item at once.
+    /// True while the item is in the menu bar; a change acts at once, so the switch needs no relaunch.
     internal var isShown: Bool {
         get { item != nil }
         set {

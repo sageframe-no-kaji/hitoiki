@@ -6,10 +6,10 @@ import AppKit
 import Carbon.HIToolbox
 import Darwin
 import Foundation
+import HitoikiCore
 import Testing
 
 @testable import Hitoiki
-@testable import HitoikiCore
 
 /// A directory the test owns, removed by the test.
 private func makeDirectory() throws -> String {
@@ -1535,13 +1535,15 @@ private func press(_ event: NSEvent, in window: NSWindow) {
     if !window.performKeyEquivalent(with: event) { window.firstResponder?.keyDown(with: event) }
 }
 
-/// Command and a digit, 1 through 9, as the keyboard sends it.
+/// A digit, 1 through 9, as the keyboard sends it: with Command alone unless `modifiers` says otherwise.
 @MainActor
-private func commandDigit(_ digit: Int, in window: NSWindow) throws -> NSEvent {
+private func commandDigit(
+    _ digit: Int, with modifiers: NSEvent.ModifierFlags = .command, in window: NSWindow
+) throws -> NSEvent {
     let codes = [
         kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9,
     ]
-    return try key("\(digit)", code: UInt16(codes[digit - 1]), modifiers: .command, in: window)
+    return try key("\(digit)", code: UInt16(codes[digit - 1]), modifiers: modifiers, in: window)
 }
 
 // Settings read at use (ho-05.1): the directory at Return, the macros at Command-N, the terminal at Open
@@ -1717,6 +1719,78 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
         #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
         #expect(window.input.stringValue.isEmpty)
+    }
+
+    // ho-05.1.1: the four modifier keys decide the macro route, and nothing else the event carries.
+
+    @Test("Caps Lock on, in Composing: Command-1 loads slot 1 over the typed text and runs nothing")
+    internal func macroLoadsWithCapsLock() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let command = "touch macro-ran; echo macro"
+        fixture.settings.macros = [command]
+        let window = fixture.window
+        fixture.panel.show()
+        window.input.stringValue = "typed line"
+        let before = fixture.look()
+        press(try commandDigit(1, with: [.command, .capsLock], in: window), in: window)
+        let after = fixture.look()
+        #expect(after.input == command)
+        #expect(after.with(input: before.input) == before)
+        #expect(fixture.panel.state == nil)
+        #expect(try await children().isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/macro-ran"))
+    }
+
+    @Test("Caps Lock on, in Done: Command-1 loads and changes nothing else")
+    internal func macroInDoneWithCapsLock() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.macros = ["echo from-the-macro"]
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo shown; exit 3")
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        let before = fixture.look()
+        press(try commandDigit(1, with: [.command, .capsLock], in: window), in: window)
+        let after = fixture.look()
+        #expect(after.input == "echo from-the-macro")
+        #expect(after.with(input: before.input) == before)
+    }
+
+    @Test("Caps Lock on, while Running: Command-1 changes nothing and the command reads nothing")
+    internal func macroWhileRunningWithCapsLock() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.macros = ["echo never"]
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r secret; printf %s \"${#secret}\" > length")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let before = fixture.look()
+        press(try commandDigit(1, with: [.command, .capsLock], in: window), in: window)
+        #expect(fixture.look() == before)
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
+        #expect(window.input.stringValue.isEmpty)
+    }
+
+    @Test("Option-Command-1 is not a macro: the typed text stays and nothing runs")
+    internal func optionCommandDigitIsNotAMacro() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.macros = ["echo never"]
+        let window = fixture.window
+        fixture.panel.show()
+        window.input.stringValue = "typed line"
+        let before = fixture.look()
+        press(try commandDigit(1, with: [.option, .command], in: window), in: window)
+        #expect(fixture.look() == before)
+        #expect(window.input.stringValue == "typed line")
+        #expect(fixture.panel.state == nil)
+        #expect(try await children().isEmpty)
     }
 
     @Test(
