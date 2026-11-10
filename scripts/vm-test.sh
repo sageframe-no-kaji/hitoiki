@@ -106,6 +106,11 @@ mkdir -p "$LOG_DIR"
 
 say() { printf '%s\n' "$*" | tee -a "$LOG"; }
 
+# One "Test run with N tests in M suites passed" line per test target is what
+# a green `swift test` prints; the count comes from Package.swift so a new
+# target is not forgotten here.
+TEST_TARGETS=$(grep -c '^[[:space:]]*\.testTarget(' "$ROOT/Package.swift")
+
 if ! command -v tart >/dev/null 2>&1; then
     echo "vm-test: tart is not installed. See the provisioning record in this script and $HO."
     exit 2
@@ -206,9 +211,21 @@ if [[ $COPY_STATUS -eq 0 ]]; then
         say ""
         say "== [$((i + 1))/${#STEPS[@]}] ${STEPS[i]}"
         T0=$SECONDS
+        LOG_BEFORE=$(wc -l <"$LOG")
         guest "$GUEST_ENV cd $GUEST_TREE && ${STEPS[i]}" 2>&1 | tee -a "$LOG"
         STATUS[i]=${PIPESTATUS[0]}
         SECS[i]=$((SECONDS - T0))
+        # `swift test` exits 0 when the test process dies partway through a
+        # suite (ho-05.1: an AppKit run loop ended and the runtime called
+        # exit(0) mid-test), so its exit code alone is not the verdict. A test
+        # step passes only if every test target reported its own run passing.
+        if [[ "${STATUS[i]}" == "0" && "${STEPS[i]}" == "swift test"* ]]; then
+            PASSED=$(tail -n +"$((LOG_BEFORE + 1))" "$LOG" | grep -c "Test run with .* passed")
+            if [[ "$PASSED" -ne "$TEST_TARGETS" ]]; then
+                STATUS[i]=1
+                say "== [$((i + 1))/${#STEPS[@]}] exited 0 but only $PASSED of $TEST_TARGETS test runs reported passing: the test process ended early; counted as a failure"
+            fi
+        fi
         say "== [$((i + 1))/${#STEPS[@]}] exit ${STATUS[i]} after ${SECS[i]}s"
     done
 fi

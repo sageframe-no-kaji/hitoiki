@@ -2,12 +2,6 @@ import AppKit
 import Carbon.HIToolbox
 import Observation
 
-/// One macro slot: a label for the user, shown only in settings, and the command Command-N loads.
-internal struct Macro: Equatable, Sendable {
-    internal var name = ""
-    internal var command = ""
-}
-
 /// Where commands start: the user's home, or a folder the user picked.
 internal enum DirectoryMode: String, Sendable {
     case home
@@ -59,7 +53,10 @@ internal final class Settings {
     }
 
     /// Control-Command-Space.
-    internal static let defaultShortcut = Shortcut.Combination(
+    ///
+    /// Nonisolated, a constant of a Sendable type: the recorder's verdict, which runs off the main actor,
+    /// exempts it from the system-list check (ho-05.1 Decision 14).
+    nonisolated internal static let defaultShortcut = Shortcut.Combination(
         keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey | cmdKey))
     /// Terminal.app, which every Mac has.
     internal static let defaultTerminal = "com.apple.Terminal"
@@ -157,22 +154,23 @@ internal final class Settings {
         }
     }
 
-    /// The nine slots, always nine: missing slots read empty, and only nine are written.
-    internal var macros: [Macro] {
+    /// The nine slots, always nine, each a command or empty (ho-05.1 Decision 16).
+    ///
+    /// Stored as an array of nine strings. Missing slots read empty, and only nine are written; an entry that is not a string,
+    /// as the first build's `{name, command}` dictionaries are, reads as an empty slot in its place.
+    internal var macros: [String] {
         get {
             access(keyPath: \.macros)
-            let stored = defaults.array(forKey: Key.macros.rawValue) as? [[String: String]] ?? []
-            let slots = stored.prefix(Self.macroSlots).map {
-                Macro(name: $0["name"] ?? "", command: $0["command"] ?? "")
-            }
-            return slots + Array(repeating: Macro(), count: Self.macroSlots - slots.count)
+            let stored = (defaults.array(forKey: Key.macros.rawValue) ?? []).prefix(Self.macroSlots)
+            let slots = stored.map { $0 as? String ?? "" }
+            return slots + Array(repeating: "", count: Self.macroSlots - slots.count)
         }
         set {
             withMutation(keyPath: \.macros) {
                 let slots =
                     newValue.prefix(Self.macroSlots)
-                    + Array(repeating: Macro(), count: max(0, Self.macroSlots - newValue.count))
-                defaults.set(slots.map { ["name": $0.name, "command": $0.command] }, forKey: Key.macros.rawValue)
+                    + Array(repeating: "", count: max(0, Self.macroSlots - newValue.count))
+                defaults.set(Array(slots), forKey: Key.macros.rawValue)
             }
         }
     }

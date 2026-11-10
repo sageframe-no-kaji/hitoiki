@@ -100,6 +100,8 @@ internal enum Shortcut {
 
     /// Checks 1 to 3 of the recorder's four, in order; check 4 is the registration itself.
     ///
+    /// The default, `Settings.defaultShortcut`, is exempt from check 3 (Decision 14).
+    ///
     /// - Parameters:
     ///   - keyCode: The key pressed, or nil when modifiers were pressed and released with no key.
     ///   - modifiers: The Carbon modifiers held with it.
@@ -112,6 +114,11 @@ internal enum Shortcut {
             return .refused(.noQualifyingModifier)
         }
         let candidate = Combination(keyCode: keyCode, modifiers: held)
+        // The app's own default passes check 3 whatever the list says (ho-05.1 Decision 14): the list reports
+        // Control-Command-Space enabled (the Character Viewer) on Macs whose System Settings show no such
+        // item, and System Design §2.1 chose the default knowing the collision. Checks 1 and 2 above still
+        // apply to it, and check 4, the registration, still refuses it where macOS really holds it.
+        if candidate == Settings.defaultShortcut { return .allowed(candidate) }
         // Discovery (ho-05.1 Decision 4): the system's list reports the app switcher, Command-Tab and
         // Shift-Command-Tab, with the rest, so no combination is refused by name.
         let taken = system.contains { $0.enabled && $0.combination == candidate }

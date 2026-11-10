@@ -208,25 +208,12 @@ internal final class Panel {
         if case .running = state { return }
         let macros = settings.macros
         guard macros.indices.contains(number - 1) else { return }
-        let command = macros[number - 1].command
+        let command = macros[number - 1]
         guard !command.isEmpty else { return }
         window.input.stringValue = command
         if window.input.currentEditor() == nil { window.makeFirstResponder(window.input) }
         window.input.currentEditor()?.selectedRange = NSRange(location: (command as NSString).length, length: 0)
         window.fit()
-    }
-
-    /// Refresh Environment: captures the login environment again for the commands that follow, after any
-    /// running command's Done; a failure is said on the notice, as at launch.
-    internal func refreshEnvironment() {
-        let run = run
-        Task { [weak self] in
-            do {
-                try await run.refreshEnvironment()
-            } catch {
-                self?.noteCaptureFailed(error)
-            }
-        }
     }
 
     /// A new, empty window of the chosen terminal at the directory the command ran in.

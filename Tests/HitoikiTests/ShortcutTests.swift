@@ -109,6 +109,29 @@ internal struct ShortcutTests {
         #expect(Shortcut.verdict(keyCode: row.keyCode, modifiers: row.modifiers, system: row.system) == row.verdict)
     }
 
+    @Test("Decision 14: the default, Control-Command-Space, passes check 3 against a list that holds it enabled")
+    internal func defaultExempt() {
+        let list = [
+            shortcut(space, control | command, enabled: true),
+            shortcut(space, command, enabled: true),
+            shortcut(space, control | shift | command, enabled: true),
+        ]
+        #expect(
+            Shortcut.verdict(keyCode: space, modifiers: control | command, system: list)
+                == .allowed(combination(space, control | command)))
+        // Caps Lock is not a modifier a hotkey carries: the candidate is still the default.
+        #expect(
+            Shortcut.verdict(keyCode: space, modifiers: control | command | capsLock, system: list)
+                == .allowed(combination(space, control | command)))
+        // A different enabled entry is refused, the default's neighbour with Shift among them.
+        #expect(Shortcut.verdict(keyCode: space, modifiers: command, system: list) == .refused(.takenByMacOS))
+        #expect(
+            Shortcut.verdict(keyCode: space, modifiers: control | shift | command, system: list)
+                == .refused(.takenByMacOS))
+        // Checks 1 and 2 still come first: the default's modifiers released with no key are refused.
+        #expect(Shortcut.verdict(keyCode: nil, modifiers: control | command, system: list) == .refused(.noKey))
+    }
+
     @Test("The refusals' lines")
     internal func messages() {
         #expect(Shortcut.Refusal.noKey.message == "Press a key with Command, Control or Option.")
@@ -124,8 +147,12 @@ internal struct ShortcutTests {
         #expect(list.contains(shortcut(tab, command, enabled: true)))
         #expect(list.contains(shortcut(tab, shift | command, enabled: true)))
         #expect(Shortcut.verdict(keyCode: tab, modifiers: command, system: list) == .refused(.takenByMacOS))
-        // Every enabled entry the system reports is refused against the system's own list.
-        for entry in list where entry.enabled {
+        // The default passes check 3 against the system's own list, whatever it says (Decision 14).
+        #expect(
+            Shortcut.verdict(keyCode: space, modifiers: control | command, system: list)
+                == .allowed(combination(space, control | command)))
+        // Every other enabled entry the system reports is refused against the system's own list.
+        for entry in list where entry.enabled && entry.combination != combination(space, control | command) {
             let verdict = Shortcut.verdict(
                 keyCode: entry.combination.keyCode, modifiers: entry.combination.modifiers, system: list)
             #expect(verdict != .allowed(entry.combination))

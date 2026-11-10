@@ -45,12 +45,14 @@ private func writeEverything(to settings: Settings) {
     settings.menuBarEnabled = true
     settings.updateCheckEnabled = false
     var macros = settings.macros
-    macros[0] = Macro(name: "uptime", command: "uptime")
-    macros[8] = Macro(name: "", command: "ssh host-a")
+    macros[0] = "uptime"
+    macros[8] = "ssh host-a"
     settings.macros = macros
 }
 
-@Suite("Settings")
+// Serialized: `oneWindow` counts the settings windows on screen, and the Escape tests hold theirs open
+// across awaits, so no two of this suite's tests may run interleaved.
+@Suite("Settings", .serialized)
 @MainActor
 internal struct SettingsTests {
     @Test("Absent, every key reads its default; reading every setting writes nothing")
@@ -66,7 +68,7 @@ internal struct SettingsTests {
         #expect(!settings.historyEnabled)
         #expect(!settings.menuBarEnabled)
         #expect(settings.updateCheckEnabled)
-        #expect(settings.macros == Array(repeating: Macro(name: "", command: ""), count: 9))
+        #expect(settings.macros == Array(repeating: "", count: 9))
         #expect(suite.keys.isEmpty)
     }
 
@@ -81,7 +83,7 @@ internal struct SettingsTests {
             (["historyEnabled"], { $0.historyEnabled = true }),
             (["menuBarEnabled"], { $0.menuBarEnabled = true }),
             (["updateCheckEnabled"], { $0.updateCheckEnabled = false }),
-            (["macros"], { $0.macros = [Macro(name: "a", command: "b")] }),
+            (["macros"], { $0.macros = ["b"] }),
         ]
         for (keys, write) in writes {
             let suite = try ThrowawaySuite()
@@ -105,8 +107,8 @@ internal struct SettingsTests {
         #expect(second.historyEnabled)
         #expect(second.menuBarEnabled)
         #expect(!second.updateCheckEnabled)
-        #expect(second.macros[0] == Macro(name: "uptime", command: "uptime"))
-        #expect(second.macros[8] == Macro(name: "", command: "ssh host-a"))
+        #expect(second.macros[0] == "uptime")
+        #expect(second.macros[8] == "ssh host-a")
         #expect(suite.keys == decisionOneKeys)
 
         // Back to the defaults, written as values, read back as written.
@@ -122,27 +124,45 @@ internal struct SettingsTests {
         #expect(suite.keys == decisionOneKeys.subtracting(["directoryPath"]))
     }
 
-    @Test("Macros: always nine; a written slot survives, an unwritten one reads empty; nine are stored")
+    @Test("Macros: nine command strings always; a written slot survives, an unwritten one reads empty; nine are stored")
     internal func macros() throws {
         let suite = try ThrowawaySuite()
         defer { suite.remove() }
         let settings = Settings(defaults: suite.defaults)
-        settings.macros = [Macro(name: "one", command: "echo 1"), Macro(name: "two", command: "echo 2")]
+        settings.macros = ["echo 1", "echo 2"]
         let read = Settings(defaults: suite.defaults).macros
-        #expect(read.count == 9)
-        #expect(read[0] == Macro(name: "one", command: "echo 1"))
-        #expect(read[1] == Macro(name: "two", command: "echo 2"))
-        #expect(read[2...].allSatisfy { $0 == Macro(name: "", command: "") })
-        #expect((suite.defaults.array(forKey: "macros") as? [[String: String]])?.count == 9)
+        #expect(read == ["echo 1", "echo 2", "", "", "", "", "", "", ""])
+        #expect(suite.defaults.array(forKey: "macros") as? [String] == read)
 
-        settings.macros = (1...12).map { Macro(name: "", command: "echo \($0)") }
-        #expect(Settings(defaults: suite.defaults).macros.map(\.command) == (1...9).map { "echo \($0)" })
-        #expect((suite.defaults.array(forKey: "macros") as? [[String: String]])?.count == 9)
+        settings.macros = (1...12).map { "echo \($0)" }
+        #expect(Settings(defaults: suite.defaults).macros == (1...9).map { "echo \($0)" })
+        #expect((suite.defaults.array(forKey: "macros") as? [String])?.count == 9)
 
-        // A stored array of another shape still reads as nine slots, the readable ones kept.
-        suite.defaults.set([["command": "kept"]], forKey: "macros")
-        #expect(settings.macros.count == 9)
-        #expect(settings.macros[0] == Macro(name: "", command: "kept"))
+        // A slot changed alone: the others are as they were.
+        settings.macros[4] = "uptime"
+        #expect(Settings(defaults: suite.defaults).macros[4] == "uptime")
+        #expect(Settings(defaults: suite.defaults).macros[3] == "echo 4")
+    }
+
+    @Test("Macros: the first build's array of {name, command} dictionaries reads as nine empty slots")
+    internal func macrosFromTheFirstBuild() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let firstBuild: [[String: String]] =
+            [["name": "uptime", "command": "uptime"], ["name": "", "command": "ssh host-a"]]
+            + Array(repeating: ["name": "", "command": ""], count: 7)
+        suite.defaults.set(firstBuild, forKey: "macros")
+        let settings = Settings(defaults: suite.defaults)
+        #expect(settings.macros == Array(repeating: "", count: 9))
+
+        // The next write stores the new shape, nine strings, over the old.
+        settings.macros[0] = "df -h"
+        #expect(suite.defaults.array(forKey: "macros") as? [String] == ["df -h", "", "", "", "", "", "", "", ""])
+        #expect(Settings(defaults: suite.defaults).macros[0] == "df -h")
+
+        // Entries of mixed shape: each that is not a string reads empty in its own place.
+        suite.defaults.set([["command": "old"], "kept", 7, "also kept"], forKey: "macros")
+        #expect(settings.macros == ["", "kept", "", "also kept", "", "", "", "", ""])
     }
 
     @Test("A stored value outside a setting's values reads as its default")
@@ -201,6 +221,106 @@ internal struct SettingsTests {
         #expect(first.isVisible)
         #expect(NSApplication.shared.windows.filter { $0 is SettingsWindow && $0.isVisible }.count == 1)
     }
+
+    @Test("Escape hides the settings window as the close button does; the next Settings… brings the same one back")
+    internal func escapeHides() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        #expect(window.isVisible)
+
+        // A modified Escape is not Escape.
+        window.sendEvent(try escape(modifiers: .command, in: window))
+        #expect(window.isVisible)
+
+        window.sendEvent(try escape(in: window))
+        #expect(!window.isVisible)
+        app.showSettings(nil)
+        #expect(app.settingsWindow === window)
+        #expect(window.isVisible)
+    }
+
+    @Test("Escape while a macro's box has the keyboard still hides the window")
+    internal func escapeFromAMacroBox() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        var box: NSTextField?
+        try await until {
+            box = descendants(of: window.contentView).compactMap { $0 as? NSTextField }.first(where: \.isEditable)
+            return box != nil
+        }
+        #expect(window.makeFirstResponder(try #require(box)))
+        #expect(window.firstResponder is NSTextView)
+        window.sendEvent(try escape(in: window))
+        #expect(!window.isVisible)
+    }
+
+    @Test("Escape while the recorder records cancels the recording and leaves the window; the next Escape hides it")
+    internal func escapeWhileRecording() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        var found: RecorderView?
+        try await until {
+            found = descendants(of: window.contentView).compactMap { $0 as? RecorderView }.first
+            return found != nil
+        }
+        let recorder = try #require(found)
+        let click = try #require(
+            NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1))
+        recorder.mouseDown(with: click)
+        #expect(recorder.isRecording)
+
+        window.sendEvent(try escape(in: window))
+        #expect(!recorder.isRecording)
+        #expect(window.isVisible)
+
+        window.sendEvent(try escape(in: window))
+        #expect(!window.isVisible)
+    }
+}
+
+/// Every view under `view`, depth first.
+@MainActor
+private func descendants(of view: NSView?) -> [NSView] {
+    guard let view else { return [] }
+    return view.subviews + view.subviews.flatMap { descendants(of: $0) }
+}
+
+/// The Escape key going down in `window`, as the keyboard sends it.
+@MainActor
+private func escape(modifiers: NSEvent.ModifierFlags = [], in window: NSWindow) throws -> NSEvent {
+    try #require(
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: "\u{1B}",
+            charactersIgnoringModifiers: "\u{1B}",
+            isARepeat: false,
+            keyCode: UInt16(kVK_Escape)))
 }
 
 /// What a followed effect was applied with, in order.

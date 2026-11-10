@@ -69,7 +69,7 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         return .terminateLater
     }
 
-    /// The gear's and the menu bar item's Settings…, reached through the responder chain.
+    /// The gear's click and the menu bar item's Settings…, reached through the responder chain.
     @objc
     internal func showSettings(_ sender: Any?) {
         let window = settingsWindow ?? makeSettingsWindow()
@@ -90,7 +90,6 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
                     Hotkey.record(
                         keyCode: keyCode, modifiers: modifiers, into: settings, system: Shortcut.systemShortcuts())
                 },
-                refresh: { [weak self] in self?.panel?.refreshEnvironment() },
                 hotkeyLine: { Hotkey.settingsLine(launch: status, attempted: attempted) }))
     }
 }

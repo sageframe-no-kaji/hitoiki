@@ -3,16 +3,14 @@ import Carbon.HIToolbox
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The settings page, one form: the eight settings, then the nine macros.
+/// The settings page: one form of the seven settings, then the nine macros, and Quit at the foot.
 ///
-/// The shortcut, where commands start, the terminal, the appearance, the three switches and Refresh
-/// Environment. Bound to the store: every change is written as it is made, and there is no Apply.
+/// The shortcut, where commands start, the terminal, the appearance and the three switches. Bound to the
+/// store: every change is written as it is made, and there is no Apply.
 internal struct SettingsView: View {
     @Bindable internal var settings: Settings
     /// The recorder's candidate, through `Hotkey.record`: nil once it is the hotkey, or the refusal.
     internal let record: @MainActor (UInt32?, UInt32) -> String?
-    /// Refresh Environment.
-    internal let refresh: @MainActor () -> Void
     /// The line under the recorder when nothing is refused: what is registered, or why nothing is.
     internal let hotkeyLine: @MainActor () -> String
 
@@ -21,16 +19,28 @@ internal struct SettingsView: View {
     internal init(
         settings: Settings,
         record: @escaping @MainActor (UInt32?, UInt32) -> String?,
-        refresh: @escaping @MainActor () -> Void,
         hotkeyLine: @escaping @MainActor () -> String
     ) {
         self.settings = settings
         self.record = record
-        self.refresh = refresh
         self.hotkeyLine = hotkeyLine
     }
 
     internal var body: some View {
+        VStack(spacing: 0) {
+            form
+            Divider()
+            // Quit at the foot, outside the scrolling form, so it is always in view (ho-05.1 Decision 18).
+            // It terminates through the application, whose delegate kills a running command first.
+            HStack {
+                Spacer()
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+            }
+            .padding(12)
+        }
+    }
+
+    private var form: some View {
         Form {
             Section {
                 LabeledContent("Shortcut") {
@@ -52,12 +62,14 @@ internal struct SettingsView: View {
                     Divider()
                     Text("Other…").tag(DirectoryChoice.other)
                 }
-                Picker("Open in Terminal uses", selection: terminalChoice) {
-                    ForEach(terminalChoices, id: \.self) { identifier in
-                        Text(Terminals.name(of: identifier)).tag(TerminalChoice.app(identifier))
+                LabeledContent("Open in Terminal uses") {
+                    // The closure captures the store alone, which is Sendable, and not the view.
+                    let store = settings
+                    TerminalPopUp(selected: store.terminal) { identifier in
+                        guard let identifier else { return Self.chooseTerminal(into: store) }
+                        store.terminal = identifier
                     }
-                    Divider()
-                    Text("Other…").tag(TerminalChoice.other)
+                    .fixedSize()
                 }
                 Picker("Appearance", selection: $settings.appearance) {
                     Text("System").tag(Appearance.system)
@@ -78,22 +90,20 @@ internal struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
-                LabeledContent("Login environment") {
-                    Button("Refresh Environment") { refresh() }
-                }
             }
+            // One command box a row, bordered and with its placeholder, so an empty row shows where to type
+            // (ho-05.1 Decision 16).
             Section("Macros") {
                 ForEach(0..<Settings.macroSlots, id: \.self) { slot in
                     HStack {
                         Text("⌘\(slot + 1)")
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
-                        TextField("Name", text: macro(slot, \.name))
-                            .frame(width: 120)
-                        TextField("Command", text: macro(slot, \.command))
+                        TextField("⌘\(slot + 1)", text: macro(slot), prompt: Text("Command"))
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                     }
-                    .labelsHidden()
                 }
             }
         }
@@ -104,12 +114,6 @@ internal struct SettingsView: View {
     private enum DirectoryChoice: Hashable {
         case home
         case fixed
-        case other
-    }
-
-    /// A terminal by bundle identifier, or the application chooser.
-    private enum TerminalChoice: Hashable {
-        case app(String)
         case other
     }
 
@@ -130,32 +134,12 @@ internal struct SettingsView: View {
         }
     }
 
-    /// Terminal.app, the other known terminals installed, and the stored one when it is neither.
-    private var terminalChoices: [String] {
-        let installed = Terminals.installed()
-        return installed.contains(settings.terminal) ? installed : installed + [settings.terminal]
-    }
-
-    private var terminalChoice: Binding<TerminalChoice> {
+    private func macro(_ slot: Int) -> Binding<String> {
         let settings = settings
         return Binding {
-            .app(settings.terminal)
-        } set: { choice in
-            switch choice {
-            case .app(let identifier):
-                settings.terminal = identifier
-            case .other:
-                Task { @MainActor in Self.chooseTerminal(into: settings) }
-            }
-        }
-    }
-
-    private func macro(_ slot: Int, _ field: WritableKeyPath<Macro, String> & Sendable) -> Binding<String> {
-        let settings = settings
-        return Binding {
-            settings.macros[slot][keyPath: field]
+            settings.macros[slot]
         } set: { text in
-            settings.macros[slot][keyPath: field] = text
+            settings.macros[slot] = text
         }
     }
 
@@ -183,6 +167,90 @@ internal struct SettingsView: View {
     }
 }
 
+/// The terminal row's pop-up: Terminal.app, the other known terminals installed, the stored one when it is
+/// neither, then Other….
+///
+/// An AppKit pop-up, where SwiftUI's picker builds its list once with the view: the list is read from
+/// Launch Services each time the pop-up is about to open and each time the window becomes key, so a
+/// terminal installed while the window stood open is offered (ho-05.1 Decision 15). Nothing is cached.
+private struct TerminalPopUp: NSViewRepresentable {
+    /// The stored bundle identifier, read in the form's body so a change redraws the row.
+    let selected: String
+    /// A terminal picked, by bundle identifier, or nil for Other….
+    let choose: @MainActor (String?) -> Void
+
+    func makeNSView(context: Context) -> TerminalPopUpButton {
+        TerminalPopUpButton(selected: selected, choose: choose)
+    }
+
+    func updateNSView(_ view: TerminalPopUpButton, context: Context) {
+        view.selected = selected
+        view.choose = choose
+        view.readList()
+    }
+}
+
+private final class TerminalPopUpButton: NSPopUpButton, NSMenuDelegate {
+    var selected: String
+    var choose: @MainActor (String?) -> Void
+
+    init(selected: String, choose: @escaping @MainActor (String?) -> Void) {
+        self.selected = selected
+        self.choose = choose
+        super.init(frame: .zero, pullsDown: false)
+        menu?.delegate = self
+        target = self
+        action = #selector(picked)
+        readList()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        readList()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
+        guard let window else { return }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowBecameKey), name: NSWindow.didBecomeKeyNotification, object: window)
+    }
+
+    /// The list as Launch Services gives it now, with the stored terminal selected.
+    func readList() {
+        let installed = Terminals.installed()
+        let identifiers = installed.contains(selected) ? installed : installed + [selected]
+        removeAllItems()
+        for identifier in identifiers {
+            let item = NSMenuItem(title: Terminals.name(of: identifier), action: nil, keyEquivalent: "")
+            item.representedObject = identifier
+            menu?.addItem(item)
+        }
+        menu?.addItem(.separator())
+        menu?.addItem(NSMenuItem(title: "Other…", action: nil, keyEquivalent: ""))
+        selectItem(at: identifiers.firstIndex(of: selected) ?? 0)
+    }
+
+    @objc
+    private func windowBecameKey() {
+        readList()
+    }
+
+    @objc
+    private func picked() {
+        let identifier = selectedItem?.representedObject as? String
+        choose(identifier)
+        if let identifier { selected = identifier }
+        // Other… cancelled leaves the stored terminal; the pop-up shows it again rather than "Other…".
+        readList()
+    }
+}
+
 /// The shortcut row: the form's wrapper for the recorder's capturing view.
 private struct ShortcutRecorder: NSViewRepresentable {
     let shortcut: Shortcut.Combination
@@ -202,8 +270,9 @@ private struct ShortcutRecorder: NSViewRepresentable {
 
 /// The recorder: the current combination until clicked, then "Type a shortcut" and the keyboard.
 ///
-/// It reads raw key codes and modifier flags, not characters. Escape cancels.
-private final class RecorderView: NSView {
+/// It reads raw key codes and modifier flags, not characters. Escape cancels; the settings window asks
+/// `isRecording` so its own Escape (Decision 13) leaves a recording to the recorder.
+internal final class RecorderView: NSView {
     var shortcut: Shortcut.Combination {
         didSet { needsDisplay = true }
     }
@@ -213,6 +282,9 @@ private final class RecorderView: NSView {
     private var recording = false {
         didSet { needsDisplay = true }
     }
+
+    /// True from the click that starts a recording until a key, a release, Escape or losing the keyboard ends it.
+    var isRecording: Bool { recording }
     /// The modifiers held since the recording began, for a release with no key.
     private var held: UInt32 = 0
 

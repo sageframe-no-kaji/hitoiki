@@ -5,8 +5,8 @@ import HitoikiCore
 ///
 /// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
 /// input, the gear and the notice, always shown; and beneath it the output card, with the transcript
-/// and the strip at its foot. Layout, placement, the strip and the gear menu live here; every event
-/// goes to Panel.
+/// and the strip at its foot. Layout, placement and the strip live here; every event goes to Panel, but
+/// the gear's click and Command-Q, which go to the application.
 @MainActor
 internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal weak var panel: Panel?
@@ -21,6 +21,11 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let transcript = TranscriptView(width: width - 2 * inset)
     /// The input, the gear and the notice; in Composing, the whole panel.
     internal let bar = NSView()
+    /// Where Command-Q sends the terminate selector: the application.
+    ///
+    /// The application's delegate kills a running command before the app ends. A test stands a recorder in
+    /// its place, so the selector is witnessed unsent.
+    internal var application: NSResponder = NSApplication.shared
     /// The transcript and the strip, beneath the bar; Panel shows it from Running until a clear.
     internal let outputCard = NSView()
 
@@ -52,7 +57,6 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     private let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width - 2 * inset, height: 0))
     private let rule = PanelWindow.hairline()
     private let strip = NSStackView()
-    private let gearMenu = NSMenu()
     private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: Self.inputLineHeight)
     private lazy var transcriptHeight = scroll.heightAnchor.constraint(equalToConstant: 0)
     /// The transcript's greatest height: half the screen's visible height, less the rest of the panel.
@@ -100,10 +104,10 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         gear.isBordered = false
         gear.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
         gear.contentTintColor = Theme.Token.inkFaint.nsColor
-        gear.target = self
-        gear.action = #selector(gearPressed)
-        gearMenu.addItem(withTitle: "Settings…", action: #selector(HitoikiApp.showSettings(_:)), keyEquivalent: "")
-        gearMenu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+        // A click opens settings, no menu (ho-05.1 Decision 18): no target, so the action climbs the
+        // responder chain to the application's delegate, as the menu bar item's Settings… does.
+        gear.target = nil
+        gear.action = #selector(HitoikiApp.showSettings(_:))
 
         scroll.documentView = transcript
         scroll.drawsBackground = false
@@ -121,6 +125,12 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         // runs, and they go nowhere else.
         if flags == .command, let slot = Int(key), (1...Settings.macroSlots).contains(slot) {
             panel?.loadMacro(slot)
+            return true
+        }
+        // Command-Q quits in every state, as Quit in settings does (ho-05.1 Decision 18): an accessory app
+        // has no menu to route it. Caps Lock does not stop it, as it does not stop a menu's Command-Q.
+        if flags.subtracting(.capsLock) == .command, key.lowercased() == "q" {
+            _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
             return true
         }
         guard flags == .command, let action = Self.editing[key] else {
@@ -252,11 +262,6 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     @objc
     private func openPressed() {
         panel?.openInTerminal()
-    }
-
-    @objc
-    private func gearPressed() {
-        gearMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: gear.bounds.height + 4), in: gear)
     }
 
     private func style(_ button: NSButton, _ title: String, _ color: Palette, _ action: Selector) {

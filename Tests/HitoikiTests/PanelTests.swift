@@ -192,9 +192,8 @@ private struct Fixture {
         backing: .buffered,
         defer: false)
 
-    /// `homeOnPath` makes the test's directory the whole `PATH`, for a fake `ssh`; `failingCapture` makes
-    /// Refresh Environment's capture a shell that exits 3.
-    init(homeOnPath: Bool = false, launch: Task<Void, any Error> = Task {}, failingCapture: Bool = false) throws {
+    /// `homeOnPath` makes the test's directory the whole `PATH`, for a fake `ssh`.
+    init(homeOnPath: Bool = false, launch: Task<Void, any Error> = Task {}) throws {
         home = try makeDirectory()
         window = PanelWindow()
         suite = try ThrowawaySuite()
@@ -202,15 +201,8 @@ private struct Fixture {
         settings.directoryMode = .fixed
         settings.directoryPath = home
         let environment = homeOnPath ? ownedEnvironment(home: home, path: home) : ownedEnvironment(home: home)
-        var captureShell: String?
-        if failingCapture {
-            let shell = home + "/failing-shell"
-            try "#!/bin/sh\nexit 3\n".write(toFile: shell, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: shell)
-            captureShell = shell
-        }
         panel = Panel(
-            run: Run(environment: environment, captureShell: captureShell),
+            run: Run(environment: environment),
             launch: launch,
             window: window,
             settings: settings)
@@ -1553,7 +1545,7 @@ private func commandDigit(_ digit: Int, in window: NSWindow) throws -> NSEvent {
 }
 
 // Settings read at use (ho-05.1): the directory at Return, the macros at Command-N, the terminal at Open
-// in Terminal; Refresh Environment; the hotkey's notice.
+// in Terminal; the hotkey's notice; the gear and Command-Q (Decision 18).
 extension PanelTests {
     @Test("The fixed folder is read at Return: a change between two commands moves the second")
     internal func directoryReadAtReturn() async throws {
@@ -1639,7 +1631,7 @@ extension PanelTests {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         let command = "touch macro-ran; echo macro"
-        fixture.settings.macros = [Macro(name: "first", command: command)]
+        fixture.settings.macros = [command]
         let window = fixture.window
         fixture.panel.show()
         let before = fixture.look()
@@ -1665,7 +1657,7 @@ extension PanelTests {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         var macros = fixture.settings.macros
-        macros[2] = Macro(name: "", command: "uptime")
+        macros[2] = "uptime"
         fixture.settings.macros = macros
         let window = fixture.window
         fixture.panel.show()
@@ -1677,7 +1669,7 @@ extension PanelTests {
         press(try commandDigit(9, in: window), in: window)
         #expect(window.input.stringValue == "uptime")
 
-        macros[2] = Macro(name: "", command: "df -h")
+        macros[2] = "df -h"
         fixture.settings.macros = macros
         press(try commandDigit(3, in: window), in: window)
         #expect(window.input.stringValue == "df -h")
@@ -1688,7 +1680,7 @@ extension PanelTests {
     internal func macroInDone() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
-        fixture.settings.macros = [Macro(name: "", command: "echo from-the-macro")]
+        fixture.settings.macros = ["echo from-the-macro"]
         let window = fixture.window
         fixture.panel.show()
         fixture.panel.submit("echo shown; exit 3")
@@ -1710,7 +1702,7 @@ extension PanelTests {
     internal func macroWhileRunning() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
-        fixture.settings.macros = [Macro(name: "", command: "echo never")]
+        fixture.settings.macros = ["echo never"]
         let window = fixture.window
         fixture.panel.show()
         fixture.panel.submit("echo ready; read -r secret; printf %s \"${#secret}\" > length")
@@ -1767,17 +1759,6 @@ extension PanelTests {
         #expect(window.status.stringValue.isEmpty)
     }
 
-    @Test("Refresh Environment through the panel: a failing capture puts the notice line on the panel")
-    internal func refreshFails() async throws {
-        let fixture = try Fixture(failingCapture: true)
-        defer { fixture.tearDown() }
-        #expect(fixture.window.notice.isHidden)
-        fixture.panel.refreshEnvironment()
-        let line = "Login environment not captured (shell exited 3); using the app's own environment."
-        try await fixture.until { fixture.window.notice.stringValue == line }
-        #expect(!fixture.window.notice.isHidden)
-    }
-
     @Test("The hotkey's notice and the settings line name the registered combination, not a constant")
     internal func hotkeyNamed() throws {
         let fixture = try Fixture()
@@ -1799,5 +1780,77 @@ extension PanelTests {
         #expect(
             Hotkey.settingsLine(launch: status, attempted: combination)
                 == Hotkey.statusText(for: status, combination: combination))
+    }
+
+    @Test("The gear has no menu: a click sends showSettings up the responder chain to the application's delegate")
+    internal func gearOpensSettings() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let row = try #require(fixture.window.input.superview as? NSStackView)
+        let gear = try #require(row.arrangedSubviews.last as? NSButton)
+        #expect(gear.action == #selector(HitoikiApp.showSettings(_:)))
+        // No target: the action climbs the responder chain to the application's delegate.
+        #expect(gear.target == nil)
+        #expect(gear.menu == nil)
+
+        // The application's delegate answers it. That it opens the one settings window is the Settings
+        // suite's to witness: a window opened here, in a suite that runs beside that one, would be counted
+        // by its one-window test.
+        #expect(HitoikiApp.instancesRespond(to: gear.action))
+    }
+
+    @Test("Command-Q sends the terminate selector to the application, in Composing, with text typed, and while Running")
+    internal func commandQuit() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let window = fixture.window
+        // Unless a test stands in for it, the selector goes to the application itself.
+        #expect(window.application === NSApplication.shared)
+        let quit = QuitRecorder()
+        window.application = quit
+        fixture.panel.show()
+        let commandQ = try key("q", code: UInt16(kVK_ANSI_Q), modifiers: .command, in: window)
+
+        let clean = fixture.look()
+        press(commandQ, in: window)
+        #expect(quit.senders.count == 1)
+        #expect((quit.senders.last as? PanelWindow) === window)
+        #expect(fixture.look() == clean)
+
+        window.input.stringValue = "typed line"
+        let typed = fixture.look()
+        press(commandQ, in: window)
+        #expect(quit.senders.count == 2)
+        #expect(fixture.look() == typed)
+        #expect(window.input.stringValue == "typed line")
+
+        // Caps Lock on: still Command-Q.
+        press(try key("Q", code: UInt16(kVK_ANSI_Q), modifiers: [.command, .capsLock], in: window), in: window)
+        #expect(quit.senders.count == 3)
+
+        // Option-Command-Q is not it.
+        window.input.stringValue = ""
+        press(try key("q", code: UInt16(kVK_ANSI_Q), modifiers: [.command, .option], in: window), in: window)
+        #expect(quit.senders.count == 3)
+
+        fixture.panel.submit("echo ready; read -r line")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        press(commandQ, in: window)
+        #expect(quit.senders.count == 4)
+        #expect(fixture.panel.isBusy)
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+    }
+}
+
+/// Stands in for the application: takes the terminate selector and records who sent it, ending nothing.
+@MainActor
+private final class QuitRecorder: NSResponder {
+    var senders: [Any?] = []
+
+    @objc
+    func terminate(_ sender: Any?) {
+        senders.append(sender)
     }
 }
