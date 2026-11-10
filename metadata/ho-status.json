@@ -8,8 +8,8 @@
   },
   "summary": {
     "hos": 23,
-    "drafted": 1,
-    "complete": 21,
+    "drafted": 0,
+    "complete": 22,
     "planned": 0,
     "ready": 1
   },
@@ -236,13 +236,13 @@
           "status": "ready",
           "reviews": "05.1",
           "doc": "ho-process/hos/ho-05.1x-review-of-settings-and-macros.md",
-          "run": 1
+          "run": 2
         },
         {
           "ho": "05.1.1",
           "title": "Fix pass for settings and macros — answer ho-05.1x run 1",
           "shape": "ri",
-          "status": "draft",
+          "status": "complete",
           "fixes": "05.1",
           "doc": "ho-process/hos/ho-05.1.1-fix-pass.md"
         }

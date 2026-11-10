@@ -28,5 +28,5 @@
 | 04.7 | The virtual Mac for test runs | ri | complete |
 | 05.1 | Settings and macros | ha | complete |
 | 05.1x | Review of Settings and macros | x | ready |
-| 05.1.1 | Fix pass for settings and macros — answer ho-05.1x run 1 | ri | draft |
+| 05.1.1 | Fix pass for settings and macros — answer ho-05.1x run 1 | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |

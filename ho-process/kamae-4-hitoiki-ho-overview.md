@@ -890,3 +890,13 @@ Range `600102e..8b38365`; x document `b9c25f2`; Codex (`gpt-6.1-sol`, a fresh `c
 - **NEXT** — ho-05.1.1, the fix pass: the macro route by the four modifier keys with Caps Lock partitions tested; the plain core import; one polling helper; three comments; one warning; one count. Then ho-05.1x run 2.
 - **ACTION ITEMS / BLOCKS** — ho-05.1 reopened by the Return. The practitioner's second sheet still pending. Codex runs as fresh `codex exec` sessions; the open thread cannot be resumed from the command line.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-05.1.1 — Fix pass for settings and macros — closed 2026-11-10
+
+Opening hash: `86e4a33` (Codex's run-1 report); the spec opened in `44bf3bd`; the build is `7b7d3ed`. Spec: `ho-process/hos/ho-05.1.1-fix-pass.md`, ri, invariant-only: ho-05.1's invariant 3 gains the sentence that the macro route is decided by the four modifier keys and nothing else the event carries, with four partitions named. One Opus builder, no halt: `held` in `performKeyEquivalent`, four tests, the plain core import, one `until`, three comments with reasons, the double-optional `#require` made real. The orchestrator made Command-Q read the same `held`. Tests 106 → 110 app, 72 core; 95.76% / 97.19%; no warnings; four green runs in the guest between builder and orchestrator. Named for run 2: the four editing equivalents still compare the flags whole (ho-03's and ho-04's). Unattended throughout, by the practitioner's instruction.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-05.1.1: M1, S1, S2, N6, N7 and N8 of ho-05.1x run 1 answered.
+- **NEXT** — ho-05.1x run 2 over `600102e` through this ho's closing commit, both specs and the run-1 report as inputs, report `ho-process/reviews/ho-05.1x-report-2.md`, in a fresh `codex exec` session.
+- **ACTION ITEMS / BLOCKS** — Formal review pending; no Pass is claimed. The practitioner's second sheet still pending; it now also covers Command-1 with Caps Lock on. Two Codex runs remain of the three allowed.
+- **PROJECT LIFECYCLE** — kamae.
