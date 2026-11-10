@@ -7,11 +7,11 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 21,
+    "hos": 22,
     "drafted": 0,
     "complete": 21,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -228,6 +228,15 @@
           "status": "complete",
           "splits-from": "05",
           "doc": "ho-process/hos/ho-05.1-settings-and-macros.md"
+        },
+        {
+          "ho": "05.1x",
+          "title": "Review of Settings and macros",
+          "shape": "x",
+          "status": "ready",
+          "reviews": "05.1",
+          "doc": "ho-process/hos/ho-05.1x-review-of-settings-and-macros.md",
+          "run": 1
         }
       ]
     }

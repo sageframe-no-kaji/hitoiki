@@ -27,4 +27,5 @@
 | 04.6.1 | Fix pass for the Escape ladder — answer ho-04.6x run 1 | ri | complete |
 | 04.7 | The virtual Mac for test runs | ri | complete |
 | 05.1 | Settings and macros | ha | complete |
+| 05.1x | Review of Settings and macros | x | ready |
 | — | Replan checkpoint — after ho-04x | orientation | complete |
