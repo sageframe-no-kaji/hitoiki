@@ -97,11 +97,15 @@ A fifth component, Hand-off, was proposed and dissolved during the conversation.
 
 **Amendment, 2026-11-05 (ho-04.6).** The text above stands as written. ho-04.6 (`ho-process/hos/ho-04.6-escape-ladder-and-click-out.md`) revises the three states' exits, by the practitioner's rulings of 2026-11-04 and 2026-11-05. Escape is a deliberate path that peels one layer at a time: while Running it stops the command as Stop does; a stopped, Done or typed panel it clears to a clean panel still on screen, killing anything alive; a clean panel it hides. Click-out hides the panel and keeps everything on it, and the next summons brings it back as it was; it never hides a running command, which stays on screen without the keyboard. The hotkey shows a hidden panel, gives the keyboard to a visible one without it, and hides one with it, except while Running, where it never hides. "Nothing survives the panel" and "there is no background mode" stand. "Escape and click-out never kill a running process; they are the accident paths and are inert while Running" is superseded for Escape and confirmed for click-out. Escape never reaches the command as a key.
 
+**Amendment, 2026-11-10 (ho-05.1 run sheet).** "A gear in the panel reaches settings, Check for Updates, and Quit" is kept in effect and changed in shape: the gear opens the settings window directly, with no menu; Quit is a button at the foot of settings, and Check for Updates joins it there at ho-06; Command-Q on the panel quits, through the same path as Quit. The menu bar item keeps its own menu. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`, Decision 18.
+
 ### 2.2 Run
 
 **Responsibility.** One command's life. Run is the only component that touches processes, and the only boundary a sandboxed build would ever change entitlements behind.
 
 **Environment.** At app launch, Run executes the user's login shell once to read its environment and keeps the result. Every command then runs with that environment. Cost is a few hundred milliseconds at launch, zero per command. A manual Refresh Environment action in settings re-captures it. The SSH agent socket macOS's launchd provides is stable for the login session, so the case that matters does not go stale. **(Decides seed's Environment question.)**
+
+**Amendment, 2026-11-10 (ho-05.1 run sheet).** The manual Refresh Environment action is dropped from settings: relaunching the app re-reads the environment the same way and the app loses nothing by relaunching, so the button was a second way to do one thing. The capture at launch stands; Run keeps its re-capture for it. The README says to relaunch to pick up a changed shell environment. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`, Decision 17.
 
 **Launch.** Each command runs as the user's shell, non-interactively, with the typed line as its argument, under a pseudoterminal, in its own process group, with the working directory from settings. Non-interactive means aliases and shell functions do not resolve; this is accepted. The trade is startup speed and predictability against alias support, and one-off commands are mostly `ssh` and system binaries. An alias that fails is an honest failure corrected by typing the real command.
 
@@ -142,6 +146,8 @@ Transcripts are not stored. **(Confirms seed.)**
 **Amendment, 2026-11-09 (ho-05.1 Think).** An appearance override joins the settings: system, light or dark, system the default and read as system when its key is absent; one value, set on `NSApp.appearance`, since every colour token already carries a light and a dark value (pālana's ho-15 pattern). Built in ho-05.1. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`.
 
 **Amendment, 2026-11-09 (ho-05.1 Think).** The working-directory mode has two values, home and a fixed path, not three. "Last used" has no meaning here: every command runs in its own shell and nothing typed moves the app's directory, so a last-used folder could only ever equal home or the fixed path. Home is the default. A fixed path that no longer exists at launch or at Return is replaced by home for that command and the strip says so. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`.
+
+**Amendment, 2026-11-10 (ho-05.1 run sheet).** A macro is a command and nothing else; the optional name is dropped. It was shown nowhere but the settings window, and two unlabelled boxes a row made the practitioner type commands into the name. §4's row reads: nine macros, user defaults, an array of nine strings. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`, Decision 16.
 
 ---
 

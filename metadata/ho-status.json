@@ -1,15 +1,15 @@
 {
   "schema": "ho-status/1",
   "project": "hitoiki",
-  "generated_at": "2026-11-08",
+  "generated_at": "2026-11-10",
   "source": {
     "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 20,
+    "hos": 21,
     "drafted": 0,
-    "complete": 20,
+    "complete": 21,
     "planned": 0,
     "ready": 0
   },
@@ -214,6 +214,20 @@
           "shape": "orientation",
           "status": "complete",
           "doc": "ho-process/hos/replan-after-ho-04x.md"
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "title": "Memory",
+      "hos": [
+        {
+          "ho": "05.1",
+          "title": "Settings and macros",
+          "shape": "ha",
+          "status": "complete",
+          "splits-from": "05",
+          "doc": "ho-process/hos/ho-05.1-settings-and-macros.md"
         }
       ]
     }
