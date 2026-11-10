@@ -139,6 +139,10 @@ Transcripts are not stored. **(Confirms seed.)**
 
 **Amendment, 2026-11-08 (replan checkpoint after ho-04x, ruling 5).** The text above stands. The automatic update check's switch is one of these settings, built in ho-05.1, reading as on when its key is absent. The check keeps its last-checked time in memory only; no key is persisted for it. The request it makes is fixed in §6's amendment of the same date. Document: `ho-process/hos/replan-after-ho-04x.md`.
 
+**Amendment, 2026-11-09 (ho-05.1 Think).** An appearance override joins the settings: system, light or dark, system the default and read as system when its key is absent; one value, set on `NSApp.appearance`, since every colour token already carries a light and a dark value (pālana's ho-15 pattern). Built in ho-05.1. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`.
+
+**Amendment, 2026-11-09 (ho-05.1 Think).** The working-directory mode has two values, home and a fixed path, not three. "Last used" has no meaning here: every command runs in its own shell and nothing typed moves the app's directory, so a last-used folder could only ever equal home or the fixed path. Home is the default. A fixed path that no longer exists at launch or at Return is replaced by home for that command and the strip says so. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`.
+
 ---
 
 ## 3. Core Interaction
