@@ -31,6 +31,10 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     /// A card's margin above its first row and below its last.
     private static let margin: CGFloat = 10
     /// The input's own size, apart from the transcript's (ho-04 Decision 7).
+    ///
+    /// 18 is a deliberate departure from the top of the inherited pālana scale, 15: the input is one line
+    /// that is the whole interface when the panel appears, and the size was judged in the live app (replan
+    /// ruling 4, `ho-process/hos/replan-after-ho-04x.md`).
     private static let inputSize: CGFloat = 18
     private static let inputFont = NSFont.monospacedSystemFont(ofSize: inputSize, weight: .regular)
     private static let inputLineHeight = NSLayoutManager().defaultLineHeight(for: inputFont)
@@ -113,6 +117,12 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     override internal func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers ?? ""
+        // Command-1 through Command-9 are the macros' in every state; Panel ignores them while a command
+        // runs, and they go nowhere else.
+        if flags == .command, let slot = Int(key), (1...Settings.macroSlots).contains(slot) {
+            panel?.loadMacro(slot)
+            return true
+        }
         guard flags == .command, let action = Self.editing[key] else {
             return super.performKeyEquivalent(with: event)
         }

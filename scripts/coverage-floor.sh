@@ -5,8 +5,9 @@
 #   HitoikiCore ≥ $1 (default 90) — the headless library: Run and the
 #   Transcript model. The truth lives in the core.
 #
-#   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14): Panel,
-#   Keystrokes, Hotkey and Theme. Four files are excluded by name, below.
+#   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14, ho-05.1
+#   Decision 12): Panel, Keystrokes, Hotkey, Theme, Settings, Shortcut,
+#   Terminals and MenuBarItem. Five files are excluded by name, below.
 #
 # The exit is non-zero if either set is under the floor.
 
@@ -63,8 +64,12 @@ sys.exit(0 if percent >= $FLOOR else 1)
 # The surface. Excluded by name: App.swift, because the delegate needs a running
 # application; PanelWindow.swift, TranscriptView.swift and SettingsWindow.swift,
 # because they hold layout, drawing and event forwarding that cannot be driven
-# headless. The transcript's logic is the model, measured with HitoikiCore.
-APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow)\.swift)'
+# headless; SettingsView.swift (ho-05.1 Decision 12), because it holds the
+# SwiftUI form and the recorder's capturing view, neither of which can be driven
+# without a window on a screen and a user's keys. The transcript's logic is the
+# model, measured with HitoikiCore; the settings' logic is Settings, Shortcut
+# and Hotkey, measured here.
+APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow|SettingsView)\.swift)'
 
 echo
 echo "== Sources/Hitoiki =="

@@ -8,9 +8,6 @@ import HitoikiCore
 /// `state`, `stopped`, `submission`, the input's text, and the window's visibility and key status.
 @MainActor
 internal final class Panel {
-    /// Terminal.app, which every Mac has; the picker is ho-05's.
-    internal static let terminal = "com.apple.Terminal"
-
     /// The last state Run reported, or nil before the first command and after a clear.
     ///
     /// Nil is Composing, `.running` is Running, `.done` is Done.
@@ -19,7 +16,8 @@ internal final class Panel {
     private let run: Run
     private let launch: Task<Void, any Error>
     private let window: PanelWindow
-    private let directory: String
+    /// Read at use: the directory at Return, the terminal at Open in Terminal, a macro at Command-N.
+    private let settings: Settings
     /// Stops since the command started: the first interrupts, every later one kills.
     private var stops = 0
     /// Set by Stop, Control-C or Escape until the next command starts: the output is still taken from
@@ -34,6 +32,17 @@ internal final class Panel {
     /// Why the last start failed before Running, shown on the strip until the next submission, the next
     /// Running or a clear; `apply` derives the strip from it, so a hide and a show keep it.
     private var failedStart: String?
+    /// Where the submission in flight starts, and the fixed folder it could not find; the command's own
+    /// from its Running.
+    private var starting: (directory: String, missing: String?)?
+    /// The directory the shown command ran in: Open in Terminal opens it.
+    private var ranIn: String?
+    /// The fixed folder the shown command could not find, said on the strip from its Running until the
+    /// next command's Running or a clear.
+    private var missingFolder: String?
+    /// Why Open in Terminal opened nothing, shown on the strip until the next submission or a clear; held
+    /// beside `failedStart`, so a hide and a show keep it.
+    private var terminalFailure: String?
     private var notices: [String] = []
 
     /// True while a command runs or a start is in flight: nothing hides the panel, and Quit kills.
@@ -52,17 +61,12 @@ internal final class Panel {
     ///   - run: The app's one Run.
     ///   - launch: The capture of the login environment; the first command waits for it.
     ///   - window: The panel this controller shows, hides and fills.
-    ///   - directory: Where commands start; the working-directory setting is ho-05's.
-    internal init(
-        run: Run,
-        launch: Task<Void, any Error>,
-        window: PanelWindow,
-        directory: String = FileManager.default.homeDirectoryForCurrentUser.path
-    ) {
+    ///   - settings: The store, read at the moment each setting is used.
+    internal init(run: Run, launch: Task<Void, any Error>, window: PanelWindow, settings: Settings) {
         self.run = run
         self.launch = launch
         self.window = window
-        self.directory = directory
+        self.settings = settings
         window.panel = self
         window.transcript.panel = self
         // Run's streams are single-consumer and end only when Run is released; these tasks hold
@@ -86,7 +90,7 @@ internal final class Panel {
             do {
                 try await launch.value
             } catch {
-                self?.note("Login environment not captured (\(Self.reason(error))); using the app's own environment.")
+                self?.noteCaptureFailed(error)
             }
         }
         apply()
@@ -134,13 +138,17 @@ internal final class Panel {
 
     /// Starts `typed`; a blank line starts the `-tt` offer when there is one and otherwise nothing.
     ///
-    /// One submission at a time: while one waits on the launch task, another does nothing.
+    /// One submission at a time: while one waits on the launch task, another does nothing. The directory
+    /// is read from the store here, at Return; a fixed folder that does not exist gives way to home.
     internal func submit(_ typed: String) {
         let blank = typed.allSatisfy(\.isWhitespace)
         var line = blank ? nil : typed
         if blank, case .done(_, let offer?) = state { line = offer }
         guard let line, submission == nil else { return }
         failedStart = nil
+        terminalFailure = nil
+        let start = startingDirectory()
+        starting = start
         let size = window.terminalSize
         submission = Task {
             // A failed capture is the notice's to report; the command runs with the app's environment.
@@ -148,7 +156,7 @@ internal final class Panel {
             // Run starts nothing until the command a clear killed has reported its Done.
             if cleared != nil { await withCheckedContinuation { cleared?.append($0) } }
             do {
-                try await run.start(line: line, cwd: directory, size: size)
+                try await run.start(line: line, cwd: start.directory, size: size)
             } catch RunError.spawnFailed(let code) {
                 failStart("Could not start: " + String(cString: strerror(code)))
             } catch {
@@ -192,13 +200,47 @@ internal final class Panel {
         apply()
     }
 
-    /// A new, empty Terminal.app window at the command's working directory; the command never re-runs.
+    /// Command-1 through Command-9: the slot's command replaces the input's text, the cursor at its end.
+    ///
+    /// Nothing runs; Return submits it as any typed line. An empty slot does nothing, and while a command
+    /// runs the digits go nowhere.
+    internal func loadMacro(_ number: Int) {
+        if case .running = state { return }
+        let macros = settings.macros
+        guard macros.indices.contains(number - 1) else { return }
+        let command = macros[number - 1].command
+        guard !command.isEmpty else { return }
+        window.input.stringValue = command
+        if window.input.currentEditor() == nil { window.makeFirstResponder(window.input) }
+        window.input.currentEditor()?.selectedRange = NSRange(location: (command as NSString).length, length: 0)
+        window.fit()
+    }
+
+    /// Refresh Environment: captures the login environment again for the commands that follow, after any
+    /// running command's Done; a failure is said on the notice, as at launch.
+    internal func refreshEnvironment() {
+        let run = run
+        Task { [weak self] in
+            do {
+                try await run.refreshEnvironment()
+            } catch {
+                self?.noteCaptureFailed(error)
+            }
+        }
+    }
+
+    /// A new, empty window of the chosen terminal at the directory the command ran in.
+    ///
+    /// The command never re-runs. A terminal that is not installed is said on the strip until the next
+    /// submission or a clear.
     internal func openInTerminal() {
-        guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.terminal) else {
-            return apply(failure: "Terminal.app could not be found.")
+        let identifier = settings.terminal
+        guard let terminal = Terminals.url(for: identifier) else {
+            terminalFailure = "\(identifier) could not be found."
+            return apply()
         }
         NSWorkspace.shared.open(
-            [URL(fileURLWithPath: directory)],
+            [URL(fileURLWithPath: ranIn ?? Self.home)],
             withApplicationAt: terminal,
             configuration: NSWorkspace.OpenConfiguration())
     }
@@ -224,6 +266,8 @@ internal final class Panel {
         }
         state = nil
         failedStart = nil
+        missingFolder = nil
+        terminalFailure = nil
         window.input.stringValue = ""
         window.transcript.clear()
         apply()
@@ -232,6 +276,7 @@ internal final class Panel {
     /// The start ended before Running: the reason is held and shown until something replaces it.
     private func failStart(_ reason: String) {
         submission = nil
+        starting = nil
         failedStart = reason
         apply()
     }
@@ -245,6 +290,9 @@ internal final class Panel {
         case .running:
             submission = nil
             failedStart = nil
+            ranIn = starting?.directory
+            missingFolder = starting?.missing
+            starting = nil
             stops = 0
             stopped = false
             window.transcript.clear()
@@ -259,10 +307,10 @@ internal final class Panel {
         apply()
     }
 
-    /// Derives every control's visibility, the status line and the keyboard's place from `state` and a
-    /// failed start's reason; `failure` is a one-time reason that is not a start's (Open in Terminal's).
-    private func apply(failure shown: String? = nil) {
-        let failure = shown ?? failedStart
+    /// Derives every control's visibility, the status line and the keyboard's place from `state`, a failed
+    /// start's or Open in Terminal's reason, and a missing folder.
+    private func apply() {
+        let failure = terminalFailure ?? failedStart
         var running = false
         var exit: Exit?
         var offer: String?
@@ -293,7 +341,10 @@ internal final class Panel {
             status = running ? "running" : ""
         }
         if let offer { status += " · Return or Retry runs \(offer)" }
-        let alarm = failure != nil || (exit != nil && exit != .status(0))
+        if let missingFolder {
+            status = "\(missingFolder) could not be found; ran in home" + (status.isEmpty ? "" : " · " + status)
+        }
+        let alarm = failure != nil || missingFolder != nil || (exit != nil && exit != .status(0))
         window.status.stringValue = failure ?? status
         window.status.textColor = (alarm ? Theme.Token.alarm : Theme.Token.inkFaint).nsColor
         window.notice.stringValue = notices.joined(separator: "\n")
@@ -306,6 +357,24 @@ internal final class Panel {
             window.makeFirstResponder(window.input)
         }
         window.fit()
+    }
+
+    /// The user's home: where commands start by default, and instead of a fixed folder that is gone.
+    private static var home: String { FileManager.default.homeDirectoryForCurrentUser.path }
+
+    /// Where the next command starts, read from the store now: home, or the fixed folder if it is an
+    /// existing directory; otherwise home, with the folder that could not be found.
+    private func startingDirectory() -> (directory: String, missing: String?) {
+        guard settings.directoryMode == .fixed, let path = settings.directoryPath else { return (Self.home, nil) }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return (Self.home, path)
+        }
+        return (path, nil)
+    }
+
+    private func noteCaptureFailed(_ error: any Error) {
+        note("Login environment not captured (\(Self.reason(error))); using the app's own environment.")
     }
 
     private static func reason(_ error: any Error) -> String {

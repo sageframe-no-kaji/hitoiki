@@ -28,6 +28,7 @@ let package = Package(
         .executableTarget(
             name: "Hitoiki",
             dependencies: ["HitoikiCore"],
+            resources: [.copy("Resources")],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ]

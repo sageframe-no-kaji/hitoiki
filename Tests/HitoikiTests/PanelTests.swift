@@ -6,10 +6,10 @@ import AppKit
 import Carbon.HIToolbox
 import Darwin
 import Foundation
-import HitoikiCore
 import Testing
 
 @testable import Hitoiki
+@testable import HitoikiCore
 
 /// A directory the test owns, removed by the test.
 private func makeDirectory() throws -> String {
@@ -145,6 +145,18 @@ private struct Look: Equatable {
     /// The same panel on screen without the keyboard, as a click-out leaves a running one.
     var withoutKeyboard: Self { on(screen: true, key: false) }
 
+    /// The same panel with `input` in the input: a macro's load changes nothing else.
+    func with(input: String) -> Self {
+        Self(
+            visible: visible,
+            key: key,
+            state: state,
+            transcript: transcript,
+            status: status,
+            offer: offer,
+            input: input)
+    }
+
     private func on(screen: Bool, key: Bool) -> Self {
         Self(
             visible: screen,
@@ -164,12 +176,15 @@ private func gate() -> (launch: Task<Void, any Error>, open: () -> Void) {
     return (Task { for await _ in opened {} }, { opener.finish() })
 }
 
-/// A Panel over a real Run and a real window, in a directory the test owns.
+/// A Panel over a real Run, a real window and a store over a throwaway suite, its commands starting in a
+/// directory the test owns: the store's fixed folder.
 @MainActor
 private struct Fixture {
     let home: String
     let panel: Panel
     let window: PanelWindow
+    let suite: ThrowawaySuite
+    let settings: Settings
     /// Another window, in this app, for a click-out to give the keyboard to.
     let other = NSPanel(
         contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
@@ -177,20 +192,28 @@ private struct Fixture {
         backing: .buffered,
         defer: false)
 
-    /// `homeOnPath` makes the test's directory the whole `PATH`, for a fake `ssh`.
-    init(
-        homeOnPath: Bool = false,
-        launch: Task<Void, any Error> = Task {},
-        directory: ((String) -> String)? = nil
-    ) throws {
+    /// `homeOnPath` makes the test's directory the whole `PATH`, for a fake `ssh`; `failingCapture` makes
+    /// Refresh Environment's capture a shell that exits 3.
+    init(homeOnPath: Bool = false, launch: Task<Void, any Error> = Task {}, failingCapture: Bool = false) throws {
         home = try makeDirectory()
         window = PanelWindow()
+        suite = try ThrowawaySuite()
+        settings = Settings(defaults: suite.defaults)
+        settings.directoryMode = .fixed
+        settings.directoryPath = home
         let environment = homeOnPath ? ownedEnvironment(home: home, path: home) : ownedEnvironment(home: home)
+        var captureShell: String?
+        if failingCapture {
+            let shell = home + "/failing-shell"
+            try "#!/bin/sh\nexit 3\n".write(toFile: shell, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: shell)
+            captureShell = shell
+        }
         panel = Panel(
-            run: Run(environment: environment),
+            run: Run(environment: environment, captureShell: captureShell),
             launch: launch,
             window: window,
-            directory: directory?(home) ?? home)
+            settings: settings)
     }
 
     /// Waits, between main-actor jobs, until `condition` holds.
@@ -291,6 +314,7 @@ private struct Fixture {
     func tearDown() {
         other.orderOut(nil)
         window.orderOut(nil)
+        suite.remove()
         try? FileManager.default.removeItem(atPath: home)
     }
 
@@ -760,18 +784,6 @@ extension PanelTests {
         #expect(fixture.window.notice.stringValue.contains(reason))
     }
 
-    // ho-02 Reflect: a directory that cannot be entered ends the child with 127, silently. The
-    // directory setting and its validation are ho-05's; this records what Panel shows today.
-    @Test("A working directory that does not exist still reaches Done, non-zero")
-    internal func missingDirectory() async throws {
-        let fixture = try Fixture { $0 + "/missing" }
-        defer { fixture.tearDown() }
-        fixture.panel.submit("pwd")
-        let ended = try await fixture.done()
-        #expect(ended == .done(.status(127), retry: nil))
-        #expect(same(fixture.window.status.textColor, Theme.Token.alarm))
-    }
-
     @Test("Quit kills a running command within about a second and leaves its group empty")
     internal func killForQuit() async throws {
         let fixture = try Fixture()
@@ -799,12 +811,6 @@ extension PanelTests {
         #expect(fixture.panel.state == .done(.signal(SIGKILL), retry: nil))
         // No group check: the kill lands before the command can report its pid, and Done after SIGKILL is Run's reap.
         #expect(try await children().isEmpty)
-    }
-
-    @Test("Open in Terminal resolves Terminal.app")
-    internal func terminalResolves() {
-        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Panel.terminal)
-        #expect(url?.lastPathComponent == "Terminal.app")
     }
 }
 
@@ -1528,5 +1534,270 @@ extension PanelTests {
         #expect(fixture.window.firstResponder === fixture.window)
         fixture.window.cancelOperation(nil)
         #expect(fixture.look() == Look.clean.hidden)
+    }
+}
+
+/// Delivers a key-down as AppKit does: the window's key equivalents first, then the first responder.
+@MainActor
+private func press(_ event: NSEvent, in window: NSWindow) {
+    if !window.performKeyEquivalent(with: event) { window.firstResponder?.keyDown(with: event) }
+}
+
+/// Command and a digit, 1 through 9, as the keyboard sends it.
+@MainActor
+private func commandDigit(_ digit: Int, in window: NSWindow) throws -> NSEvent {
+    let codes = [
+        kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9,
+    ]
+    return try key("\(digit)", code: UInt16(codes[digit - 1]), modifiers: .command, in: window)
+}
+
+// Settings read at use (ho-05.1): the directory at Return, the macros at Command-N, the terminal at Open
+// in Terminal; Refresh Environment; the hotkey's notice.
+extension PanelTests {
+    @Test("The fixed folder is read at Return: a change between two commands moves the second")
+    internal func directoryReadAtReturn() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let first = fixture.home + "/first-" + UUID().uuidString
+        let second = fixture.home + "/second-" + UUID().uuidString
+        for folder in [first, second] {
+            try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: false)
+        }
+        fixture.settings.directoryPath = first
+        fixture.panel.submit("pwd")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        // `pwd` prints the physical path; the temporary directory sits behind a symbolic link.
+        #expect(fixture.window.transcript.string.hasSuffix("/" + URL(fileURLWithPath: first).lastPathComponent + "\n"))
+        #expect(fixture.window.status.stringValue == "exit 0")
+
+        fixture.settings.directoryPath = second
+        fixture.panel.submit("pwd")
+        try await fixture.until { fixture.window.transcript.string.contains("second-") }
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string.hasSuffix("/" + URL(fileURLWithPath: second).lastPathComponent + "\n"))
+
+        fixture.settings.directoryMode = .home
+        fixture.panel.submit("pwd")
+        try await fixture.until { !fixture.window.transcript.string.contains("second-") }
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string == FileManager.default.homeDirectoryForCurrentUser.path + "\n")
+    }
+
+    @Test(
+        "A fixed folder that is gone: the command runs in home, the strip says so from Running to Done, the next checks again"
+    )
+    internal func missingFolder() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let folder = fixture.home + "/gone-" + UUID().uuidString
+        fixture.settings.directoryPath = folder
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r line; pwd")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        let said = "\(folder) could not be found; ran in home"
+        #expect(window.status.stringValue.hasPrefix(said))
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        #expect(window.transcript.string.hasSuffix("\n" + home + "\n"))
+        #expect(window.status.stringValue == said + " · exit 0")
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+        fixture.clickOut()
+        fixture.panel.toggle()
+        #expect(window.status.stringValue == said + " · exit 0")
+
+        // The folder back: the next command finds it, and the strip is the command's own.
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: false)
+        fixture.panel.submit("pwd")
+        try await fixture.until { window.transcript.string.contains("gone-") }
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(window.transcript.string.hasSuffix("/" + URL(fileURLWithPath: folder).lastPathComponent + "\n"))
+        #expect(window.status.stringValue == "exit 0")
+        #expect(same(window.status.textColor, Theme.Token.inkFaint))
+    }
+
+    @Test("A fixed folder that is a file, not a folder, is gone too")
+    internal func folderIsAFile() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let file = fixture.home + "/a-file"
+        try "".write(toFile: file, atomically: true, encoding: .utf8)
+        fixture.settings.directoryPath = file
+        fixture.panel.submit("pwd")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(fixture.window.transcript.string == FileManager.default.homeDirectoryForCurrentUser.path + "\n")
+        #expect(fixture.window.status.stringValue.hasPrefix("\(file) could not be found"))
+    }
+
+    @Test("Command-1 in Composing loads slot 1 into the input, the cursor at its end, and runs nothing")
+    internal func macroLoads() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let command = "touch macro-ran; echo macro"
+        fixture.settings.macros = [Macro(name: "first", command: command)]
+        let window = fixture.window
+        fixture.panel.show()
+        let before = fixture.look()
+        press(try commandDigit(1, in: window), in: window)
+        #expect(window.input.stringValue == command)
+        let editor = try #require(window.input.currentEditor())
+        #expect(window.firstResponder === editor)
+        #expect(editor.selectedRange == NSRange(location: (command as NSString).length, length: 0))
+        let after = fixture.look()
+        #expect(after.input == command)
+        #expect(after.with(input: before.input) == before)
+        #expect(fixture.panel.state == nil)
+        #expect(!fixture.panel.isBusy)
+        #expect(window.outputCard.isHidden)
+        #expect(try await children().isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: fixture.home + "/macro-ran"))
+    }
+
+    @Test(
+        "Command-N replaces typed text; an empty slot leaves the input as it was; a slot changed in settings loads the change"
+    )
+    internal func macroReplaces() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        var macros = fixture.settings.macros
+        macros[2] = Macro(name: "", command: "uptime")
+        fixture.settings.macros = macros
+        let window = fixture.window
+        fixture.panel.show()
+        window.input.stringValue = "typed line"
+        press(try commandDigit(3, in: window), in: window)
+        #expect(window.input.stringValue == "uptime")
+        press(try commandDigit(2, in: window), in: window)
+        #expect(window.input.stringValue == "uptime")
+        press(try commandDigit(9, in: window), in: window)
+        #expect(window.input.stringValue == "uptime")
+
+        macros[2] = Macro(name: "", command: "df -h")
+        fixture.settings.macros = macros
+        press(try commandDigit(3, in: window), in: window)
+        #expect(window.input.stringValue == "df -h")
+        #expect(fixture.panel.state == nil)
+    }
+
+    @Test("In Done, Command-1 loads and changes nothing else; Return then runs the macro's command")
+    internal func macroInDone() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.macros = [Macro(name: "", command: "echo from-the-macro")]
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo shown; exit 3")
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        let before = fixture.look()
+        press(try commandDigit(1, in: window), in: window)
+        let after = fixture.look()
+        #expect(after.input == "echo from-the-macro")
+        #expect(after.with(input: before.input) == before)
+
+        let editor = try #require(window.input.currentEditor())
+        editor.keyDown(with: try key("\r", code: UInt16(kVK_Return), in: window))
+        try await fixture.transcriptContains("from-the-macro")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(window.transcript.string == "from-the-macro\n")
+    }
+
+    @Test("While Running, Command-1 changes nothing and the command reads nothing")
+    internal func macroWhileRunning() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.macros = [Macro(name: "", command: "echo never")]
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo ready; read -r secret; printf %s \"${#secret}\" > length")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        #expect(window.firstResponder === window.transcript)
+        let before = fixture.look()
+        press(try commandDigit(1, in: window), in: window)
+        #expect(fixture.look() == before)
+        #expect(window.input.stringValue.isEmpty)
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
+        #expect(window.input.stringValue.isEmpty)
+    }
+
+    @Test(
+        "Open in Terminal with a terminal that is not installed: the strip says so through hide and show, until the next submission or a clear"
+    )
+    internal func terminalMissing() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        fixture.settings.terminal = "org.example.no-such-terminal"
+        let window = fixture.window
+        fixture.panel.show()
+        fixture.panel.submit("echo shown")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(!window.openButton.isHidden)
+        // The button's own action, sent as a click sends it: `performClick` spins the run loop for its
+        // highlight, and the next await then found the main run loop ended and the test process exited 0.
+        #expect(window.openButton.sendAction(window.openButton.action, to: window.openButton.target))
+        let said = "org.example.no-such-terminal could not be found."
+        #expect(window.status.stringValue == said)
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+        let before = fixture.look()
+        fixture.clickOut()
+        #expect(fixture.look() == before.hidden)
+        fixture.panel.toggle()
+        #expect(fixture.look() == before)
+        #expect(same(window.status.textColor, Theme.Token.alarm))
+
+        // The next submission takes it away.
+        fixture.panel.submit("echo again")
+        try await fixture.transcriptContains("again")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(window.status.stringValue == "exit 0")
+        #expect(same(window.status.textColor, Theme.Token.inkFaint))
+
+        // So does a clear.
+        fixture.panel.openInTerminal()
+        #expect(window.status.stringValue == said)
+        fixture.panel.escape()
+        #expect(fixture.look() == .clean)
+        #expect(window.status.stringValue.isEmpty)
+    }
+
+    @Test("Refresh Environment through the panel: a failing capture puts the notice line on the panel")
+    internal func refreshFails() async throws {
+        let fixture = try Fixture(failingCapture: true)
+        defer { fixture.tearDown() }
+        #expect(fixture.window.notice.isHidden)
+        fixture.panel.refreshEnvironment()
+        let line = "Login environment not captured (shell exited 3); using the app's own environment."
+        try await fixture.until { fixture.window.notice.stringValue == line }
+        #expect(!fixture.window.notice.isHidden)
+    }
+
+    @Test("The hotkey's notice and the settings line name the registered combination, not a constant")
+    internal func hotkeyNamed() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let combination = Shortcut.Combination(
+            keyCode: UInt32(kVK_ANSI_J), modifiers: UInt32(controlKey | optionKey | cmdKey))
+        #expect(Hotkey.register(keyCode: combination.keyCode, modifiers: combination.modifiers) {} == noErr)
+        defer { Hotkey.unregister() }
+        #expect(Hotkey.settingsLine(launch: noErr, attempted: Settings.defaultShortcut) == "⌃⌥⌘J is registered.")
+
+        let status = Hotkey.replace(keyCode: combination.keyCode, modifiers: combination.modifiers)
+        let notice = try #require(Hotkey.statusText(for: status, combination: combination))
+        fixture.panel.note(notice)
+        #expect(fixture.window.notice.stringValue.hasPrefix("⌃⌥⌘J is unavailable (\(eventHotKeyExistsErr))."))
+        #expect(!fixture.window.notice.stringValue.contains("Space"))
+
+        // Nothing registered: settings says why the launch's failed, naming what it tried.
+        Hotkey.unregister()
+        #expect(
+            Hotkey.settingsLine(launch: status, attempted: combination)
+                == Hotkey.statusText(for: status, combination: combination))
     }
 }

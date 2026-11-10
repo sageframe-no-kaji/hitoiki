@@ -589,6 +589,33 @@ extension RunTests {
         }
         #expect(outcome.text == "kept\r\n")
     }
+
+    // ho-02x N2 (run 2), landed with Refresh Environment at ho-05.1 Decision 10. The command sleeps so the
+    // refresh, called while it runs, has its whole sleep to capture alongside it; the command looks for the
+    // marker at the end of that sleep, while it is still alive.
+    @Test(
+        "Refresh called while a command runs captures only after its Done: the capture's marker is absent while it lives"
+    )
+    internal func refreshNeverAlongside() async throws {
+        let home = try makeDirectory()
+        defer { try? FileManager.default.removeItem(atPath: home) }
+        let marker = home + "/captured"
+        let shell = try writeScript("fake-shell", in: home, body: "touch '\(marker)'\nprintf 'X=1\\0'")
+        var refresh: Task<Void, any Error>?
+        let outcome = try await drive(
+            "sleep 1; if [ -e captured ]; then echo alongside; else echo absent; fi",
+            environment: ownedEnvironment(home: home),
+            captureShell: shell,
+            // A trailing closure would bind to `before`, drive's first closure parameter, run before the start.
+            // swiftlint:disable:next trailing_closure
+            act: { run, _ in
+                refresh = Task { try await run.refreshEnvironment() }
+                #expect(!FileManager.default.fileExists(atPath: marker))
+            })
+        #expect(outcome.text == "absent\r\n")
+        try await #require(refresh).value
+        #expect(FileManager.default.fileExists(atPath: marker))
+    }
 }
 
 /// The order events were observed in.

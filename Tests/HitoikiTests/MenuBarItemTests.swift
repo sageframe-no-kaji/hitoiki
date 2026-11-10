@@ -1,0 +1,147 @@
+import AppKit
+import Carbon.HIToolbox
+import Testing
+
+@testable import Hitoiki
+
+/// The status-bar windows this process has on screen: one per status item in the menu bar.
+@MainActor
+private func statusWindows() -> Int {
+    NSApplication.shared.windows.filter { $0.className.contains("StatusBarWindow") && $0.isVisible }.count
+}
+
+/// Waits, between main-actor jobs, until `condition` holds; ten seconds is a failure, not a pause.
+@MainActor
+private func until(_ condition: () -> Bool) async throws {
+    let deadline = ContinuousClock.now + .seconds(10)
+    while !condition() {
+        try #require(ContinuousClock.now < deadline, "waited ten seconds")
+        try await Task.sleep(for: .milliseconds(5))
+    }
+}
+
+/// How many times Show Hitoiki was chosen.
+@MainActor
+private final class Shown {
+    var count = 0
+}
+
+// Serialized: the status-bar window count is this suite's alone only while one of its tests runs.
+@Suite("Menu bar item", .serialized)
+@MainActor
+internal struct MenuBarItemTests {
+    @Test("The item exists exactly while the setting reads true: on, off, on, one item at a time")
+    internal func followsSetting() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let menuBar = MenuBarItem {}
+        defer { menuBar.isShown = false }
+        let before = statusWindows()
+        settings.follow({ $0.menuBarEnabled }, apply: { menuBar.isShown = $0 })
+        #expect(menuBar.item == nil)
+
+        settings.menuBarEnabled = true
+        try await until { menuBar.item != nil }
+        let first = try #require(menuBar.item)
+        #expect(first.menu === menuBar.menu)
+        #expect(first.button?.image === MenuBarItem.image)
+        try await until { statusWindows() == before + 1 }
+
+        settings.menuBarEnabled = false
+        try await until { menuBar.item == nil }
+        try await until { statusWindows() == before }
+
+        settings.menuBarEnabled = true
+        try await until { menuBar.item != nil }
+        #expect(menuBar.item !== first)
+        try await until { statusWindows() == before + 1 }
+        settings.menuBarEnabled = true
+        menuBar.isShown = true
+        #expect(statusWindows() == before + 1)
+    }
+
+    @Test("A store that reads on at launch makes the item at once")
+    internal func onAtLaunch() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        suite.defaults.set(true, forKey: "menuBarEnabled")
+        let menuBar = MenuBarItem {}
+        defer { menuBar.isShown = false }
+        Settings(defaults: suite.defaults).follow({ $0.menuBarEnabled }, apply: { menuBar.isShown = $0 })
+        #expect(menuBar.item != nil)
+    }
+
+    @Test("The menu: Show Hitoiki, Settings… and Quit, in order, each with its action")
+    internal func menu() {
+        let shown = Shown()
+        let menuBar = MenuBarItem { shown.count += 1 }
+        #expect(menuBar.menu.items.map(\.title) == ["Show Hitoiki", "Settings…", "Quit"])
+        #expect(menuBar.menu.items[1].action == #selector(HitoikiApp.showSettings(_:)))
+        #expect(menuBar.menu.items[2].action == #selector(NSApplication.terminate(_:)))
+        menuBar.menu.performActionForItem(at: 0)
+        #expect(shown.count == 1)
+    }
+
+    @Test("Show Hitoiki's key equivalent is the registered shortcut's, read as the menu opens")
+    internal func keyEquivalent() {
+        let menuBar = MenuBarItem {}
+        let show = menuBar.menu.items[0]
+        let all = UInt32(controlKey | optionKey | shiftKey | cmdKey)
+        #expect(
+            Hotkey.register(keyCode: UInt32(kVK_ANSI_H), modifiers: UInt32(controlKey | optionKey | cmdKey)) {} == noErr
+        )
+        defer { Hotkey.unregister() }
+        menuBar.menuNeedsUpdate(menuBar.menu)
+        #expect(show.keyEquivalent == "h")
+        #expect(show.keyEquivalentModifierMask == [.control, .option, .command])
+
+        #expect(Hotkey.replace(keyCode: UInt32(kVK_F5), modifiers: all) == noErr)
+        menuBar.menuNeedsUpdate(menuBar.menu)
+        #expect(show.keyEquivalent == "\u{F708}")
+        #expect(show.keyEquivalentModifierMask == [.control, .option, .shift, .command])
+
+        Hotkey.unregister()
+        menuBar.menuNeedsUpdate(menuBar.menu)
+        #expect(show.keyEquivalent.isEmpty)
+    }
+
+    @Test("Discovery: the glyph loads from the SVG as a template image, 18 points across, ink on no ground")
+    internal func glyph() throws {
+        let image = try #require(MenuBarItem.image)
+        #expect(image.isTemplate)
+        #expect(max(image.size.width, image.size.height) == 18)
+        #expect(image.size.width > image.size.height)
+        let width = 72
+        let height = Int((Double(width) * image.size.height / image.size.width).rounded(.up))
+        let bitmap = try #require(
+            NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: width,
+                pixelsHigh: height,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0))
+        let context = try #require(NSGraphicsContext(bitmapImageRep: bitmap))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        image.draw(in: NSRect(x: 0, y: 0, width: width, height: height))
+        NSGraphicsContext.restoreGraphicsState()
+        var inked = 0
+        for y in 0..<height {
+            for x in 0..<width where (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5 {
+                inked += 1
+            }
+        }
+        // Ink, and ground left bare: the two shapes cover some of the box and not all of it.
+        #expect(inked > width * height / 10)
+        #expect(inked < width * height * 9 / 10)
+        // The corners are ground: the top-left and bottom-right of the box hold neither shape.
+        #expect((bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? 1) < 0.5)
+        #expect((bitmap.colorAt(x: width - 1, y: height - 1)?.alphaComponent ?? 1) < 0.5)
+    }
+}
