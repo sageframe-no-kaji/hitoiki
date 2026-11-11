@@ -1,3 +1,8 @@
+// The Settings suite and the settings-window suite nested in the Panel suite, in the one test file the ho
+// tables name for settings: the window suite cannot move to a second file, so the file runs past the length
+// rule.
+// swiftlint:disable file_length
+
 import AppKit
 import Carbon.HIToolbox
 import Foundation
@@ -436,20 +441,97 @@ extension PanelTests {
             let pitches = zip(frames, frames.dropFirst()).map { $0.minY - $1.minY }
             print("ho-05.2 macro rows: pitch \(pitches), box heights \(frames.map(\.height))")
             #expect(pitches.allSatisfy { abs($0 - pitches[0]) < 1 })
-            // Closer than ho-05.1 left them: 48 points apart in the guest before this ho (ho-05.2 run 1).
-            #expect(pitches[0] < 48)
+            // Decision 16: 32 points apart, a 5-point gap between the 27-point boxes.
+            #expect(abs(pitches[0] - 32) < 0.5)
+            #expect(frames.allSatisfy { abs($0.height - 27) < 0.5 })
+        }
+
+        // ho-05.2 Decisions 14 and 15, from the run sheet: Command-N goes to its macro's box; Command-comma does
+        // nothing here.
+
+        @Test("Command-1 puts the keyboard in macro 1's box, cursor at the end; Command-9, Caps Lock on, in macro 9's")
+        internal func commandDigitFocusesMacro() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let macros = (1...9).map { "echo \($0)" }
+            settings.macros = macros
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            let quit = Terminations()
+            window.application = quit
+            let boxes = try await macroBoxes(in: window)
+            #expect(boxes.count == 9)
+
+            let codes = [
+                kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8,
+                kVK_ANSI_9,
+            ]
+            for (slot, capsLock) in [(1, false), (9, true), (5, false)] {
+                let modifiers: NSEvent.ModifierFlags = capsLock ? [.command, .capsLock] : .command
+                let event = try keyDown("\(slot)", code: codes[slot - 1], modifiers: modifiers, in: window)
+                #expect(window.performKeyEquivalent(with: event))
+                let editor = try #require(window.firstResponder as? NSTextView)
+                #expect(editor.delegate === boxes[slot - 1])
+                #expect(editor.string == "echo \(slot)")
+                #expect(editor.selectedRange() == NSRange(location: editor.string.utf16.count, length: 0))
+            }
+            // Nothing else changed: the macros, the window, and nothing sent to the application.
+            #expect(settings.macros == macros)
+            #expect(window.isVisible && app.settingsWindow === window)
+            #expect(quit.senders.isEmpty)
+
+            // Option-Command-1 is not it: the keyboard stays where it was.
+            let before = window.firstResponder
+            let optionOne = try keyDown("1", code: kVK_ANSI_1, modifiers: [.command, .option], in: window)
+            _ = window.performKeyEquivalent(with: optionOne)
+            #expect(window.firstResponder === before)
+        }
+
+        @Test("Command-comma in the settings window does nothing: the keyboard stays, nothing goes to the application")
+        internal func commandCommaInSettings() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            settings.macros = ["echo 1"]
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            let recorder = Terminations()
+            window.application = recorder
+            let field = try #require(try await macroBoxes(in: window).first)
+            #expect(window.makeFirstResponder(field))
+            let editor = try #require(window.firstResponder as? NSTextView)
+            editor.setSelectedRange(NSRange(location: 2, length: 0))
+            for modifiers: NSEvent.ModifierFlags in [.command, [.command, .capsLock]] {
+                let comma = try keyDown(",", code: kVK_ANSI_Comma, modifiers: modifiers, in: window)
+                #expect(window.performKeyEquivalent(with: comma))
+                #expect(window.firstResponder === editor)
+                #expect(editor.selectedRange() == NSRange(location: 2, length: 0))
+                #expect(editor.string == "echo 1")
+            }
+            #expect(recorder.senders.isEmpty && recorder.settings.isEmpty)
+            #expect(window.isVisible && app.settingsWindow === window)
         }
     }
 }
 
-/// The macros' nine boxes in the shown settings window, once the form has laid them out.
+/// The macros' nine boxes in the shown settings window, from the top, once the form has laid them out.
 @MainActor
 private func macroBoxes(in window: NSWindow) async throws -> [NSTextField] {
     func boxes() -> [NSTextField] {
         descendants(of: window.contentView).compactMap { $0 as? NSTextField }.filter(\.isEditable)
     }
     try await until { boxes().count == Settings.macroSlots }
-    return boxes()
+    // Window coordinates rise upward: the first row is the highest.
+    return boxes().sorted { $0.convert($0.bounds, to: nil).minY > $1.convert($1.bounds, to: nil).minY }
 }
 
 /// Every view under `view`, depth first.
@@ -501,13 +583,20 @@ private func keyDown(
             keyCode: UInt16(code)))
 }
 
-/// Stands in for the application: takes the terminate selector and records who sent it, ending nothing.
+/// Stands in for the application: takes the terminate and showSettings selectors and records who sent each,
+/// ending nothing and opening nothing.
 @MainActor
 private final class Terminations: NSResponder {
     var senders: [Any?] = []
+    var settings: [Any?] = []
 
     @objc
     func terminate(_ sender: Any?) {
         senders.append(sender)
+    }
+
+    @objc
+    func showSettings(_ sender: Any?) {
+        settings.append(sender)
     }
 }

@@ -2493,3 +2493,71 @@ extension PanelTests {
         #expect(fixture.panel.state == .done(.status(0), retry: nil))
     }
 }
+
+// Command-comma (ho-05.2 Decision 15): Settings from the panel in every state, by the gear's selector.
+extension PanelTests {
+    @Test("Command-comma sends showSettings to the application in every state, Running too, Caps Lock on or off")
+    internal func commandComma() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let window = fixture.window
+        let opener = SettingsOpener()
+        window.application = opener
+        fixture.panel.show()
+        let comma = try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: .command, in: window)
+        let capsComma = try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: [.command, .capsLock], in: window)
+
+        let clean = fixture.look()
+        press(comma, in: window)
+        #expect(opener.senders.count == 1)
+        #expect((opener.senders.last as? PanelWindow) === window)
+        #expect(fixture.look() == clean)
+
+        window.input.stringValue = "typed line"
+        let typed = fixture.look()
+        press(capsComma, in: window)
+        #expect(opener.senders.count == 2)
+        #expect(fixture.look() == typed)
+
+        // Option-Command-comma is not it.
+        press(try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: [.command, .option], in: window), in: window)
+        #expect(opener.senders.count == 2)
+
+        fixture.panel.submit("echo shown")
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        let done = fixture.look()
+        press(comma, in: window)
+        #expect(opener.senders.count == 3)
+        #expect(fixture.look() == done)
+
+        fixture.panel.submit("echo ready; read -r line; printf %s \"${#line}\" > length")
+        _ = try await fixture.running()
+        try await fixture.transcriptContains("ready")
+        press(capsComma, in: window)
+        #expect(opener.senders.count == 4)
+        #expect(fixture.panel.isBusy)
+        // The command read nothing of the key.
+        fixture.panel.keystroke(.write([0x0D]))
+        #expect(try await fixture.done() == .done(.status(0), retry: nil))
+        #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
+        #expect(opener.terminations == 0)
+    }
+}
+
+/// Stands in for the application: takes the gear's showSettings selector and records who sent it, opening
+/// nothing; a terminate is counted, so a wrong route shows.
+@MainActor
+private final class SettingsOpener: NSResponder {
+    var senders: [Any?] = []
+    var terminations = 0
+
+    @objc
+    func showSettings(_ sender: Any?) {
+        senders.append(sender)
+    }
+
+    @objc
+    func terminate(_ sender: Any?) {
+        terminations += 1
+    }
+}

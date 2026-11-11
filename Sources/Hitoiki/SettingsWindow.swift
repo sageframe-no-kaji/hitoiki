@@ -6,7 +6,8 @@ import SwiftUI
 /// lets SwiftUI in.
 ///
 /// Made once for the app's life; its close button and Escape hide it, and the next Settings… brings back
-/// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11).
+/// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11), and
+/// Command-1 to Command-9 put the keyboard in that macro's box (Decision 14).
 @MainActor
 internal final class SettingsWindow: NSWindow {
     /// Where Command-Q sends the terminate selector: the application.
@@ -30,15 +31,26 @@ internal final class SettingsWindow: NSWindow {
         center()
     }
 
-    /// Command-Q quits, whatever in the window has the keyboard: an accessory app has no menu to route it.
+    /// Command-Q quits and Command-1 to Command-9 go to their macro's box, whatever in the window has the
+    /// keyboard; Command-comma does nothing here (ho-05.2 Decisions 11, 14 and 15).
     ///
-    /// The four modifier keys alone decide it, as on the panel, so Caps Lock does not stop it.
+    /// An accessory app has no menu to route them. The four modifier keys alone decide each, as on the panel,
+    /// so Caps Lock does not stop them. Taken before the views, the shortcut recorder included: a global
+    /// Command-N would take the panel's own macro keys, so the recorder has no use for one.
     override internal func performKeyEquivalent(with event: NSEvent) -> Bool {
         let held = event.modifierFlags.intersection([.control, .option, .shift, .command])
-        guard held == .command, event.charactersIgnoringModifiers?.lowercased() == "q" else {
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        guard held == .command else { return super.performKeyEquivalent(with: event) }
+        if key == "q" {
+            _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
+            return true
+        }
+        // Command-comma opens settings from the panel; settings are already here, and it goes nowhere else.
+        if key == "," { return true }
+        guard let slot = Int(key), (1...Settings.macroSlots).contains(slot) else {
             return super.performKeyEquivalent(with: event)
         }
-        _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
+        focusMacro(slot)
         return true
     }
 
@@ -55,5 +67,27 @@ internal final class SettingsWindow: NSWindow {
             (firstResponder as? NSTextView)?.hasMarkedText() != true
         else { return super.sendEvent(event) }
         performClose(nil)
+    }
+
+    /// Puts the keyboard in the box of the macro numbered `slot`, the cursor at the end of its text.
+    ///
+    /// The box is scrolled into view, nothing is selected, and nothing else changes (Decision 14). The macros'
+    /// nine boxes are the form's only text inputs, in slot order from the top.
+    private func focusMacro(_ slot: Int) {
+        let boxes = Self.descendants(of: contentView)
+            .compactMap { $0 as? NSTextField }
+            .filter(\.isEditable)
+            .sorted { $0.convert($0.bounds, to: nil).minY > $1.convert($1.bounds, to: nil).minY }
+        guard boxes.count == Settings.macroSlots else { return }
+        let box = boxes[slot - 1]
+        box.scrollToVisible(box.bounds)
+        guard makeFirstResponder(box), let editor = box.currentEditor() else { return }
+        // Taking the keyboard selects the box's whole text; the cursor goes to its end instead.
+        editor.selectedRange = NSRange(location: (editor.string as NSString).length, length: 0)
+    }
+
+    private static func descendants(of view: NSView?) -> [NSView] {
+        guard let view else { return [] }
+        return view.subviews + view.subviews.flatMap { descendants(of: $0) }
     }
 }

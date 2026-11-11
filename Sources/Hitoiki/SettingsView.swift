@@ -97,19 +97,22 @@ internal struct SettingsView: View {
             // One command box a row, bordered and with its placeholder, so an empty row shows where to type
             // (ho-05.1 Decision 16).
             Section("Macros") {
-                ForEach(0..<Settings.macroSlots, id: \.self) { slot in
-                    HStack {
-                        Text("⌘\(slot + 1)")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                        TextField("⌘\(slot + 1)", text: macro(slot), prompt: Text("Command"))
-                            .labelsHidden()
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
+                // The nine lines are one form row, stacked with a 5-point gap between the boxes, so they stand
+                // 32 points apart with no dividers between them: the grouped form held its own rows at least 37
+                // points apart and drew dividers it would not hide (ho-05.2 Decision 16). Every other section
+                // keeps its rows and dividers.
+                VStack(spacing: 5) {
+                    ForEach(0..<Settings.macroSlots, id: \.self) { slot in
+                        HStack {
+                            Text("⌘\(slot + 1)")
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                            TextField("⌘\(slot + 1)", text: macro(slot), prompt: Text("Command"))
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                        }
                     }
-                    // Five points less above and below each row than the form gives: the nine stood too far
-                    // apart (ho-05.1 run sheet 2, carried into ho-05.2).
-                    .padding(.vertical, -5)
                 }
             }
         }
