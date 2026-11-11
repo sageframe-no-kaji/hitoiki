@@ -26,7 +26,7 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
     private let showItem: NSMenuItem
 
     /// A menu whose Show Hitoiki calls `show`; Settings… opens the settings window and Quit ends the app, as the
-    /// gear's click and settings' Quit do.
+    /// gear's click and Command-Q do.
     internal init(show: @escaping @MainActor () -> Void) {
         self.show = show
         showItem = NSMenuItem(title: "Show Hitoiki", action: nil, keyEquivalent: "")

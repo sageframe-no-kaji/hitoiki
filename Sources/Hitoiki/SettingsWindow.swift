@@ -6,9 +6,15 @@ import SwiftUI
 /// lets SwiftUI in.
 ///
 /// Made once for the app's life; its close button and Escape hide it, and the next Settings… brings back
-/// the same window where it was.
+/// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11).
 @MainActor
 internal final class SettingsWindow: NSWindow {
+    /// Where Command-Q sends the terminate selector: the application.
+    ///
+    /// The application's delegate kills a running command before the app ends. A test stands a recorder in
+    /// its place, so the selector is witnessed unsent.
+    internal var application: NSResponder = NSApplication.shared
+
     internal init(content: SettingsView) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 680),
@@ -22,6 +28,18 @@ internal final class SettingsWindow: NSWindow {
         host.sizingOptions = []
         contentView = host
         center()
+    }
+
+    /// Command-Q quits, whatever in the window has the keyboard: an accessory app has no menu to route it.
+    ///
+    /// The four modifier keys alone decide it, as on the panel, so Caps Lock does not stop it.
+    override internal func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let held = event.modifierFlags.intersection([.control, .option, .shift, .command])
+        guard held == .command, event.charactersIgnoringModifiers?.lowercased() == "q" else {
+            return super.performKeyEquivalent(with: event)
+        }
+        _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
+        return true
     }
 
     /// Escape hides the window as the close button does (ho-05.1 Decision 13), whatever has the keyboard,

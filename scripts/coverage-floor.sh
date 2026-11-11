@@ -6,8 +6,9 @@
 #   Transcript model. The truth lives in the core.
 #
 #   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14, ho-05.1
-#   Decision 12): Panel, Keystrokes, Hotkey, Theme, Settings, Shortcut,
-#   Terminals and MenuBarItem. Five files are excluded by name, below.
+#   Decision 12, ho-05.2 Decision 13): Panel, Keystrokes, Hotkey, Theme,
+#   Settings, Shortcut, Terminals, MenuBarItem, History and RecallList.
+#   Five files are excluded by name, below.
 #
 # The exit is non-zero if either set is under the floor.
 

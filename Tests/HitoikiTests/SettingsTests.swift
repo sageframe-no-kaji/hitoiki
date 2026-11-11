@@ -24,6 +24,25 @@ internal struct ThrowawaySuite {
     }
 }
 
+/// A history in a folder inside a directory the test owns and removes, never the app's own folder.
+@MainActor
+private struct ThrowawayHistory {
+    let root: URL
+    let folder: URL
+    let history: History
+
+    /// History on or off as `settings` says.
+    init(following settings: Settings) {
+        root = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "hitoiki-settings-" + UUID().uuidString)
+        folder = root.appending(path: "Hitoiki")
+        history = History(folder: folder) { settings.historyEnabled }
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: root)
+    }
+}
+
 /// Waits, between main-actor jobs, until `condition` holds; ten seconds is a failure, not a pause.
 ///
 /// The settings and menu bar suites both wait with it.
@@ -62,8 +81,7 @@ private func writeEverything(to settings: Settings) {
     settings.macros = macros
 }
 
-// Serialized: `oneWindow` counts the settings windows on screen, and the Escape tests hold theirs open
-// across awaits, so no two of this suite's tests may run interleaved.
+// Serialized, as it was when the window tests below were in it; they are now in the Panel suite.
 @Suite("Settings", .serialized)
 @MainActor
 internal struct SettingsTests {
@@ -213,103 +231,225 @@ internal struct SettingsTests {
         settings.appearance = .system
         try await until { seen.values == [.system, .dark, .light, .system] }
     }
+}
 
-    @Test("The settings window is one instance for the app's life: closed, it comes back the same window")
-    internal func oneWindow() throws {
-        let suite = try ThrowawaySuite()
-        defer { suite.remove() }
-        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
-        app.showSettings(nil)
-        let first = try #require(app.settingsWindow)
-        defer { first.orderOut(nil) }
-        #expect(first.isVisible)
-        #expect(first.title == "Hitoiki Settings")
-        app.showSettings(nil)
-        #expect(app.settingsWindow === first)
-        first.performClose(nil)
-        #expect(!first.isVisible)
-        app.showSettings(nil)
-        #expect(app.settingsWindow === first)
-        #expect(first.isVisible)
-        #expect(NSApplication.shared.windows.filter { $0 is SettingsWindow && $0.isVisible }.count == 1)
-    }
-
-    @Test("Escape hides the settings window as the close button does; the next Settings… brings the same one back")
-    internal func escapeHides() throws {
-        let suite = try ThrowawaySuite()
-        defer { suite.remove() }
-        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
-        app.showSettings(nil)
-        let window = try #require(app.settingsWindow)
-        defer { window.orderOut(nil) }
-        #expect(window.isVisible)
-
-        // A modified Escape is not Escape.
-        window.sendEvent(try escape(modifiers: .command, in: window))
-        #expect(window.isVisible)
-
-        window.sendEvent(try escape(in: window))
-        #expect(!window.isVisible)
-        app.showSettings(nil)
-        #expect(app.settingsWindow === window)
-        #expect(window.isVisible)
-    }
-
-    @Test("Escape while a macro's box has the keyboard still hides the window")
-    internal func escapeFromAMacroBox() async throws {
-        let suite = try ThrowawaySuite()
-        defer { suite.remove() }
-        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
-        app.showSettings(nil)
-        let window = try #require(app.settingsWindow)
-        defer { window.orderOut(nil) }
-        var box: NSTextField?
-        try await until {
-            box = descendants(of: window.contentView).compactMap { $0 as? NSTextField }.first(where: \.isEditable)
-            return box != nil
+// The tests that show the settings window, nested in the Panel suite so they run one at a time with its
+// tests: a settings window takes the keyboard, and the Panel suite reads the panel's key status across its
+// awaits. Run beside each other, as two suites do, a window shown here took the keyboard from a running
+// panel there (ho-05.2, run 2).
+extension PanelTests {
+    @Suite("Settings window")
+    @MainActor
+    internal struct SettingsWindowTests {
+        @Test("The settings window is one instance for the app's life: closed, it comes back the same window")
+        internal func oneWindow() throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let first = try #require(app.settingsWindow)
+            defer { first.orderOut(nil) }
+            #expect(first.isVisible)
+            #expect(first.title == "Hitoiki Settings")
+            app.showSettings(nil)
+            #expect(app.settingsWindow === first)
+            first.performClose(nil)
+            #expect(!first.isVisible)
+            app.showSettings(nil)
+            #expect(app.settingsWindow === first)
+            #expect(first.isVisible)
+            #expect(NSApplication.shared.windows.filter { $0 is SettingsWindow && $0.isVisible }.count == 1)
         }
-        let field = try #require(box)
-        #expect(window.makeFirstResponder(field))
-        #expect(window.firstResponder is NSTextView)
-        window.sendEvent(try escape(in: window))
-        #expect(!window.isVisible)
-    }
 
-    @Test("Escape while the recorder records cancels the recording and leaves the window; the next Escape hides it")
-    internal func escapeWhileRecording() async throws {
-        let suite = try ThrowawaySuite()
-        defer { suite.remove() }
-        let app = HitoikiApp(settings: Settings(defaults: suite.defaults))
-        app.showSettings(nil)
-        let window = try #require(app.settingsWindow)
-        defer { window.orderOut(nil) }
-        var found: RecorderView?
-        try await until {
-            found = descendants(of: window.contentView).compactMap { $0 as? RecorderView }.first
-            return found != nil
+        @Test("Escape hides the settings window as the close button does; the next Settings… brings the same one back")
+        internal func escapeHides() throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            #expect(window.isVisible)
+
+            // A modified Escape is not Escape.
+            window.sendEvent(try escape(modifiers: .command, in: window))
+            #expect(window.isVisible)
+
+            window.sendEvent(try escape(in: window))
+            #expect(!window.isVisible)
+            app.showSettings(nil)
+            #expect(app.settingsWindow === window)
+            #expect(window.isVisible)
         }
-        let recorder = try #require(found)
-        let click = try #require(
-            NSEvent.mouseEvent(
-                with: .leftMouseDown,
-                location: .zero,
-                modifierFlags: [],
-                timestamp: 0,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: 0,
-                clickCount: 1,
-                pressure: 1))
-        recorder.mouseDown(with: click)
-        #expect(recorder.isRecording)
 
-        window.sendEvent(try escape(in: window))
-        #expect(!recorder.isRecording)
-        #expect(window.isVisible)
+        @Test("Escape while a macro's box has the keyboard still hides the window")
+        internal func escapeFromAMacroBox() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            var box: NSTextField?
+            try await until {
+                box = descendants(of: window.contentView).compactMap { $0 as? NSTextField }.first(where: \.isEditable)
+                return box != nil
+            }
+            let field = try #require(box)
+            #expect(window.makeFirstResponder(field))
+            #expect(window.firstResponder is NSTextView)
+            window.sendEvent(try escape(in: window))
+            #expect(!window.isVisible)
+        }
 
-        window.sendEvent(try escape(in: window))
-        #expect(!window.isVisible)
+        @Test("Escape while the recorder records cancels the recording and leaves the window; the next Escape hides it")
+        internal func escapeWhileRecording() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            var found: RecorderView?
+            try await until {
+                found = descendants(of: window.contentView).compactMap { $0 as? RecorderView }.first
+                return found != nil
+            }
+            let recorder = try #require(found)
+            let click = try #require(
+                NSEvent.mouseEvent(
+                    with: .leftMouseDown,
+                    location: .zero,
+                    modifierFlags: [],
+                    timestamp: 0,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: 1,
+                    pressure: 1))
+            recorder.mouseDown(with: click)
+            #expect(recorder.isRecording)
+
+            window.sendEvent(try escape(in: window))
+            #expect(!recorder.isRecording)
+            #expect(window.isVisible)
+
+            window.sendEvent(try escape(in: window))
+            #expect(!window.isVisible)
+        }
+
+        // ho-05.2: Command-Q from settings (Decision 11), no new key in the defaults, the macro rows' spacing.
+
+        @Test("Command-Q in the settings window sends the terminate selector to the application, whatever is focused")
+        internal func commandQuit() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            // Unless a test stands in for it, the selector goes to the application itself.
+            #expect(window.application === NSApplication.shared)
+            let quit = Terminations()
+            window.application = quit
+
+            let commandQ = try keyDown("q", code: kVK_ANSI_Q, modifiers: .command, in: window)
+            #expect(window.performKeyEquivalent(with: commandQ))
+            #expect(quit.senders.count == 1)
+            #expect((quit.senders.last as? SettingsWindow) === window)
+            #expect(window.isVisible)
+
+            // A macro's box has the keyboard: still Command-Q.
+            let field = try #require(try await macroBoxes(in: window).first)
+            #expect(window.makeFirstResponder(field))
+            #expect(window.performKeyEquivalent(with: commandQ))
+            #expect(quit.senders.count == 2)
+
+            // Caps Lock on: still Command-Q. Option-Command-Q is not it.
+            let capsLock = try keyDown("Q", code: kVK_ANSI_Q, modifiers: [.command, .capsLock], in: window)
+            #expect(window.performKeyEquivalent(with: capsLock))
+            #expect(quit.senders.count == 3)
+            let optionQ = try keyDown("q", code: kVK_ANSI_Q, modifiers: [.command, .option], in: window)
+            _ = window.performKeyEquivalent(with: optionQ)
+            #expect(quit.senders.count == 3)
+        }
+
+        @Test("History written, read and cleared, and settings shown, leave the defaults with ho-05.1's ten keys alone")
+        internal func noNewKey() throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            writeEverything(to: settings)
+            #expect(settings.historyEnabled)
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let history = scratch.history
+            history.record("echo one\n echo secret\necho two")
+            #expect(history.entries == ["echo two", "echo one"])
+            #expect(history.matches("ONE") == ["echo one"])
+            #expect(history.suggestion(for: "echo t") == "wo")
+            history.clear()
+            let app = HitoikiApp(settings: settings, history: history)
+            app.showSettings(nil)
+            app.settingsWindow?.orderOut(nil)
+            #expect(suite.keys == decisionOneKeys)
+            // The history file was the one file written, and Clear took it.
+            #expect(try FileManager.default.contentsOfDirectory(atPath: scratch.folder.path).isEmpty)
+        }
+
+        @Test("The nine macro rows: a box each, in order, at one pitch; the pitch is printed for the run sheet")
+        internal func macroRows() async throws {
+            let suite = try ThrowawaySuite()
+            defer { suite.remove() }
+            let settings = Settings(defaults: suite.defaults)
+            settings.macros = (1...9).map { "echo \($0)" }
+            let scratch = ThrowawayHistory(following: settings)
+            defer { scratch.remove() }
+            let app = HitoikiApp(settings: settings, history: scratch.history)
+            app.showSettings(nil)
+            let window = try #require(app.settingsWindow)
+            defer { window.orderOut(nil) }
+            // Tall enough that the form lays out every row.
+            window.setContentSize(NSSize(width: 520, height: 1_600))
+            let boxes = try await macroBoxes(in: window)
+            #expect(boxes.count == 9)
+            // Window coordinates rise upward: the first row is the highest.
+            let rows = boxes.map { (frame: $0.convert($0.bounds, to: nil), text: $0.stringValue) }
+                .sorted { $0.frame.minY > $1.frame.minY }
+            #expect(rows.map(\.text) == (1...9).map { "echo \($0)" })
+            let frames = rows.map(\.frame)
+            let pitches = zip(frames, frames.dropFirst()).map { $0.minY - $1.minY }
+            print("ho-05.2 macro rows: pitch \(pitches), box heights \(frames.map(\.height))")
+            #expect(pitches.allSatisfy { abs($0 - pitches[0]) < 1 })
+            // Closer than ho-05.1 left them: 48 points apart in the guest before this ho (ho-05.2 run 1).
+            #expect(pitches[0] < 48)
+        }
     }
+}
+
+/// The macros' nine boxes in the shown settings window, once the form has laid them out.
+@MainActor
+private func macroBoxes(in window: NSWindow) async throws -> [NSTextField] {
+    func boxes() -> [NSTextField] {
+        descendants(of: window.contentView).compactMap { $0 as? NSTextField }.filter(\.isEditable)
+    }
+    try await until { boxes().count == Settings.macroSlots }
+    return boxes()
 }
 
 /// Every view under `view`, depth first.
@@ -340,4 +480,34 @@ private func escape(modifiers: NSEvent.ModifierFlags = [], in window: NSWindow) 
 @MainActor
 private final class Seen {
     var values: [Appearance] = []
+}
+
+/// A key going down in `window`, as the keyboard sends it.
+@MainActor
+private func keyDown(
+    _ characters: String, code: Int, modifiers: NSEvent.ModifierFlags, in window: NSWindow
+) throws -> NSEvent {
+    try #require(
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: UInt16(code)))
+}
+
+/// Stands in for the application: takes the terminate selector and records who sent it, ending nothing.
+@MainActor
+private final class Terminations: NSResponder {
+    var senders: [Any?] = []
+
+    @objc
+    func terminate(_ sender: Any?) {
+        senders.append(sender)
+    }
 }

@@ -5,8 +5,9 @@ import HitoikiCore
 ///
 /// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
 /// input, the gear and the notice, always shown; and beneath it the output card, with the transcript
-/// and the strip at its foot. Layout, placement and the strip live here; every event goes to Panel, but
-/// the gear's click and Command-Q, which go to the application.
+/// and the strip at its foot. Layout, placement and the strip live here, with the recall list beneath the
+/// bar and the grey suggestion's drawing (ho-05.2); every event goes to Panel, but the gear's click and
+/// Command-Q, which go to the application.
 @MainActor
 internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal weak var panel: Panel?
@@ -28,6 +29,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal var application: NSResponder = NSApplication.shared
     /// The transcript and the strip, beneath the bar; Panel shows it from Running until a clear.
     internal let outputCard = NSView()
+    /// The recall list, hung below the bar while it is open; Panel opens, moves, fills and closes it.
+    internal let recall = RecallList()
 
     private static let width: CGFloat = 640
     private static let inset: CGFloat = 12
@@ -57,6 +60,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     private let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width - 2 * inset, height: 0))
     private let rule = PanelWindow.hairline()
     private let strip = NSStackView()
+    private let suggestionView = SuggestionView()
     private lazy var inputHeight = input.heightAnchor.constraint(equalToConstant: Self.inputLineHeight)
     private lazy var transcriptHeight = scroll.heightAnchor.constraint(equalToConstant: 0)
     /// The transcript's greatest height: half the screen's visible height, less the rest of the panel.
@@ -114,6 +118,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         layOut()
+        let moved = NSTextView.didChangeSelectionNotification
+        NotificationCenter.default.addObserver(self, selector: #selector(editorMoved(_:)), name: moved, object: nil)
     }
 
     override internal var canBecomeKey: Bool { true }
@@ -129,18 +135,21 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             panel?.loadMacro(slot)
             return true
         }
-        // Command-Q quits in every state, as Quit in settings does (ho-05.1 Decision 18): an accessory app
+        // Command-Q quits in every state, as it does from settings (ho-05.2 Decision 11): an accessory app
         // has no menu to route it. The same four keys decide it, so Caps Lock does not stop it.
-        if held == .command, key.lowercased() == "q" {
+        let lowered = key.lowercased()
+        if held == .command, lowered == "q" {
             _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
             return true
         }
-        guard flags == .command, let action = Self.editing[key] else {
+        // The editing keys too: with Caps Lock on, Command-C, V, X and A act as with it off (ho-05.2
+        // Decision 10, N10), and the key may come as a capital.
+        guard held == .command, let action = Self.editing[lowered] else {
             return super.performKeyEquivalent(with: event)
         }
         // Command-C is the transcript's (System Design 2.3) unless text is selected in the input.
         let editor = input.currentEditor()
-        if key == "c", firstResponder !== editor || editor?.selectedRange.length == 0 {
+        if lowered == "c", firstResponder !== editor || editor?.selectedRange.length == 0 {
             transcript.copy(nil)
             return true
         }
@@ -228,19 +237,44 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         invalidateShadow()
     }
 
+    /// Draws `text` in the faint ink after the input's last glyph while the cursor is at the end; nil
+    /// draws nothing.
+    ///
+    /// The text is drawn by a view laid over the field editor, never put in its storage, so it is not part
+    /// of the input's value, and Command-A and Command-C never reach it (ho-05.2 Decision 8).
+    internal func showSuggestion(_ text: String?) {
+        suggestionView.text = text
+        // Laid over the field editor only when there is text to draw: never during a hide or a clear.
+        guard text != nil, let editor = input.currentEditor(), suggestionView.superview !== editor else { return }
+        suggestionView.frame = editor.bounds
+        suggestionView.autoresizingMask = [.width, .height]
+        editor.addSubview(suggestionView)
+    }
+
+    /// The suggestion as it is drawn now: nil unless there is one and the cursor is at the end of the input.
+    internal var shownSuggestion: String? { suggestionView.shown }
+
     internal func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         switch selector {
         case #selector(NSResponder.insertNewline(_:)):
             let flags = NSApplication.shared.currentEvent?.modifierFlags ?? []
             if flags.contains(.shift) || flags.contains(.option) {
                 textView.insertNewlineIgnoringFieldEditor(nil)
-            } else {
+            } else if panel?.returnInList() != true {
                 panel?.submit(input.stringValue)
             }
             return true
         case #selector(NSResponder.cancelOperation(_:)):
             panel?.escape()
             return true
+        // The recall list and the suggestion take these when they apply (ho-05.2); otherwise the field
+        // editor moves the cursor as in any text field.
+        case #selector(NSResponder.moveDown(_:)):
+            return panel?.down() ?? false
+        case #selector(NSResponder.moveUp(_:)):
+            return panel?.up() ?? false
+        case #selector(NSResponder.moveRight(_:)):
+            return panel?.right() ?? false
         default:
             return false
         }
@@ -248,6 +282,15 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
 
     internal func controlTextDidChange(_ notification: Notification) {
         fit()
+        panel?.textChanged()
+    }
+
+    // The field editor's cursor moved: the suggestion is drawn only with the cursor at the end of the text.
+    @objc
+    private func editorMoved(_ notification: Notification) {
+        guard let editor = input.currentEditor(), notification.object as? NSText === editor else { return }
+        panel?.selectionChanged()
+        suggestionView.needsDisplay = true
     }
 
     @objc
@@ -306,14 +349,20 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         contentView = root
     }
 
-    /// Makes `view` a card — ground, corner radius 10, a hairline border — with `views` stacked on it.
-    private static func card(_ view: NSView, holding views: [NSView]) {
+    /// The cards' look — ground, corner radius 10, a hairline border — as a box; the recall list wears it too.
+    internal static func cardBox() -> NSBox {
         let box = NSBox()
         box.boxType = .custom
         box.cornerRadius = 10
         box.borderWidth = 1
         box.fillColor = Theme.Token.ground.nsColor
         box.borderColor = Theme.Token.inkFaint.nsColor.withAlphaComponent(0.15)
+        return box
+    }
+
+    /// Makes `view` a card, in the cards' look, with `views` stacked on it.
+    private static func card(_ view: NSView, holding views: [NSView]) {
+        let box = cardBox()
         let column = NSStackView(views: views)
         column.orientation = .vertical
         column.spacing = spacing
@@ -343,5 +392,50 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         line.fillColor = Theme.Token.inkFaint.nsColor.withAlphaComponent(0.15)
         line.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return line
+    }
+}
+
+/// The grey suggestion (ho-05.2 Decision 8): a view laid over the field editor that draws the rest of an entry
+/// after the last glyph, in the faint ink, cut at the input's edge.
+///
+/// It is never part of the editor's storage, and it takes no click.
+private final class SuggestionView: NSView {
+    private static let ink = Theme.Token.inkFaint.nsColor
+
+    var text: String? {
+        didSet { needsDisplay = true }
+    }
+
+    /// The text when it is to be seen: the field editor is on screen, composing nothing, its cursor at the end.
+    var shown: String? {
+        guard let text, let editor = superview as? NSTextView, editor.window != nil, !editor.hasMarkedText(),
+            editor.selectedRange() == NSRange(location: (editor.string as NSString).length, length: 0)
+        else { return nil }
+        return text
+    }
+
+    // The field editor's own coordinates: it is flipped, and this view lies at its origin.
+    override var isFlipped: Bool { true }
+
+    // Clicks go through to the field editor beneath.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let shown, let editor = superview as? NSTextView, let font = editor.font,
+            let layout = editor.layoutManager, let container = editor.textContainer, layout.numberOfGlyphs > 0
+        else { return }
+        layout.ensureLayout(for: container)
+        let last = layout.numberOfGlyphs - 1
+        let line = layout.lineFragmentRect(forGlyphAt: last, effectiveRange: nil)
+        let end = layout.boundingRect(forGlyphRange: NSRange(location: last, length: 1), in: container).maxX
+        let origin = editor.textContainerOrigin
+        let start = origin.x + end
+        let area = NSRect(x: start, y: origin.y + line.minY, width: max(bounds.maxX - start, 0), height: line.height)
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byClipping
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: Self.ink, .paragraphStyle: style,
+        ]
+        (shown as NSString).draw(with: area, options: .usesLineFragmentOrigin, attributes: attributes)
     }
 }

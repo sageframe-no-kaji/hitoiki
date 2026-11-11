@@ -3,44 +3,36 @@ import Carbon.HIToolbox
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The settings page: one form of the seven settings, then the nine macros, and Quit at the foot.
+/// The settings page: one form of the seven settings, Clear History…, then the nine macros.
 ///
 /// The shortcut, where commands start, the terminal, the appearance and the three switches. Bound to the
-/// store: every change is written as it is made, and there is no Apply.
+/// store: every change is written as it is made, and there is no Apply. There is no Quit button: Command-Q
+/// quits from this window as from the panel (ho-05.2 Decision 11).
 internal struct SettingsView: View {
     @Bindable internal var settings: Settings
+    /// What Clear History… clears: the file and the session's commands (ho-05.2 Decision 9).
+    internal let history: History
     /// The recorder's candidate, through `Hotkey.record`: nil once it is the hotkey, or the refusal.
     internal let record: @MainActor (UInt32?, UInt32) -> String?
     /// The line under the recorder when nothing is refused: what is registered, or why nothing is.
     internal let hotkeyLine: @MainActor () -> String
 
     @State private var refusal: String?
+    @State private var confirmingClear = false
 
     internal init(
         settings: Settings,
+        history: History,
         record: @escaping @MainActor (UInt32?, UInt32) -> String?,
         hotkeyLine: @escaping @MainActor () -> String
     ) {
         self.settings = settings
+        self.history = history
         self.record = record
         self.hotkeyLine = hotkeyLine
     }
 
     internal var body: some View {
-        VStack(spacing: 0) {
-            form
-            Divider()
-            // Quit at the foot, outside the scrolling form, so it is always in view (ho-05.1 Decision 18).
-            // It terminates through the application, whose delegate kills a running command first.
-            HStack {
-                Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
-            }
-            .padding(12)
-        }
-    }
-
-    private var form: some View {
         Form {
             Section {
                 LabeledContent("Shortcut") {
@@ -79,7 +71,18 @@ internal struct SettingsView: View {
                 .pickerStyle(.segmented)
             }
             Section {
-                Toggle("Keep a history of commands", isOn: $settings.historyEnabled)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Keep a history of commands", isOn: $settings.historyEnabled)
+                    // The space rule (ho-05.2 Decision 12): how a command with a secret in it runs unkept.
+                    Text("Commands that start with a space are not kept.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                // It works with history off, so a file left from before can go.
+                HStack {
+                    Spacer()
+                    Button("Clear History…") { confirmingClear = true }
+                }
                 Toggle("Show in the menu bar", isOn: $settings.menuBarEnabled)
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Check for updates automatically", isOn: $settings.updateCheckEnabled)
@@ -104,10 +107,19 @@ internal struct SettingsView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                     }
+                    // Five points less above and below each row than the form gives: the nine stood too far
+                    // apart (ho-05.1 run sheet 2, carried into ho-05.2).
+                    .padding(.vertical, -5)
                 }
             }
         }
         .formStyle(.grouped)
+        .alert("Delete your command history?", isPresented: $confirmingClear) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { history.clear() }
+        } message: {
+            Text("This can't be undone.")
+        }
     }
 
     /// Home, the fixed folder, or the folder chooser.
