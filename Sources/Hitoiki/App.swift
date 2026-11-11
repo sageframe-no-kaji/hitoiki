@@ -85,8 +85,11 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     internal func showSettings(_ sender: Any?) {
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
-        // An accessory app takes no typing until it is active.
-        NSApplication.shared.activate()
+        // An accessory app takes no typing until it is active. The deprecated forcing call, not activate():
+        // macOS 14's cooperative activation refuses a request made from a key in a non-activating panel, so
+        // Command-comma left settings behind the front app; Electron and OpenJDK use this call for the same
+        // case (ho-05.2 Decision 17). Marked to be deprecated in a future release; it builds without a warning.
+        NSApplication.shared.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
 

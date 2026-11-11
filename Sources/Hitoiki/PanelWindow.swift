@@ -6,8 +6,9 @@ import HitoikiCore
 /// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
 /// input, the gear and the notice, always shown; and beneath it the output card, with the transcript
 /// and the strip at its foot. Layout, placement and the strip live here, with the recall list beneath the
-/// bar and the grey suggestion's drawing (ho-05.2); every event goes to Panel, but the gear's click,
-/// Command-comma and Command-Q, which go to the application.
+/// bar and the grey suggestion's drawing (ho-05.2); every event goes to Panel, but the gear's click and
+/// Command-comma, which go up the responder chain to the application's delegate, and Command-Q, which goes
+/// to the application.
 @MainActor
 internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal weak var panel: Panel?
@@ -22,10 +23,10 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let transcript = TranscriptView(width: width - 2 * inset)
     /// The input, the gear and the notice; in Composing, the whole panel.
     internal let bar = NSView()
-    /// Where Command-Q sends the terminate selector, and Command-comma the gear's: the application.
+    /// Where Command-Q sends the terminate selector: the application.
     ///
-    /// The application's delegate kills a running command before the app ends, and opens the settings
-    /// window. A test stands a recorder in its place, so each selector is witnessed unsent.
+    /// The application's delegate kills a running command before the app ends. A test stands a recorder in
+    /// its place, so the selector is witnessed unsent.
     internal var application: NSResponder = NSApplication.shared
     /// The transcript and the strip, beneath the bar; Panel shows it from Running until a clear.
     internal let outputCard = NSView()
@@ -142,10 +143,11 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
             return true
         }
-        // Command-comma, the Mac's key for Settings, opens them in every state, as the gear's click does: its
-        // selector goes to the application, whose delegate answers it (ho-05.2 Decision 15).
+        // Command-comma, the Mac's key for Settings, opens them in every state by the gear's own route: the
+        // gear sends its action with no target, up the responder chain to the application's delegate, as its
+        // click does (ho-05.2 Decision 15).
         if held == .command, lowered == "," {
-            _ = application.tryToPerform(#selector(HitoikiApp.showSettings(_:)), with: self)
+            _ = gear.sendAction(gear.action, to: gear.target)
             return true
         }
         // The editing keys too: with Caps Lock on, Command-C, V, X and A act as with it off (ho-05.2

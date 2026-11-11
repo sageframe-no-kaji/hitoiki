@@ -2494,15 +2494,22 @@ extension PanelTests {
     }
 }
 
-// Command-comma (ho-05.2 Decision 15): Settings from the panel in every state, by the gear's selector.
+// Command-comma (ho-05.2 Decision 15): Settings from the panel in every state, by the gear's route.
 extension PanelTests {
-    @Test("Command-comma sends showSettings to the application in every state, Running too, Caps Lock on or off")
+    @Test("Command-comma sends the gear's showSettings with no target, up the panel's responder chain, in every state")
     internal func commandComma() async throws {
         let fixture = try Fixture()
         defer { fixture.tearDown() }
         let window = fixture.window
+        // The stand-in ends the panel's responder chain: only an action sent with no target, climbing the key
+        // window's chain as the gear's click does, reaches it. The application seam gets a decoy that must stay
+        // empty, so a route through it fails here.
         let opener = SettingsOpener()
-        window.application = opener
+        let decoy = SettingsOpener()
+        window.nextResponder = opener
+        window.application = decoy
+        let row = try #require(window.input.superview as? NSStackView)
+        let gear = try #require(row.arrangedSubviews.last as? NSButton)
         fixture.panel.show()
         let comma = try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: .command, in: window)
         let capsComma = try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: [.command, .capsLock], in: window)
@@ -2510,7 +2517,9 @@ extension PanelTests {
         let clean = fixture.look()
         press(comma, in: window)
         #expect(opener.senders.count == 1)
-        #expect((opener.senders.last as? PanelWindow) === window)
+        // Sent by the gear itself, as its click sends it.
+        #expect((opener.senders.last as? NSButton) === gear)
+        #expect(gear.target == nil && gear.action == #selector(HitoikiApp.showSettings(_:)))
         #expect(fixture.look() == clean)
 
         window.input.stringValue = "typed line"
@@ -2541,11 +2550,13 @@ extension PanelTests {
         #expect(try await fixture.done() == .done(.status(0), retry: nil))
         #expect(try String(contentsOfFile: fixture.home + "/length", encoding: .utf8) == "0")
         #expect(opener.terminations == 0)
+        #expect(decoy.senders.isEmpty && decoy.terminations == 0)
+        #expect(opener.senders.allSatisfy { ($0 as? NSButton) === gear })
     }
 }
 
-/// Stands in for the application: takes the gear's showSettings selector and records who sent it, opening
-/// nothing; a terminate is counted, so a wrong route shows.
+/// Stands in for the application's delegate: takes the gear's showSettings selector and records who sent it,
+/// opening nothing; a terminate is counted, so a wrong route shows.
 @MainActor
 private final class SettingsOpener: NSResponder {
     var senders: [Any?] = []
