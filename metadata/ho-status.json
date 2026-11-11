@@ -1,17 +1,17 @@
 {
   "schema": "ho-status/1",
   "project": "hitoiki",
-  "generated_at": "2026-11-10",
+  "generated_at": "2026-11-11",
   "source": {
     "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 23,
+    "hos": 28,
     "drafted": 0,
-    "complete": 23,
+    "complete": 27,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -245,6 +245,20 @@
           "status": "complete",
           "fixes": "05.1",
           "doc": "ho-process/hos/ho-05.1.1-fix-pass.md"
+        },
+        {
+          "ho": "05.2",
+          "title": "History",
+          "shape": "ha",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-05.2-history.md"
+        },
+        {
+          "ho": "05.2x",
+          "title": "Review of History",
+          "shape": "x",
+          "status": "ready",
+          "doc": "ho-process/hos/ho-05.2x-review-of-history.md"
         }
       ]
     }
