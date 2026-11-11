@@ -377,6 +377,8 @@ Build the history file and recall. The file is plain text, one command per line,
 - **History write timing and duplicates**: write on Return; what counts as a duplicate for recall.
 - **The bar control's shape**: what the dropped list shows, and what selecting an entry does (loads into the input, by the macro rule; nothing runs until Return).
 
+*Scope changed in the Think, 2026-11-10, by the practitioner's rulings (`ho-process/hos/ho-05.2-history.md`).* The control on the bar is dropped: Down-arrow drops the list from the input. Added: search in the list, a grey suggestion that Right-arrow takes, the space rule (a line starting with a space is kept nowhere), a 5,000-line cap, Command-Q in the settings window. Clear also forgets the session, so ho-05.2x's last question reads: does Clear delete the file and nothing else, and does recall then show nothing until the next command runs? Carried in: the macro rows' spacing, the Quit button at settings' foot removed, N10.
+
 ### ho-05.2x — Review of History
 
 The antagonist checks that the history file is the only file the app writes, that it is written on Return and nowhere else, and that recall never runs anything.

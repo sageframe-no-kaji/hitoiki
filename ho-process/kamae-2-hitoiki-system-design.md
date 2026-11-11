@@ -149,6 +149,8 @@ Transcripts are not stored. **(Confirms seed.)**
 
 **Amendment, 2026-11-10 (ho-05.1 run sheet).** A macro is a command and nothing else; the optional name is dropped. It was shown nowhere but the settings window, and two unlabelled boxes a row made the practitioner type commands into the name. §4's row reads: nine macros, user defaults, an array of nine strings. Document: `ho-process/hos/ho-05.1-settings-and-macros.md`, Decision 16.
 
+**Amendment, 2026-11-10 (ho-05.2 Think).** The text above stands; the history bullet is sharpened and extended by the practitioner's rulings. Recall works with history off, from the commands run since launch, and with history on from those and then the file. Recall is a list that Down-arrow drops below the input, newest first, filtered by what is typed, and a grey suggestion after the cursor that Right-arrow takes; neither runs anything, and there is no control on the bar. The file holds what ran, one line each, at most 5,000 lines, trimmed at Return. A line that starts with a space is kept nowhere. Clear deletes the file and forgets the session's commands too. §2.1's note of 2026-11-10 put a Quit button at settings' foot; it is removed, and Command-Q quits from the settings window as from the panel. §4's history row stands, with the folder named Hitoiki since ho-04.5. Document: `ho-process/hos/ho-05.2-history.md`.
+
 ---
 
 ## 3. Core Interaction
