@@ -12,7 +12,8 @@ internal final class History {
     /// The most lines the file holds after a write, and the most commands session memory holds (Decision 4).
     internal static let ceiling = 5_000
 
-    /// The history file.
+    /// Named once, so every read, append, rewrite and delete aims at this one file and at no other in the
+    /// folder (invariant 4).
     internal let file: URL
 
     /// Where a notice line goes: the panel's notice, each line once.
@@ -37,15 +38,16 @@ internal final class History {
     /// Entries: the session's commands newest first, then, with history on, the file's newest first, each
     /// command once, at its newest place (Decision 2).
     ///
-    /// Two commands are the same when they match after leading and trailing whitespace is ignored; an entry
-    /// is the command so trimmed. The file is read now; a missing file is an empty one.
+    /// Two commands are the same when they match with leading and trailing whitespace ignored; an entry is
+    /// the newest one's text exactly as it ran, so `cd My\ ` comes back with its escaped space (ho-05.2.1).
+    /// The file is read now; a missing file is an empty one.
     internal var entries: [String] {
         var seen: Set<String> = []
         var result: [String] = []
         for command in session.reversed() + fileLines().reversed() {
-            let trimmed = command.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
-            result.append(trimmed)
+            let same = command.trimmingCharacters(in: .whitespaces)
+            guard !same.isEmpty, seen.insert(same).inserted else { continue }
+            result.append(command)
         }
         return result
     }
@@ -85,12 +87,22 @@ internal final class History {
         return String(entry.dropFirst(text.count))
     }
 
-    /// Clear History: the file is deleted and session memory emptied, with history on or off; the folder
-    /// and every setting stay (Decision 9).
-    internal func clear() {
+    /// Clear History: session memory is emptied and the file deleted, with history on or off; the folder and
+    /// every setting stay (Decision 9).
+    ///
+    /// Nil when the file is gone afterwards. Otherwise the line the settings window shows under the button,
+    /// "History not cleared: <reason>" (ho-05.2.1): the file is still there and its commands still recalled,
+    /// so Clear must not look done.
+    internal func clear() -> String? {
         session.removeAll()
-        // A file already gone is what Clear wants; nothing else is reported here.
-        try? FileManager.default.removeItem(at: file)
+        do {
+            try FileManager.default.removeItem(at: file)
+        } catch CocoaError.fileNoSuchFile {
+            // A file already gone is what Clear wants.
+        } catch {
+            return "History not cleared: " + Self.reason(error)
+        }
+        return nil
     }
 
     /// The space rule (Decision 12) and the blank rule (Decision 1): a line kept is neither.

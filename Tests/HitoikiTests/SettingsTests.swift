@@ -408,7 +408,7 @@ extension PanelTests {
             #expect(history.entries == ["echo two", "echo one"])
             #expect(history.matches("ONE") == ["echo one"])
             #expect(history.suggestion(for: "echo t") == "wo")
-            history.clear()
+            #expect(history.clear() == nil)
             let app = HitoikiApp(settings: settings, history: history)
             app.showSettings(nil)
             app.settingsWindow?.orderOut(nil)

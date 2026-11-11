@@ -413,7 +413,7 @@ internal final class Panel {
 // a choice, a taken suggestion and the list's opening change the input's text and nothing else, and only
 // Return or Retry submits, with the input's value, which never holds grey text (invariant 1).
 extension Panel {
-    /// True while the recall list is open.
+    /// Asked of the list itself, not kept here, so it can never disagree with what is on screen.
     internal var listOpen: Bool { window.recall.isOpen }
 
     /// Down-arrow in the input: moves an open list's selection older, or opens the list when the cursor is

@@ -266,7 +266,8 @@ extension HistoryTests {
         defer { place.tearDown() }
         try place.write(byHand: " df -h \nuptime\ndf -h\t\n")
         place.history.record("df -h  ")
-        #expect(place.history.entries == ["df -h", "uptime"])
+        // One entry for the three spellings, at its session place and as the session ran it (ho-05.2.1).
+        #expect(place.history.entries == ["df -h  ", "uptime"])
     }
 
     @Test("History off: the session alone, though the file has lines")
@@ -368,7 +369,7 @@ extension HistoryTests {
         place.history.record("echo one")
         place.history.record("echo two")
         #expect(place.fileExists)
-        place.history.clear()
+        #expect(place.history.clear() == nil)
         #expect(!place.fileExists)
         #expect(place.history.entries.isEmpty)
         #expect(place.history.suggestion(for: "echo") == nil)
@@ -384,7 +385,7 @@ extension HistoryTests {
         defer { place.tearDown() }
         try place.write(byHand: "echo before\n")
         place.history.record("echo session")
-        place.history.clear()
+        #expect(place.history.clear() == nil)
         #expect(!place.fileExists)
         #expect(place.history.entries.isEmpty)
     }
@@ -402,6 +403,112 @@ extension HistoryTests {
         #expect(place.notices.lines.count == 1)
         #expect(!place.fileExists)
         #expect(place.history.entries == ["echo two", "echo one"])
+    }
+}
+
+// ho-05.2.1: a Clear that cannot delete the file says so (M1, invariant 7 as restated); an entry is the text
+// as it ran (N1, invariant 5 as restated); the history switch's two transitions (N2, Decision 1).
+extension HistoryTests {
+    @Test("Clear with no file at all reports nothing: a file already gone is what Clear wants; nothing is made")
+    internal func clearWithNoFile() throws {
+        let place = try Place(historyOn: false)
+        defer { place.tearDown() }
+        place.history.record("echo session")
+        place.toggle.on = true
+        #expect(place.history.clear() == nil)
+        #expect(place.history.entries.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: place.folder.path))
+        #expect(place.notices.lines.isEmpty)
+    }
+
+    @Test("Clear that cannot delete the file: its reason; the file as it was; the session gone; entries the file's")
+    internal func clearFails() throws {
+        let place = try Place()
+        defer { place.tearDown() }
+        place.history.record("echo filed")
+        place.toggle.on = false
+        place.history.record("echo session only")
+        place.toggle.on = true
+        let before = try Data(contentsOf: place.file)
+        // A folder the user cannot write: the file in it cannot be deleted, and can still be read.
+        try place.setPermissions(0o500, of: place.folder)
+        let line = try #require(place.history.clear())
+        let opening = "History not cleared: "
+        #expect(line.hasPrefix(opening))
+        #expect(line.count > opening.count)
+        #expect(try Data(contentsOf: place.file) == before)
+        #expect(place.history.entries == ["echo filed"])
+    }
+
+    @Test("A failed Clear, then one that succeeds: the second reports nothing; the file is gone, the folder stays")
+    internal func clearFailsThenSucceeds() throws {
+        let place = try Place()
+        defer { place.tearDown() }
+        place.history.record("echo one")
+        try place.setPermissions(0o500, of: place.folder)
+        #expect(place.history.clear() != nil)
+        #expect(place.fileExists)
+        try place.setPermissions(0o700, of: place.folder)
+        #expect(place.history.clear() == nil)
+        #expect(!place.fileExists)
+        #expect(place.history.entries.isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: place.folder.path).isEmpty)
+    }
+
+    @Test("A command ending in an escaped space recalls whole, from the session and, after a relaunch, the file")
+    internal func escapedSpace() throws {
+        let place = try Place()
+        defer { place.tearDown() }
+        let command = "cd My\\ "
+        place.history.record(command)
+        #expect(try place.lines() == [command])
+        #expect(place.history.entries == [command])
+        #expect(place.history.matches("my") == [command])
+        // Taking the suggestion after the backslash loads the whole command: the escaped space comes too.
+        #expect(place.history.suggestion(for: "cd My\\") == " ")
+        let relaunched = History(folder: place.folder) { true }
+        #expect(relaunched.entries == [command])
+        #expect(relaunched.suggestion(for: "cd") == " My\\ ")
+    }
+
+    @Test("`df -h` run, then ` df -h ` put in the file by hand: one entry, in its newest spelling")
+    internal func newestSpelling() throws {
+        let place = try Place()
+        defer { place.tearDown() }
+        place.history.record("df -h")
+        let ran = try place.text()
+        try place.write(byHand: ran + " df -h \n")
+        // The session comes before the file (invariant 5): its spelling is the newest.
+        #expect(place.history.entries == ["df -h"])
+        // A relaunch has no session: the file's last line is the newest, spelled as it stands.
+        let relaunched = History(folder: place.folder) { true }
+        #expect(relaunched.entries == [" df -h "])
+        #expect(relaunched.matches("DF") == [" df -h "])
+    }
+
+    @Test("History turned on after commands ran: only later commands reach the file; earlier ones stay in the session")
+    internal func turnedOn() throws {
+        let place = try Place(historyOn: false)
+        defer { place.tearDown() }
+        place.history.record("echo early")
+        place.toggle.on = true
+        place.history.record("echo late")
+        #expect(try place.lines() == ["echo late"])
+        #expect(place.history.entries == ["echo late", "echo early"])
+    }
+
+    @Test("History turned off: the file stays byte for byte through later commands; recall is the session alone")
+    internal func turnedOff() throws {
+        let place = try Place()
+        defer { place.tearDown() }
+        try place.write(byHand: "echo from before\n")
+        place.history.record("echo kept")
+        let before = try Data(contentsOf: place.file)
+        place.toggle.on = false
+        place.history.record("echo after")
+        place.history.record("echo b\necho c")
+        #expect(try Data(contentsOf: place.file) == before)
+        #expect(place.history.entries == ["echo c", "echo b", "echo after", "echo kept"])
     }
 }
 

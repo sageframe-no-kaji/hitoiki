@@ -23,7 +23,8 @@ internal final class RecallList: NSPanel {
 
     /// The controller a clicked row goes to.
     internal weak var panel: Panel?
-    /// The entries shown, in order.
+    /// Kept as shown, so a choice loads the row on screen, not a fresh read of a file that may have changed
+    /// since.
     internal private(set) var rows: [String] = []
     /// The selected row: the top whenever the rows change.
     internal private(set) var selected = 0

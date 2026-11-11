@@ -19,6 +19,9 @@ internal struct SettingsView: View {
 
     @State private var refusal: String?
     @State private var confirmingClear = false
+    /// Why the last Clear left the file: shown under Clear History… until a Clear succeeds or the window
+    /// closes (ho-05.2.1).
+    @State private var clearFailure: String?
 
     internal init(
         settings: Settings,
@@ -79,9 +82,18 @@ internal struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 // It works with history off, so a file left from before can go.
-                HStack {
-                    Spacer()
-                    Button("Clear History…") { confirmingClear = true }
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack {
+                        Spacer()
+                        Button("Clear History…") { confirmingClear = true }
+                    }
+                    // A Clear that could not delete the file says so: its commands are still recalled.
+                    if let clearFailure {
+                        Text(clearFailure)
+                            .font(.caption)
+                            .foregroundStyle(Theme.Token.alarm.color)
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
                 Toggle("Show in the menu bar", isOn: $settings.menuBarEnabled)
                 VStack(alignment: .leading, spacing: 4) {
@@ -117,9 +129,12 @@ internal struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // The window is made once and hidden on close, so the form's state outlives a close; the failed
+        // Clear's line does not.
+        .background(WindowCloseWatch { clearFailure = nil })
         .alert("Delete your command history?", isPresented: $confirmingClear) {
             Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) { history.clear() }
+            Button("Delete", role: .destructive) { clearFailure = history.clear() }
         } message: {
             Text("This can't be undone.")
         }
@@ -263,6 +278,49 @@ private final class TerminalPopUpButton: NSPopUpButton, NSMenuDelegate {
         if let identifier { selected = identifier }
         // Other… cancelled leaves the stored terminal; the pop-up shows it again rather than "Other…".
         readList()
+    }
+}
+
+/// Calls `closed` when the window holding the form closes, by its close button, Escape, or anything else.
+///
+/// The settings window is hidden on close, not released, so the form and its state live on through a close;
+/// the window's own close notice is what marks one.
+private struct WindowCloseWatch: NSViewRepresentable {
+    let closed: @MainActor () -> Void
+
+    func makeNSView(context: Context) -> CloseWatchView {
+        CloseWatchView(closed: closed)
+    }
+
+    func updateNSView(_ view: CloseWatchView, context: Context) {
+        view.closed = closed
+    }
+}
+
+private final class CloseWatchView: NSView {
+    var closed: @MainActor () -> Void
+
+    init(closed: @escaping @MainActor () -> Void) {
+        self.closed = closed
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: nil)
+        guard let window else { return }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillClose), name: NSWindow.willCloseNotification, object: window)
+    }
+
+    @objc
+    private func windowWillClose() {
+        closed()
     }
 }
 
