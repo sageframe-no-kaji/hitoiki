@@ -532,7 +532,7 @@ extension PanelTests {
 // ho-06.1 Decisions 7 to 9: the footer, Check for Updates… from the menu, and the one About window; in the
 // settings-window suite, which runs inside the Panel suite, one test at a time.
 extension PanelTests.SettingsWindowTests {
-    @Test("The footer, outside the scrolling form: About Hitoiki shows About; Check for Updates checks")
+    @Test("The footer is the two buttons alone, outside the scrolling form; About shows About; Check checks")
     internal func footer() async throws {
         let suite = try ThrowawaySuite()
         defer { suite.remove() }
@@ -549,7 +549,10 @@ extension PanelTests.SettingsWindowTests {
         let footer = window.footer
         #expect(footer.aboutButton.title == "About Hitoiki")
         #expect(footer.checkButton.title == "Check for Updates")
-        #expect(footer.answerLine.title.isEmpty)
+        // Decision 16: the two buttons and nothing else, no answer line.
+        let buttons = descendants(of: footer).compactMap { $0 as? NSButton }
+        #expect(buttons.map(\.title) == ["About Hitoiki", "Check for Updates"])
+        #expect(!descendants(of: footer).contains { $0 is NSTextField })
         // Pinned: not inside the form's scrolling area, and at the window's foot.
         #expect(footer.enclosingScrollView == nil)
         #expect(footer.superview === window.contentView)
@@ -570,19 +573,19 @@ extension PanelTests.SettingsWindowTests {
         try await until { stand.requests.count == 1 }
         #expect(footer.checkButton.title == "Checking…")
         stand.release()
-        try await until { footer.answerLine.title == "Hitoiki is up to date." }
+        try await until { check.answer == .upToDate }
         #expect(footer.checkButton.title == "Check for Updates")
         #expect(stand.requests.count == 1)
 
-        // The answer stays until the window closes.
+        // The answer, shown in the form, stays until the window closes (Decision 17).
         window.performClose(nil)
-        #expect(footer.answerLine.title.isEmpty)
+        #expect(check.answer == nil)
         app.showSettings(nil)
-        #expect(footer.answerLine.title.isEmpty)
+        #expect(check.answer == nil)
         #expect(suite.keys == ["updateCheckEnabled"])
     }
 
-    @Test("Check for Updates… from the menu opens settings and answers in the footer: a newer release")
+    @Test("Check for Updates… from the menu opens settings and runs a manual check there: a newer release")
     internal func checkFromMenu() async throws {
         let suite = try ThrowawaySuite()
         defer { suite.remove() }
@@ -597,9 +600,35 @@ extension PanelTests.SettingsWindowTests {
         let window = try #require(app.settingsWindow)
         defer { window.orderOut(nil) }
         #expect(window.isVisible)
-        try await until { window.footer.answerLine.title == "Hitoiki 1.1 is available." }
+        try await until { check.answer == .available("1.1") }
         #expect(stand.requests.count == 1)
         #expect(check.available == "1.1")
+    }
+
+    @Test("Open at Login is read from the system each time settings is shown; nothing is written to the defaults")
+    internal func loginItemReadOnShow() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = LoginServiceStandIn()
+        let item = LoginItem(bundleIdentifier: "com.sageframe.hitoiki", service: stand.service)
+        let app = HitoikiApp(settings: settings, history: scratch.history, loginItem: item)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        #expect(stand.reads == 1)
+        #expect(!item.isOn)
+
+        // Turned on in System Settings › General › Login Items while settings was closed.
+        window.performClose(nil)
+        stand.state = .enabled
+        app.showSettings(nil)
+        #expect(stand.reads == 2)
+        #expect(item.isOn)
+        #expect(stand.registers == 0 && stand.unregisters == 0)
+        #expect(suite.keys.isEmpty)
     }
 
     @Test("About is one window: shown twice, closed and shown again, it is the same window, and Escape closes it")

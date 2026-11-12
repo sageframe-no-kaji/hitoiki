@@ -20,6 +20,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     private let history: History
     /// The update check: at launch and daily from `applicationDidFinishLaunching`, and from Check for Updates.
     private let updateCheck: UpdateCheck
+    /// Open at Login, read again each time settings is shown.
+    private let loginItem: LoginItem
     private var panel: Panel?
     private var menuBar: MenuBarItem?
     /// The launch registration's status: settings names it while no combination is registered.
@@ -33,16 +35,21 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         history = History(folder: folder) { settings.historyEnabled }
         updateCheck = UpdateCheck(
             version: UpdateCheck.runningVersion(), enabled: { settings.updateCheckEnabled }, fetch: UpdateCheck.send)
+        loginItem = LoginItem(bundleIdentifier: Bundle.main.bundleIdentifier, service: LoginItem.system)
         super.init()
     }
 
-    /// The app over `settings`, `history` and `updateCheck`, for a test.
+    /// The app over `settings`, `history`, `updateCheck` and `loginItem`, for a test.
     ///
-    /// Without a check given, the app's check has no version, so it can never send a request.
-    internal init(settings: Settings, history: History, updateCheck: UpdateCheck? = nil) {
+    /// Without a check given, the app's check has no version, so it can never send a request; without a login
+    /// item given, the app's has no bundle identifier, so it never calls the login-item service.
+    internal init(
+        settings: Settings, history: History, updateCheck: UpdateCheck? = nil, loginItem: LoginItem? = nil
+    ) {
         self.settings = settings
         self.history = history
         self.updateCheck = updateCheck ?? UpdateCheck(version: nil, enabled: { false }, fetch: UpdateCheck.send)
+        self.loginItem = loginItem ?? LoginItem(bundleIdentifier: nil, service: LoginItem.system)
         super.init()
     }
 
@@ -96,6 +103,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     internal func showSettings(_ sender: Any?) {
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
+        // A change made in System Settings › General › Login Items shows here (ho-06.1 Decision 20).
+        loginItem.read()
         // An accessory app takes no typing until it is active. The deprecated forcing call, not activate():
         // macOS 14's cooperative activation refuses a request made from a key in a non-activating panel, so
         // Command-comma left settings behind the front app; Electron and OpenJDK use this call for the same
@@ -134,7 +143,9 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
                     Hotkey.record(
                         keyCode: keyCode, modifiers: modifiers, into: settings, system: Shortcut.systemShortcuts())
                 },
-                hotkeyLine: { Hotkey.settingsLine(launch: status, attempted: attempted) }),
+                hotkeyLine: { Hotkey.settingsLine(launch: status, attempted: attempted) },
+                updateCheck: updateCheck,
+                loginItem: loginItem),
             updateCheck: updateCheck
         ) { [weak self] in self?.showAbout(nil) }
     }

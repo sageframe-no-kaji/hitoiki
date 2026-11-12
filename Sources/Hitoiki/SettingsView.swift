@@ -5,10 +5,11 @@ import UniformTypeIdentifiers
 
 /// The settings page: one form of the seven settings, Clear History…, then the nine macros.
 ///
-/// The shortcut, where commands start, the terminal, the appearance and the three switches. Bound to the
+/// The shortcut, where commands start, the terminal, the appearance and the four switches. Bound to the
 /// store: every change is written as it is made, and there is no Apply. There is no Quit button: Command-Q
 /// quits from this window as from the panel (ho-05.2 Decision 11). The form scrolls; About Hitoiki and Check
-/// for Updates are in the window's footer, outside it (ho-06.1 Decision 7).
+/// for Updates are in the window's footer, outside it (ho-06.1 Decision 7). Open at Login is kept by macOS, not
+/// the store (Decision 20).
 internal struct SettingsView: View {
     @Bindable internal var settings: Settings
     /// What Clear History… clears: the file and the session's commands (ho-05.2 Decision 9).
@@ -17,6 +18,10 @@ internal struct SettingsView: View {
     internal let record: @MainActor (UInt32?, UInt32) -> String?
     /// The line under the recorder when nothing is refused: what is registered, or why nothing is.
     internal let hotkeyLine: @MainActor () -> String
+    /// The update check, whose manual answer shows under the update switch (ho-06.1 Decision 17).
+    internal let updateCheck: UpdateCheck
+    /// Open at Login, through the system's login-item service (Decision 20).
+    internal let loginItem: LoginItem
 
     @State private var refusal: String?
     @State private var confirmingClear = false
@@ -28,12 +33,16 @@ internal struct SettingsView: View {
         settings: Settings,
         history: History,
         record: @escaping @MainActor (UInt32?, UInt32) -> String?,
-        hotkeyLine: @escaping @MainActor () -> String
+        hotkeyLine: @escaping @MainActor () -> String,
+        updateCheck: UpdateCheck,
+        loginItem: LoginItem
     ) {
         self.settings = settings
         self.history = history
         self.record = record
         self.hotkeyLine = hotkeyLine
+        self.updateCheck = updateCheck
+        self.loginItem = loginItem
     }
 
     internal var body: some View {
@@ -74,40 +83,7 @@ internal struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Keep a history of commands", isOn: $settings.historyEnabled)
-                    // The space rule (ho-05.2 Decision 12): how a command with a secret in it runs unkept.
-                    Text("Commands that start with a space are not kept.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                // It works with history off, so a file left from before can go.
-                VStack(alignment: .trailing, spacing: 4) {
-                    HStack {
-                        Spacer()
-                        Button("Clear History…") { confirmingClear = true }
-                    }
-                    // A Clear that could not delete the file says so: its commands are still recalled.
-                    if let clearFailure {
-                        Text(clearFailure)
-                            .font(.caption)
-                            .foregroundStyle(Theme.Token.alarm.color)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-                Toggle("Show in the menu bar", isOn: $settings.menuBarEnabled)
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Check for updates automatically", isOn: $settings.updateCheckEnabled)
-                    // Decision 6's caption, word for word.
-                    Text(
-                        "When Hitoiki opens and once a day, it asks GitHub for the latest version. Only the app's "
-                            + "name and version are sent."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
+            Section { switches }
             // One command box a row, bordered and with its placeholder, so an empty row shows where to type
             // (ho-05.1 Decision 16).
             Section("Macros") {
@@ -133,12 +109,67 @@ internal struct SettingsView: View {
         .formStyle(.grouped)
         // The window is made once and hidden on close, so the form's state outlives a close; the failed
         // Clear's line does not.
-        .background(WindowCloseWatch { clearFailure = nil })
+        .background(
+            WindowCloseWatch {
+                clearFailure = nil
+                loginItem.dismiss()
+            }
+        )
         .alert("Delete your command history?", isPresented: $confirmingClear) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) { clearFailure = history.clear() }
         } message: {
             Text("This can't be undone.")
+        }
+    }
+
+    /// History, the menu bar item, Open at Login and the update check, each with what it says under it.
+    @ViewBuilder private var switches: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // One row: the label, Clear History…, the switch (ho-06.1 Decision 19). Clear works with history off,
+            // so a file left from before can go.
+            HStack {
+                Text("Keep a history of commands")
+                Spacer()
+                Button("Clear History…") { confirmingClear = true }
+                Toggle("Keep a history of commands", isOn: $settings.historyEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            // The space rule (ho-05.2 Decision 12): how a command with a secret in it runs unkept.
+            Text("Commands that start with a space are not kept.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            // A Clear that could not delete the file says so: its commands are still recalled.
+            if let clearFailure {
+                Text(clearFailure)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Token.alarm.color)
+            }
+        }
+        Toggle("Show in the menu bar", isOn: $settings.menuBarEnabled)
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Open at Login", isOn: openAtLogin)
+                .disabled(!loginItem.available)
+            if let line = loginItem.line {
+                Text(line)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Token.alarm.color)
+            }
+        }
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Check for updates automatically", isOn: $settings.updateCheckEnabled)
+            // Decision 6's caption, word for word.
+            Text(
+                "When Hitoiki opens and once a day, it asks GitHub for the latest version. Only the app's "
+                    + "name and version are sent."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            // Only after a manual check, until the window closes (Decision 17).
+            if let answer = updateCheck.answer {
+                AnswerLine(answer: answer)
+            }
         }
     }
 
@@ -163,6 +194,17 @@ internal struct SettingsView: View {
             case .other:
                 Task { @MainActor in Self.chooseFolder(into: settings) }
             }
+        }
+    }
+
+    // The system's state, not the store's: a change goes to the service and the switch shows what it then
+    // reports (ho-06.1 Decision 20).
+    private var openAtLogin: Binding<Bool> {
+        let item = loginItem
+        return Binding {
+            item.isOn
+        } set: { on in
+            item.set(on)
         }
     }
 
@@ -196,6 +238,37 @@ internal struct SettingsView: View {
             let identifier = Terminals.identifier(ofApplicationAt: url)
         else { return }
         settings.terminal = identifier
+    }
+}
+
+/// The manual check's answer (ho-06.1 Decision 17): the failure in the alarm colour with a link to the site, a
+/// newer release in the accent colour and wholly a link, up to date in the secondary grey.
+private struct AnswerLine: View {
+    let answer: UpdateCheck.Answer
+
+    var body: some View {
+        Group {
+            switch answer {
+            case .failed:
+                HStack(spacing: 6) {
+                    Text(answer.text)
+                        .foregroundStyle(Theme.Token.alarm.color)
+                    if let site = UpdateCheck.site {
+                        Link("Visit \(UpdateCheck.siteName)", destination: site)
+                    }
+                }
+            case .available:
+                if let site = UpdateCheck.site {
+                    Link(answer.text, destination: site)
+                        .foregroundStyle(Theme.Token.accent.color)
+                }
+            case .upToDate:
+                Text(answer.text)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.caption)
+        .tint(Theme.Token.accent.color)
     }
 }
 

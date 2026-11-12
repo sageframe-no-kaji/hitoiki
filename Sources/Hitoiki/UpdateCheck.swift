@@ -1,12 +1,15 @@
 import Foundation
+import Observation
 
 /// The update check (ho-06.1 Decisions 4, 5, 6 and 15): one GET to GitHub's latest release for Hitoiki, at
 /// launch and every 24 hours while the switch is on, and whenever Check for Updates asks.
 ///
 /// The check is the app's only network request. It sends the app's name and version and nothing about the
 /// user; the fetch is handed in, so a test hands a stand-in and nothing reaches GitHub. Nothing is persisted:
-/// the last-checked time and what was found live in memory until the app quits.
+/// the last-checked time and what was found live in memory until the app quits. Observable, so the settings form
+/// shows the manual check's answer as it changes.
 @MainActor
+@Observable
 internal final class UpdateCheck {
     /// What a manual check ends in, one of three (Decision 6).
     internal enum Answer: Equatable, Sendable {
@@ -35,8 +38,11 @@ internal final class UpdateCheck {
     /// GitHub's latest-release endpoint for the Hitoiki repository.
     nonisolated internal static let github = URL(
         string: "https://api.github.com/repos/sageframe-no-kaji/hitoiki/releases/latest")
-    /// Where the update line and the answer line send the user: the site carries the download and what changed.
-    nonisolated internal static let site = URL(string: "https://hitoiki.sageframe.net")
+    /// The project's site by name, as the failed answer's link says it.
+    nonisolated internal static let siteName = "hitoiki.sageframe.net"
+    /// Where the update line, the answer and About's Website send the user: the site carries the download and
+    /// what changed.
+    nonisolated internal static let site = URL(string: "https://" + siteName)
     /// The automatic check's period, timed from launch.
     nonisolated internal static let interval: TimeInterval = 24 * 60 * 60
 
@@ -51,7 +57,7 @@ internal final class UpdateCheck {
     /// The newest release a check has found that is newer than the running version, without the `v`; once
     /// found, it stays until the app quits.
     internal private(set) var available: String?
-    /// The last manual check's answer, until the settings window closes.
+    /// The last manual check's answer, shown under the update switch until the settings window closes.
     internal private(set) var answer: Answer?
     /// True while a manual check is in flight.
     internal private(set) var checking = false
@@ -65,7 +71,7 @@ internal final class UpdateCheck {
     private let enabled: @MainActor () -> Bool
     private let endpoint: URL?
     private let fetch: Fetch
-    private var observers: [@MainActor (UpdateCheck) -> Void] = []
+    @ObservationIgnored private var observers: [@MainActor (UpdateCheck) -> Void] = []
 
     /// A check for `version` that reads `enabled` at each automatic moment and sends through `fetch`.
     ///

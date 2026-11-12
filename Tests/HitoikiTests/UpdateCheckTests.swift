@@ -166,8 +166,8 @@ internal struct ReplyCase: Sendable, CustomTestStringConvertible {
 }
 
 /// The app's defaults domain without AppKit's own keys: the status item and window keys other suites' windows
-/// write there are not the check's.
-private func appDomainKeys() -> Set<String> {
+/// write there are not the check's, nor the login item's.
+internal func appDomainKeys() -> Set<String> {
     let domain = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "") ?? [:]
     return Set(domain.keys.filter { !$0.hasPrefix("NS") && !$0.hasPrefix("Apple") })
 }
@@ -348,6 +348,8 @@ internal struct UpdateCheckTests {
         #expect(UpdateCheck.Answer.failed.text == "Couldn't check for updates.")
         #expect(UpdateCheck.notice(for: "1.1") == "Hitoiki 1.1 is available")
         #expect(UpdateCheck.site?.absoluteString == "https://hitoiki.sageframe.net")
+        // The failed answer's link names the site by the same name (Decision 17).
+        #expect(UpdateCheck.siteName == "hitoiki.sageframe.net")
     }
 
     @Test("A failed fetch: a manual check says so; an automatic one leaves no version and no answer")

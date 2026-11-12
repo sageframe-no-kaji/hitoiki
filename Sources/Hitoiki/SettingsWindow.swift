@@ -15,7 +15,7 @@ internal final class SettingsWindow: NSWindow {
     /// The application's delegate kills a running command before the app ends. A test stands a recorder in
     /// its place, so the selector is witnessed unsent.
     internal var application: NSResponder = NSApplication.shared
-    /// About Hitoiki, Check for Updates and the manual check's answer, pinned under the form.
+    /// About Hitoiki and Check for Updates, pinned under the form.
     internal let footer: SettingsFooter
 
     private let updateCheck: UpdateCheck
@@ -54,7 +54,8 @@ internal final class SettingsWindow: NSWindow {
         updateCheck.observe { footer.show($0) }
     }
 
-    /// The answer line empties as the window closes, by its close button, Escape or anything else (Decision 7).
+    /// The manual check's answer goes as the window closes, by its close button, Escape or anything else
+    /// (Decisions 7 and 17).
     override internal func close() {
         super.close()
         updateCheck.dismissAnswer()
@@ -121,20 +122,17 @@ internal final class SettingsWindow: NSWindow {
     }
 }
 
-/// The settings footer (ho-06.1 Decision 7): About Hitoiki and Check for Updates, centred, and under them the
-/// manual check's answer, empty until one has run.
+/// The settings footer (ho-06.1 Decisions 7 and 16): About Hitoiki and Check for Updates, one centred row with
+/// ordinary padding; the manual check's answer is in the form, under the update switch (Decision 17).
 @MainActor
 internal final class SettingsFooter: NSView {
     /// Shows the About window.
     internal let aboutButton = NSButton()
     /// Runs a manual check; reads "Checking…" while one is in flight.
     internal let checkButton = NSButton()
-    /// The answer: the newer version's line is one click to the site, as the panel's update line is.
-    internal let answerLine = NSButton()
 
     private let about: @MainActor () -> Void
     private let check: @MainActor () -> Void
-    private var answer: UpdateCheck.Answer?
 
     internal init(about: @escaping @MainActor () -> Void, check: @escaping @MainActor () -> Void) {
         self.about = about
@@ -147,12 +145,6 @@ internal final class SettingsFooter: NSView {
             button.target = self
             button.action = action
         }
-        answerLine.isBordered = false
-        answerLine.alignment = .center
-        answerLine.target = self
-        answerLine.action = #selector(answerPressed)
-        // The line holds its height empty, so the buttons do not move when an answer arrives.
-        answerLine.heightAnchor.constraint(equalToConstant: 16).isActive = true
         lay()
     }
 
@@ -161,18 +153,9 @@ internal final class SettingsFooter: NSView {
         nil
     }
 
-    /// The button's title and the answer line, from `updateCheck` as it stands.
+    /// The check button's title, from `updateCheck` as it stands.
     internal func show(_ updateCheck: UpdateCheck) {
         checkButton.title = updateCheck.checking ? "Checking…" : "Check for Updates"
-        answer = updateCheck.answer
-        let color: NSColor
-        if case .available = answer {
-            color = Theme.Token.accent.nsColor
-        } else {
-            color = .secondaryLabelColor
-        }
-        answerLine.attributedTitle = NSAttributedString(
-            string: answer?.text ?? "", attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: color])
     }
 
     @objc
@@ -185,35 +168,23 @@ internal final class SettingsFooter: NSView {
         check()
     }
 
-    @objc
-    private func answerPressed() {
-        guard case .available = answer, let site = UpdateCheck.site else { return }
-        _ = NSWorkspace.shared.open(site)
-    }
-
     private func lay() {
         let rule = NSBox()
         rule.boxType = .separator
         let buttons = NSStackView(views: [aboutButton, checkButton])
         buttons.spacing = 12
-        let column = NSStackView(views: [buttons, answerLine])
-        column.orientation = .vertical
-        column.alignment = .centerX
-        column.spacing = 6
-        column.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
-        for view in [rule, column] {
+        buttons.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        for view in [rule, buttons] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
-            NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: trailingAnchor),
-            ])
         }
         NSLayoutConstraint.activate([
+            rule.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rule.trailingAnchor.constraint(equalTo: trailingAnchor),
             rule.topAnchor.constraint(equalTo: topAnchor),
-            column.topAnchor.constraint(equalTo: rule.bottomAnchor),
-            column.bottomAnchor.constraint(equalTo: bottomAnchor),
-            answerLine.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -32),
+            buttons.topAnchor.constraint(equalTo: rule.bottomAnchor),
+            buttons.bottomAnchor.constraint(equalTo: bottomAnchor),
+            buttons.centerXAnchor.constraint(equalTo: centerXAnchor),
         ])
     }
 }

@@ -7,8 +7,8 @@
 #
 #   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14, ho-05.1
 #   Decision 12, ho-05.2 Decision 13, ho-06.1): Panel, Keystrokes, Hotkey,
-#   Theme, Settings, Shortcut, Terminals, MenuBarItem, History, RecallList and
-#   UpdateCheck. Six files are excluded by name, below.
+#   Theme, Settings, Shortcut, Terminals, MenuBarItem, History, RecallList,
+#   UpdateCheck and LoginItem. Six files are excluded by name, below.
 #
 # The exit is non-zero if either set is under the floor.
 
@@ -71,8 +71,8 @@ sys.exit(0 if percent >= $FLOOR else 1)
 # because it is SwiftUI text and links in a window, which the tests in the
 # guest cannot read (ho-05.2's finding): its look and links are witnessed live.
 # The transcript's logic is the model, measured with HitoikiCore; the settings'
-# logic is Settings, Shortcut and Hotkey, and the update check's is UpdateCheck,
-# measured here.
+# logic is Settings, Shortcut and Hotkey, the update check's is UpdateCheck, and
+# Open at Login's is LoginItem, its service's calls handed in; all measured here.
 APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow|SettingsView|AboutWindow)\.swift)'
 
 echo

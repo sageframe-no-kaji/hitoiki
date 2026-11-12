@@ -36,7 +36,7 @@ internal final class AboutWindow: NSWindow {
     }
 }
 
-/// About's face, top to bottom: the icon, the name, the version, the maker's line, the two links, the note on
+/// About's face, top to bottom: the icon, the name, the version, the maker's line, the three links, the note on
 /// the update check, and OK.
 private struct AboutView: View {
     let version: String?
@@ -93,10 +93,16 @@ private struct AboutView: View {
         .background(Theme.ground)
     }
 
+    /// Website · GitHub · Support (ho-06.1 Decision 18); Website is the site the update line and the answer open.
     private var links: some View {
-        HStack(spacing: 26) {
+        HStack(spacing: 10) {
+            if let site = UpdateCheck.site {
+                Link("Website", destination: site)
+                separator
+            }
             if let github = URL(string: "https://github.com/sageframe-no-kaji/hitoiki") {
                 Link("GitHub", destination: github)
+                separator
             }
             if let coffee = URL(string: "https://buymeacoffee.com/sageframe") {
                 Link(destination: coffee) {
@@ -106,5 +112,10 @@ private struct AboutView: View {
         }
         .font(.system(size: 14, weight: .semibold))
         .tint(Theme.accent)
+    }
+
+    private var separator: some View {
+        Text("·")
+            .foregroundStyle(Theme.inkFaint)
     }
 }
