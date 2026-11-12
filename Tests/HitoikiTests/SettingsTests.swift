@@ -394,8 +394,8 @@ extension PanelTests {
             #expect(quit.senders.count == 3)
         }
 
-        @Test("History written, read and cleared, and settings shown, leave the defaults with ho-05.1's ten keys alone")
-        internal func noNewKey() throws {
+        @Test("History, settings, About and a manual check leave the defaults with ho-05.1's ten keys alone")
+        internal func noNewKey() async throws {
             let suite = try ThrowawaySuite()
             defer { suite.remove() }
             let settings = Settings(defaults: suite.defaults)
@@ -409,8 +409,14 @@ extension PanelTests {
             #expect(history.matches("ONE") == ["echo one"])
             #expect(history.suggestion(for: "echo t") == "wo")
             #expect(history.clear() == nil)
-            let app = HitoikiApp(settings: settings, history: history)
+            let stand = FetchStandIn(tag: "v1.1")
+            let check = UpdateCheck(version: "1.0.0", enabled: { settings.updateCheckEnabled }, fetch: stand.fetch)
+            let app = HitoikiApp(settings: settings, history: history, updateCheck: check)
             app.showSettings(nil)
+            app.checkForUpdates(nil)
+            try await until { check.answer == .available("1.1") }
+            app.showAbout(nil)
+            app.aboutWindow?.orderOut(nil)
             app.settingsWindow?.orderOut(nil)
             #expect(suite.keys == decisionOneKeys)
             // The history file was the one file written, and Clear took it.
@@ -520,6 +526,103 @@ extension PanelTests {
             #expect(recorder.senders.isEmpty && recorder.settings.isEmpty)
             #expect(window.isVisible && app.settingsWindow === window)
         }
+    }
+}
+
+// ho-06.1 Decisions 7 to 9: the footer, Check for Updates… from the menu, and the one About window; in the
+// settings-window suite, which runs inside the Panel suite, one test at a time.
+extension PanelTests.SettingsWindowTests {
+    @Test("The footer, outside the scrolling form: About Hitoiki shows About; Check for Updates checks")
+    internal func footer() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        settings.updateCheckEnabled = false
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = FetchStandIn(tag: "v1.0.0")
+        let check = UpdateCheck(version: "1.0.0", enabled: { settings.updateCheckEnabled }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        let footer = window.footer
+        #expect(footer.aboutButton.title == "About Hitoiki")
+        #expect(footer.checkButton.title == "Check for Updates")
+        #expect(footer.answerLine.title.isEmpty)
+        // Pinned: not inside the form's scrolling area, and at the window's foot.
+        #expect(footer.enclosingScrollView == nil)
+        #expect(footer.superview === window.contentView)
+        window.contentView?.layoutSubtreeIfNeeded()
+        #expect(footer.frame.minY == 0)
+
+        // Each button's own action, sent as a click sends it: `performClick` spins the run loop for its
+        // highlight, and the test process ended there (ho-05.1).
+        #expect(footer.aboutButton.sendAction(footer.aboutButton.action, to: footer.aboutButton.target))
+        let about = try #require(app.aboutWindow)
+        defer { about.orderOut(nil) }
+        #expect(about.isVisible)
+        #expect(about.title == "About Hitoiki")
+
+        // With the switch off, the button checks.
+        stand.hold()
+        #expect(footer.checkButton.sendAction(footer.checkButton.action, to: footer.checkButton.target))
+        try await until { stand.requests.count == 1 }
+        #expect(footer.checkButton.title == "Checking…")
+        stand.release()
+        try await until { footer.answerLine.title == "Hitoiki is up to date." }
+        #expect(footer.checkButton.title == "Check for Updates")
+        #expect(stand.requests.count == 1)
+
+        // The answer stays until the window closes.
+        window.performClose(nil)
+        #expect(footer.answerLine.title.isEmpty)
+        app.showSettings(nil)
+        #expect(footer.answerLine.title.isEmpty)
+        #expect(suite.keys == ["updateCheckEnabled"])
+    }
+
+    @Test("Check for Updates… from the menu opens settings and answers in the footer: a newer release")
+    internal func checkFromMenu() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = FetchStandIn(tag: "v1.1")
+        let check = UpdateCheck(version: "1.0.0", enabled: { settings.updateCheckEnabled }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        #expect(app.settingsWindow == nil)
+        app.checkForUpdates(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+        #expect(window.isVisible)
+        try await until { window.footer.answerLine.title == "Hitoiki 1.1 is available." }
+        #expect(stand.requests.count == 1)
+        #expect(check.available == "1.1")
+    }
+
+    @Test("About is one window: shown twice, closed and shown again, it is the same window, and Escape closes it")
+    internal func oneAbout() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let app = HitoikiApp(settings: settings, history: scratch.history)
+        app.showAbout(nil)
+        let first = try #require(app.aboutWindow)
+        defer { first.orderOut(nil) }
+        #expect(first.isVisible)
+        app.showAbout(nil)
+        #expect(app.aboutWindow === first)
+        first.performClose(nil)
+        #expect(!first.isVisible)
+        app.showAbout(nil)
+        #expect(app.aboutWindow === first)
+        #expect(NSApplication.shared.windows.filter { $0 is AboutWindow && $0.isVisible }.count == 1)
+        first.sendEvent(try escape(in: first))
+        #expect(!first.isVisible)
     }
 }
 

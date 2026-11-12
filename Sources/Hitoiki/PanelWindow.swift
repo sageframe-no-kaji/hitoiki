@@ -4,8 +4,8 @@ import HitoikiCore
 /// The panel: one borderless, non-activating floating window, shown and hidden, never closed.
 ///
 /// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
-/// input, the gear and the notice, always shown; and beneath it the output card, with the transcript
-/// and the strip at its foot. Layout, placement and the strip live here, with the recall list beneath the
+/// input, the gear, the notice and the update line, always shown; and beneath it the output card, with the
+/// transcript and the strip at its foot. Layout, placement and the strip live here, with the recall list beneath the
 /// bar and the grey suggestion's drawing (ho-05.2); every event goes to Panel, but the gear's click and
 /// Command-comma, which go up the responder chain to the application's delegate, and Command-Q, which goes
 /// to the application.
@@ -21,7 +21,10 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let openButton = NSButton()
     internal let copyButton = NSButton()
     internal let transcript = TranscriptView(width: width - 2 * inset)
-    /// The input, the gear and the notice; in Composing, the whole panel.
+    /// The update line, under the notice in the bar: faint, the whole line one click to the site; hidden
+    /// until a check finds a newer release (ho-06.1 Decision 6).
+    internal let updateLine = NSButton()
+    /// The input, the gear, the notice and the update line; in Composing, the whole panel.
     internal let bar = NSView()
     /// Where Command-Q sends the terminate selector: the application.
     ///
@@ -106,6 +109,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         style(openButton, "Open in Terminal", Theme.Token.accent, #selector(openPressed))
         style(copyButton, "Copy", Theme.Token.accent, #selector(NSText.copy(_:)))
         copyButton.target = transcript
+        prepareUpdateLine()
         gear.isBordered = false
         gear.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
         gear.contentTintColor = Theme.Token.inkFaint.nsColor
@@ -337,7 +341,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             strip.addArrangedSubview(control)
         }
         strip.spacing = Self.spacing
-        Self.card(bar, holding: [row, notice])
+        Self.card(bar, holding: [row, notice, updateLine])
         Self.card(outputCard, holding: [scroll, rule, strip])
         let column = NSStackView(views: [bar, outputCard])
         column.orientation = .vertical
@@ -400,6 +404,31 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         line.fillColor = Theme.Token.inkFaint.nsColor.withAlphaComponent(0.15)
         line.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return line
+    }
+}
+
+// The update line (ho-06.1 Decision 6), kept apart from the class body.
+extension PanelWindow {
+    /// Shows `text` on the update line in the faint ink, or hides the line for nil.
+    internal func showUpdate(_ text: String?) {
+        updateLine.attributedTitle = NSAttributedString(
+            string: text ?? "",
+            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: Theme.Token.inkFaint.nsColor])
+        updateLine.isHidden = text == nil
+    }
+
+    /// The line borderless and hidden, its whole width one click to the site.
+    private func prepareUpdateLine() {
+        updateLine.isBordered = false
+        updateLine.alignment = .left
+        updateLine.target = self
+        updateLine.action = #selector(updatePressed)
+        updateLine.isHidden = true
+    }
+
+    @objc
+    private func updatePressed() {
+        panel?.openSite()
     }
 }
 

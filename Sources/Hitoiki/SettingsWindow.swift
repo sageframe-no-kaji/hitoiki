@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 /// The settings window: one titled AppKit window hosting the SwiftUI form, the one place System Design §5
-/// lets SwiftUI in.
+/// lets SwiftUI in, above a footer that stays in view while the form scrolls (ho-06.1 Decision 7).
 ///
 /// Made once for the app's life; its close button and Escape hide it, and the next Settings… brings back
 /// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11), and
@@ -15,8 +15,15 @@ internal final class SettingsWindow: NSWindow {
     /// The application's delegate kills a running command before the app ends. A test stands a recorder in
     /// its place, so the selector is witnessed unsent.
     internal var application: NSResponder = NSApplication.shared
+    /// About Hitoiki, Check for Updates and the manual check's answer, pinned under the form.
+    internal let footer: SettingsFooter
 
-    internal init(content: SettingsView) {
+    private let updateCheck: UpdateCheck
+
+    /// The window over `content`, its footer showing `updateCheck` and sending About Hitoiki to `about`.
+    internal init(content: SettingsView, updateCheck: UpdateCheck, about: @escaping @MainActor () -> Void) {
+        self.updateCheck = updateCheck
+        footer = SettingsFooter(about: about) { Task { await updateCheck.manual() } }
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 680),
             styleMask: [.titled, .closable],
@@ -25,10 +32,32 @@ internal final class SettingsWindow: NSWindow {
         title = "Hitoiki Settings"
         isReleasedWhenClosed = false
         let host = NSHostingView(rootView: content)
-        // The window keeps its size; the form scrolls inside it.
+        // The window keeps its size; the form scrolls inside it, and the footer is outside the scrolling area.
         host.sizingOptions = []
-        contentView = host
+        let root = NSView()
+        for view in [host, footer] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            ])
+        }
+        NSLayoutConstraint.activate([
+            host.topAnchor.constraint(equalTo: root.topAnchor),
+            host.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        contentView = root
         center()
+        let footer = footer
+        updateCheck.observe { footer.show($0) }
+    }
+
+    /// The answer line empties as the window closes, by its close button, Escape or anything else (Decision 7).
+    override internal func close() {
+        super.close()
+        updateCheck.dismissAnswer()
     }
 
     /// Command-Q quits and Command-1 to Command-9 go to their macro's box, whatever in the window has the
@@ -89,5 +118,102 @@ internal final class SettingsWindow: NSWindow {
     private static func descendants(of view: NSView?) -> [NSView] {
         guard let view else { return [] }
         return view.subviews + view.subviews.flatMap { descendants(of: $0) }
+    }
+}
+
+/// The settings footer (ho-06.1 Decision 7): About Hitoiki and Check for Updates, centred, and under them the
+/// manual check's answer, empty until one has run.
+@MainActor
+internal final class SettingsFooter: NSView {
+    /// Shows the About window.
+    internal let aboutButton = NSButton()
+    /// Runs a manual check; reads "Checking…" while one is in flight.
+    internal let checkButton = NSButton()
+    /// The answer: the newer version's line is one click to the site, as the panel's update line is.
+    internal let answerLine = NSButton()
+
+    private let about: @MainActor () -> Void
+    private let check: @MainActor () -> Void
+    private var answer: UpdateCheck.Answer?
+
+    internal init(about: @escaping @MainActor () -> Void, check: @escaping @MainActor () -> Void) {
+        self.about = about
+        self.check = check
+        super.init(frame: .zero)
+        aboutButton.title = "About Hitoiki"
+        checkButton.title = "Check for Updates"
+        for (button, action) in [(aboutButton, #selector(aboutPressed)), (checkButton, #selector(checkPressed))] {
+            button.bezelStyle = .push
+            button.target = self
+            button.action = action
+        }
+        answerLine.isBordered = false
+        answerLine.alignment = .center
+        answerLine.target = self
+        answerLine.action = #selector(answerPressed)
+        // The line holds its height empty, so the buttons do not move when an answer arrives.
+        answerLine.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        lay()
+    }
+
+    @available(*, unavailable)
+    internal required init?(coder: NSCoder) {
+        nil
+    }
+
+    /// The button's title and the answer line, from `updateCheck` as it stands.
+    internal func show(_ updateCheck: UpdateCheck) {
+        checkButton.title = updateCheck.checking ? "Checking…" : "Check for Updates"
+        answer = updateCheck.answer
+        let color: NSColor
+        if case .available = answer {
+            color = Theme.Token.accent.nsColor
+        } else {
+            color = .secondaryLabelColor
+        }
+        answerLine.attributedTitle = NSAttributedString(
+            string: answer?.text ?? "", attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: color])
+    }
+
+    @objc
+    private func aboutPressed() {
+        about()
+    }
+
+    @objc
+    private func checkPressed() {
+        check()
+    }
+
+    @objc
+    private func answerPressed() {
+        guard case .available = answer, let site = UpdateCheck.site else { return }
+        _ = NSWorkspace.shared.open(site)
+    }
+
+    private func lay() {
+        let rule = NSBox()
+        rule.boxType = .separator
+        let buttons = NSStackView(views: [aboutButton, checkButton])
+        buttons.spacing = 12
+        let column = NSStackView(views: [buttons, answerLine])
+        column.orientation = .vertical
+        column.alignment = .centerX
+        column.spacing = 6
+        column.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        for view in [rule, column] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+        }
+        NSLayoutConstraint.activate([
+            rule.topAnchor.constraint(equalTo: topAnchor),
+            column.topAnchor.constraint(equalTo: rule.bottomAnchor),
+            column.bottomAnchor.constraint(equalTo: bottomAnchor),
+            answerLine.widthAnchor.constraint(equalTo: column.widthAnchor, constant: -32),
+        ])
     }
 }

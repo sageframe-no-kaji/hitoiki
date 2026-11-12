@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 ///
 /// The shortcut, where commands start, the terminal, the appearance and the three switches. Bound to the
 /// store: every change is written as it is made, and there is no Apply. There is no Quit button: Command-Q
-/// quits from this window as from the panel (ho-05.2 Decision 11).
+/// quits from this window as from the panel (ho-05.2 Decision 11). The form scrolls; About Hitoiki and Check
+/// for Updates are in the window's footer, outside it (ho-06.1 Decision 7).
 internal struct SettingsView: View {
     @Bindable internal var settings: Settings
     /// What Clear History… clears: the file and the session's commands (ho-05.2 Decision 9).
@@ -98,9 +99,10 @@ internal struct SettingsView: View {
                 Toggle("Show in the menu bar", isOn: $settings.menuBarEnabled)
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Check for updates automatically", isOn: $settings.updateCheckEnabled)
+                    // Decision 6's caption, word for word.
                     Text(
-                        "Once a day, one request to GitHub for the latest release; nothing is sent but the app's "
-                            + "name and version."
+                        "When Hitoiki opens and once a day, it asks GitHub for the latest version. Only the app's "
+                            + "name and version are sent."
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)

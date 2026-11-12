@@ -1,7 +1,7 @@
 import AppKit
 
 /// The menu bar item, there exactly while its setting is on: the app icon's two ink shapes as a template
-/// image, and a menu of Show Hitoiki, Settings… and Quit.
+/// image, and its menu (ho-06.1 Decision 9).
 @MainActor
 internal final class MenuBarItem: NSObject, NSMenuDelegate {
     /// The glyph: the breath and the chevron on no ground, so the menu bar tints it for light and dark.
@@ -19,14 +19,16 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
 
     /// The item while it is in the menu bar.
     internal private(set) var item: NSStatusItem?
-    /// Show Hitoiki, Settings… and Quit.
+    /// Show Hitoiki; About Hitoiki, Check for Updates… and Settings…; Quit, in three groups.
     internal let menu = NSMenu()
 
     private let show: @MainActor () -> Void
     private let showItem: NSMenuItem
 
-    /// A menu whose Show Hitoiki calls `show`; Settings… opens the settings window and Quit ends the app, as the
-    /// gear's click and Command-Q do.
+    /// A menu whose Show Hitoiki calls `show`.
+    ///
+    /// About Hitoiki, Check for Updates… and Settings… go up the responder chain to the application's delegate,
+    /// as the gear's click does; Quit ends the app as Command-Q does.
     internal init(show: @escaping @MainActor () -> Void) {
         self.show = show
         showItem = NSMenuItem(title: "Show Hitoiki", action: nil, keyEquivalent: "")
@@ -34,7 +36,12 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
         showItem.action = #selector(showPressed)
         showItem.target = self
         menu.addItem(showItem)
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "About Hitoiki", action: #selector(HitoikiApp.showAbout(_:)), keyEquivalent: "")
+        menu.addItem(
+            withTitle: "Check for Updates…", action: #selector(HitoikiApp.checkForUpdates(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(HitoikiApp.showSettings(_:)), keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         menu.delegate = self
     }

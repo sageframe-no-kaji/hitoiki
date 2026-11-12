@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened runtime for Hitoiki. Empty by design.
+         Hitoiki is pure Swift. It runs the user's login shell and /usr/bin/ssh
+         under a pseudoterminal (forkpty), and opens terminals through
+         NSWorkspace. Under hardened runtime none of these needs an entitlement.
+         There is no dynamically-loaded code, so allow-unsigned-executable-memory
+         and disable-library-validation are deliberately absent. Add an
+         entitlement here only when a concrete capability demands it, with a
+         comment saying why. -->
+</dict>
+</plist>

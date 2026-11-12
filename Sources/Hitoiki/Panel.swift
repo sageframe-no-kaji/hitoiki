@@ -55,6 +55,11 @@ internal final class Panel {
     /// and never part of the input's value (ho-05.2 Decision 8); nil when none is shown.
     internal private(set) var suggestion: String?
 
+    /// Opens a page in the browser: the site, from the update line.
+    ///
+    /// A test stands a recorder in its place, so the URL is witnessed and nothing opens.
+    internal var openURL: @MainActor (URL) -> Void = { url in _ = NSWorkspace.shared.open(url) }
+
     /// True while a command runs or a start is in flight: nothing hides the panel, and Quit kills.
     internal var isBusy: Bool {
         if case .running = state { return true }
@@ -220,6 +225,22 @@ internal final class Panel {
     internal func note(_ line: String) {
         notices.append(line)
         apply()
+    }
+
+    /// The update line (ho-06.1 Decision 6): shown under the bar with `version`, the newer release a check
+    /// found; nil shows none.
+    ///
+    /// It touches nothing else: not the state, the input, the transcript, the keyboard or a running command.
+    /// Only the panel's height follows the line.
+    internal func announce(_ version: String?) {
+        window.showUpdate(version.map(UpdateCheck.notice(for:)))
+        window.fit()
+    }
+
+    /// A click on the update line: the project's site, where the download and what changed are.
+    internal func openSite() {
+        guard let site = UpdateCheck.site else { return }
+        openURL(site)
     }
 
     /// Command-1 through Command-9: the slot's command replaces the input's text, the cursor at its end.

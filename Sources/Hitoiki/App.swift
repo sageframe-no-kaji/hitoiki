@@ -2,7 +2,7 @@ import AppKit
 import HitoikiCore
 
 /// The application: no Dock icon, and a menu bar item only when the setting is on; one store, one history,
-/// one Run, one Panel, one hotkey and one settings window for its life.
+/// one update check, one Run, one Panel, one hotkey, one settings window and one About window for its life.
 ///
 /// It owns the three live effects: the shortcut, through `Hotkey.record`; the menu bar item and the
 /// appearance, each following its setting.
@@ -11,11 +11,15 @@ import HitoikiCore
 internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     /// The settings window, made at the first Settings… and the same window every time after.
     internal private(set) var settingsWindow: SettingsWindow?
+    /// The About window, made at the first About Hitoiki and the same window every time after.
+    internal private(set) var aboutWindow: AboutWindow?
 
     private let settings: Settings
     /// Made at launch over the app's folder in Application Support, and shared by the panel, which writes
     /// and recalls, and settings, whose Clear History… clears it.
     private let history: History
+    /// The update check: at launch and daily from `applicationDidFinishLaunching`, and from Check for Updates.
+    private let updateCheck: UpdateCheck
     private var panel: Panel?
     private var menuBar: MenuBarItem?
     /// The launch registration's status: settings names it while no combination is registered.
@@ -27,13 +31,18 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         self.settings = settings
         let folder = URL.applicationSupportDirectory.appending(path: "Hitoiki", directoryHint: .isDirectory)
         history = History(folder: folder) { settings.historyEnabled }
+        updateCheck = UpdateCheck(
+            version: UpdateCheck.runningVersion(), enabled: { settings.updateCheckEnabled }, fetch: UpdateCheck.send)
         super.init()
     }
 
-    /// The app over `settings` and `history`, for a test.
-    internal init(settings: Settings, history: History) {
+    /// The app over `settings`, `history` and `updateCheck`, for a test.
+    ///
+    /// Without a check given, the app's check has no version, so it can never send a request.
+    internal init(settings: Settings, history: History, updateCheck: UpdateCheck? = nil) {
         self.settings = settings
         self.history = history
+        self.updateCheck = updateCheck ?? UpdateCheck(version: nil, enabled: { false }, fetch: UpdateCheck.send)
         super.init()
     }
 
@@ -62,6 +71,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         settings.follow({ $0.menuBarEnabled }, apply: { menuBar.isShown = $0 })
         self.panel = panel
         self.menuBar = menuBar
+        updateCheck.observe { panel.announce($0.available) }
+        updateCheck.begin()
     }
 
     // The recovery path when the hotkey never fires. macOS sends reopen only to a bundled app; the
@@ -93,6 +104,24 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// About Hitoiki, from the settings footer and the menu bar item: the one About window, in front.
+    @objc
+    internal func showAbout(_ sender: Any?) {
+        let window = aboutWindow ?? AboutWindow(version: updateCheck.version)
+        aboutWindow = window
+        // The forcing call, as in showSettings and for the same reason (ho-06.1 Decision 8).
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Check for Updates… in the menu bar item's menu: settings, with a manual check whose answer shows in its
+    /// footer (Decision 9).
+    @objc
+    internal func checkForUpdates(_ sender: Any?) {
+        showSettings(sender)
+        Task { await updateCheck.manual() }
+    }
+
     private func makeSettingsWindow() -> SettingsWindow {
         let settings = settings
         let attempted = settings.shortcut
@@ -105,6 +134,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
                     Hotkey.record(
                         keyCode: keyCode, modifiers: modifiers, into: settings, system: Shortcut.systemShortcuts())
                 },
-                hotkeyLine: { Hotkey.settingsLine(launch: status, attempted: attempted) }))
+                hotkeyLine: { Hotkey.settingsLine(launch: status, attempted: attempted) }),
+            updateCheck: updateCheck
+        ) { [weak self] in self?.showAbout(nil) }
     }
 }
