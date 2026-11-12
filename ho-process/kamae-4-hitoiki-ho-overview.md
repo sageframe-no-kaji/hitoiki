@@ -926,3 +926,17 @@ Opening hash: `4e7df48` (the second run sheet's record commit; the tree was clea
 - **NEXT** — ho-05.2x run 1 in Codex from `ho-process/hos/ho-05.2x-review-of-history.md`, over `4e7df48` through this ho's closing commit; report `ho-process/reviews/ho-05.2x-report-1.md`. The orchestrator drives Codex, up to three runs.
 - **ACTION ITEMS / BLOCKS** — None blocking. For ho-06: the README names the space rule, the history file and Command-comma; the deprecated-to-be activation call; activation witnessed again in the `.app`.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-05.2x — run 1 — Return — 2026-11-11
+
+Range `4e7df48..1aec109`; x document `a22a2c1`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-05.2x-report-1.md` as `81ef8ba`. Build pass through one run of `scripts/vm-test.sh`, 159 and 72 tests, 95.76% / 97.82%. Verdict **Return**: 2 Must-fix, 0 Should-fix, 6 Notes. M1, a Clear that cannot delete the file passes in silence while the file's commands stay in recall; M2, the orchestrator's comment fix in `MenuBarItem.swift` lies outside the file table. Notes: N1 recall loads the trimmed text; N2 no test of the switch's transitions; N3 further list partitions; N4 the nine-box discovery; N5 three comments; N6 the spec's miscounted test line. The practitioner ruled M1's message (a line under the button) and took N1, N2 and N5.
+
+### ho-05.2.1 — Fix pass for History — closed 2026-11-11
+
+Spec `cdbd7b3`, build `bd38796`. A failed Clear returns "History not cleared: <reason>" and settings shows it in the alarm colour under the button until a Clear succeeds or the window closes; the session is emptied either way. Entries compare trimmed and load as they ran. Tests for turning history on and off; three comments give their reason; M2 named in the fix pass's table. Tests 159 → 166 app, 72 core; 95.76% / 97.83%; the builder's mutation caught by two tests. The line under the button cannot be read in the guest; the practitioner witnessed it live ("Permission denied", gone on close), the folder restored. Orchestrator's run `20261111T154141Z`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-05.2.1: the failed Clear, recall's spelling, the switch tests.
+- **NEXT** — ho-05.2x run 2 in Codex over `4e7df48` through this fix pass's closing commit; report `ho-process/reviews/ho-05.2x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
+- **PROJECT LIFECYCLE** — kamae.

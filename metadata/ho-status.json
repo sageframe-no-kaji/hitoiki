@@ -7,9 +7,9 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 28,
+    "hos": 29,
     "drafted": 0,
-    "complete": 27,
+    "complete": 28,
     "planned": 0,
     "ready": 1
   },
@@ -259,6 +259,13 @@
           "shape": "x",
           "status": "ready",
           "doc": "ho-process/hos/ho-05.2x-review-of-history.md"
+        },
+        {
+          "ho": "05.2.1",
+          "title": "Fix pass for History — answer ho-05.2x run 1",
+          "shape": "ri",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-05.2.1-fix-pass.md"
         }
       ]
     }
