@@ -71,8 +71,8 @@ program, assembles `dist/Hitoiki.app`, copies the resource bundle
 `Hitoiki_Hitoiki.bundle` into `Contents/Resources`, builds `hitoiki.icns`, writes
 the Info.plist (`com.sageframe.hitoiki`, `LSUIElement`, macOS 14.0 minimum), signs
 inside-out (executable then bundle, never `--deep`), notarizes and staples the
-app, packages `dist/hitoiki-<version>.dmg` from the stapled app with `ditto`, then
-notarizes and staples the DMG.
+app, packages `dist/hitoiki-<version>.dmg` from the stapled app with `ditto`, signs
+the DMG, then notarizes and staples the DMG.
 
 Other forms:
 
@@ -132,6 +132,9 @@ xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;" dist/hit
   corrupts the bundle, breaking the signature and notarization.
 - **Notarize both layers** — notarize and staple the app before placing it in
   the DMG, then notarize and staple the DMG.
+- **Sign the DMG before notarizing it** — after `hdiutil create`, before
+  `notarytool submit`. Unsigned, `spctl --assess` on the DMG reports "no usable
+  signature"; signed after stapling, the staple breaks.
 - **Hardened runtime, empty entitlements** — `scripts/entitlements.plist` is
   deliberately empty (pure Swift, no dynamically-loaded code; running the shell
   and `ssh` under a pseudoterminal needs no entitlement). Add an entitlement only

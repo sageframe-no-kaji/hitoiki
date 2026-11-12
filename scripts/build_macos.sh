@@ -255,6 +255,15 @@ if $BUILD_DMG; then
     rm -rf "$STAGING"
     echo "==> DMG: dist/$DMG_NAME"
 
+    # Sign the dmg itself, after it is made and before it is notarized, so the
+    # notarization covers the signature (signing after stapling would break the
+    # staple). Unsigned, Gatekeeper's check on the dmg reports "no usable signature".
+    if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+        codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "dist/$DMG_NAME"
+        codesign --verify --strict --verbose=2 "dist/$DMG_NAME"
+        echo "    DMG signed."
+    fi
+
     if [[ -n "${NOTARIZE_KEYCHAIN_PROFILE:-}" ]]; then
         echo "==> Notarizing the dmg…"
         xcrun notarytool submit "dist/$DMG_NAME" \
