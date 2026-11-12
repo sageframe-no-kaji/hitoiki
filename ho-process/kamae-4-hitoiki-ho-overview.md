@@ -940,3 +940,13 @@ Spec `cdbd7b3`, build `bd38796`. A failed Clear returns "History not cleared: <r
 - **NEXT** — ho-05.2x run 2 in Codex over `4e7df48` through this fix pass's closing commit; report `ho-process/reviews/ho-05.2x-report-2.md`.
 - **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-05.2x — run 2 — Pass — 2026-11-11
+
+Range `4e7df48..6ec4d48`; x document advanced to run 2 as `17a6bb5`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-05.2x-report-2.md` as `eafd8b2`. Verdict **Pass**: 0 Must-fix, 0 Should-fix, 3 Notes. Build pass through one run of `scripts/vm-test.sh`, 166 and 72 tests in both test steps, 95.76% / 97.83%, no warnings, no app launch. Run-1 M1 is answered by the failure return, the line under the button and the four partitions, M2 by the fix pass's table, N1, N2 and N5 by the spelling, the transition tests and the comments. Retained: N3 (the ten-row ceiling and two edge cases untested), N4 (Command-N in settings finds the nine boxes by kind and count), N6 (the spec's miscounted test line). The orchestrator read the report against the range and accepts the verdict. ho-05.2 is closed, over one build in two passes and a follow-up, one fix pass and two review runs. Phase 3 is complete.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-05.2x: review of History, Pass on run 2; ho-05.2 and Phase 3, Memory, closed.
+- **NEXT** — the v0.3 release tag at the practitioner's word, then ho-06, The Ship, in a fresh session.
+- **ACTION ITEMS / BLOCKS** — None blocking. N3, N4, N6 on record. For ho-06: the README names the space rule, the history file and Command-comma; `activate(ignoringOtherApps:)` is marked to be deprecated; activation witnessed again in the `.app`; the earlier ho-06 list stands.
+- **PROJECT LIFECYCLE** — kamae.

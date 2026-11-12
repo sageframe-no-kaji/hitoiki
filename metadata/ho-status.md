@@ -30,6 +30,6 @@
 | 05.1x | Review of Settings and macros | x | complete |
 | 05.1.1 | Fix pass for settings and macros — answer ho-05.1x run 1 | ri | complete |
 | 05.2 | History | ha | complete |
-| 05.2x | Review of History | x | ready |
+| 05.2x | Review of History | x | complete |
 | 05.2.1 | Fix pass for History — answer ho-05.2x run 1 | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |

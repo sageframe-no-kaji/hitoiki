@@ -9,9 +9,9 @@
   "summary": {
     "hos": 29,
     "drafted": 0,
-    "complete": 28,
+    "complete": 29,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -257,7 +257,7 @@
           "ho": "05.2x",
           "title": "Review of History",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "doc": "ho-process/hos/ho-05.2x-review-of-history.md"
         },
         {
