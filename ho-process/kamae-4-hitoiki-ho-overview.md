@@ -976,3 +976,13 @@ Spec `b73e8bb`, build `df6e0f4`. A manual check answers only if settings has not
 - **NEXT** — ho-06.1x run 2 in Codex over `632f351` through this fix pass's closing commit; report `ho-process/reviews/ho-06.1x-report-2.md`.
 - **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-06.1x — run 2 — Pass — 2026-11-13
+
+Range `632f351..b823cdf`; x document advanced to run 2 as `fb8acb4`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-06.1x-report-2.md` as `f241e70`. Verdict **Pass**: 0 Must-fix, 0 Should-fix, 0 Notes. Build pass through one run of `scripts/vm-test.sh`, 203 and 72 tests in both test steps, 95.76% / 98.17%, no warnings. Run-1 M1 is answered by the five partitions, S1 and N1 by the fix pass, M2 and M3 by the practitioner's rulings. The request captured on the loopback is Decisions 4 and 15; no other network call; the bundle is invariant 9's list; both layers Notarized Developer ID; no credential in the tracked trees. The orchestrator read the report against the range and accepts the verdict. ho-06.1 is closed, over one build in three passes, one fix pass and two review runs.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.1x: review of The Build, Pass on run 2; ho-06.1 closed.
+- **NEXT** — ho-06.2, The Audit, in a fresh session: author its spec with the Kamae 5 skill; Codex reviews the whole finished codebase for bugs, tightening, chaff and AI-isms; the practitioner rules; one builder makes the ruled changes.
+- **ACTION ITEMS / BLOCKS** — None blocking. Inputs for ho-06.2 in ho-06.1's Reflect followups.
+- **PROJECT LIFECYCLE** — kamae.

@@ -9,9 +9,9 @@
   "summary": {
     "hos": 32,
     "drafted": 0,
-    "complete": 31,
+    "complete": 32,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -284,7 +284,7 @@
           "ho": "06.1x",
           "title": "Review of The Build",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "doc": "ho-process/hos/ho-06.1x-review-of-the-build.md"
         },
         {
