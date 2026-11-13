@@ -966,3 +966,13 @@ Opening hash: `632f351` (v0.3, the tree clean); the spec, the K2 §6 amendment n
 ### ho-06.1x — run 1 — Return — 2026-11-13
 
 Range `632f351..1918c06`; x document `79a1cf1`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-06.1x-report-1.md` as `4b6c4fb`. Build pass through one run of `scripts/vm-test.sh`, 199 and 72 tests, 95.76% / 98.16%; the loopback capture matches Decisions 4 and 15; no other network call; the bundle exactly invariant 9's list; both layers Notarized Developer ID; no credential found. Verdict **Return**: 3 Must-fix, 1 Should-fix, 1 Note. M1, a manual check's answer that arrives after settings closes shows at the next opening; M2, the app is 2.5 MB against Decision 3's "under two megabytes"; M3, the opening commit names the notary profile candidates against invariant 10. S1, `LoginItem.isOn` stored beside its state; N1, four comments. The practitioner ruled M2 (the size was an estimate; one universal download stands) and M3 (a profile name is not a credential and is already public in m4bmaker's repository; the history stands), recorded in the fix pass; M1, S1 and N1 go to the builder.
+
+### ho-06.1.1 — Fix pass for The Build — closed 2026-11-13
+
+Spec `b73e8bb`, build `df6e0f4`. A manual check answers only if settings has not closed since it began, so a reply that outlives its window shows in no later opening; a newer release still sets the panel's update line. Four tests cover the five partitions of Decision 17's restated lifetime with a held reply. `LoginItem.isOn` is derived from its state; four comments corrected. The practitioner's rulings on M2 (the 2.5 MB app stands, no size limit) and M3 (a profile name is not a credential; invariant 10 restated; the history stands) are recorded in the fix pass. Tests 199 → 203 app, 72 core; 95.76% / 98.17%; the orchestrator's run `20261113T115713Z`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.1.1: the late answer, the login switch's value, four comments; M2 and M3 ruled.
+- **NEXT** — ho-06.1x run 2 in Codex over `632f351` through this fix pass's closing commit; report `ho-process/reviews/ho-06.1x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
+- **PROJECT LIFECYCLE** — kamae.

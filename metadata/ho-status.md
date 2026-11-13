@@ -34,4 +34,5 @@
 | 05.2.1 | Fix pass for History — answer ho-05.2x run 1 | ri | complete |
 | 06.1 | The Build | ha | complete |
 | 06.1x | Review of The Build | x | ready |
+| 06.1.1 | Fix pass for The Build — answer ho-06.1x run 1 | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |
