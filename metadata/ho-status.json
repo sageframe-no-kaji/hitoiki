@@ -1,17 +1,17 @@
 {
   "schema": "ho-status/1",
   "project": "hitoiki",
-  "generated_at": "2026-11-11",
+  "generated_at": "2026-11-13",
   "source": {
     "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 29,
+    "hos": 31,
     "drafted": 0,
-    "complete": 29,
+    "complete": 30,
     "planned": 0,
-    "ready": 0
+    "ready": 1
   },
   "phases": [
     {
@@ -266,6 +266,26 @@
           "shape": "ri",
           "status": "complete",
           "doc": "ho-process/hos/ho-05.2.1-fix-pass.md"
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "title": "The Ship",
+      "hos": [
+        {
+          "ho": "06.1",
+          "title": "The Build",
+          "shape": "ha",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-06.1-the-build.md"
+        },
+        {
+          "ho": "06.1x",
+          "title": "Review of The Build",
+          "shape": "x",
+          "status": "ready",
+          "doc": "ho-process/hos/ho-06.1x-review-of-the-build.md"
         }
       ]
     }
