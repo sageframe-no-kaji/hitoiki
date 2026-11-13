@@ -605,6 +605,133 @@ extension PanelTests.SettingsWindowTests {
         #expect(check.available == "1.1")
     }
 
+    // ho-06.1.1, Decision 17's answer lifetime: the answer line shows the answer of a manual check started since
+    // the window was last shown, and nothing else. Each reply is held by the stand-in until the test releases it.
+
+    @Test("Answer lifetime, partitions 1 and 5: the reply arrives with the window open and shows; closing takes it")
+    internal func answerWhileOpen() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = FetchStandIn(tag: "v1.1")
+        let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+
+        stand.hold()
+        try await startManualCheck(in: window, held: stand)
+        #expect(check.answer == nil)
+        stand.release()
+        try await until { !check.checking }
+        // Partition 1.
+        #expect(check.answer == .available("1.1"))
+
+        // Partition 5.
+        window.performClose(nil)
+        #expect(!window.isVisible)
+        #expect(check.answer == nil)
+        app.showSettings(nil)
+        #expect(check.answer == nil)
+        #expect(stand.requests.count == 1)
+    }
+
+    @Test("Answer lifetime, partition 2: the window closes, then the reply arrives; no answer, now or when shown again")
+    internal func replyWhileClosed() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = FetchStandIn(tag: "v1.1")
+        let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+
+        stand.hold()
+        try await startManualCheck(in: window, held: stand)
+        window.performClose(nil)
+        #expect(!window.isVisible)
+        stand.release()
+        try await until { !check.checking }
+        #expect(check.answer == nil)
+        // The panel's update line is not the window's: the newer release still sets it (Decision 6).
+        #expect(check.available == "1.1")
+
+        app.showSettings(nil)
+        #expect(window.isVisible)
+        #expect(check.answer == nil)
+        #expect(stand.requests.count == 1)
+    }
+
+    @Test("Answer lifetime, partition 3: closed and shown again, then the old reply arrives; no answer")
+    internal func oldReplyAfterReopen() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        let stand = FetchStandIn(tag: "v1.1")
+        let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+
+        stand.hold()
+        try await startManualCheck(in: window, held: stand)
+        window.performClose(nil)
+        app.showSettings(nil)
+        #expect(window.isVisible)
+        stand.release()
+        try await until { !check.checking }
+        #expect(check.answer == nil)
+        #expect(check.available == "1.1")
+        #expect(stand.requests.count == 1)
+    }
+
+    @Test("Answer lifetime, partition 4: after partition 3, a new check's reply shows its own answer")
+    internal func newCheckAfterOldReply() async throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        let settings = Settings(defaults: suite.defaults)
+        let scratch = ThrowawayHistory(following: settings)
+        defer { scratch.remove() }
+        // The old check finds 1.2; the new one, an equal tag. "Up to date" can only be the new check's answer.
+        let stand = FetchStandIn(tag: "v1.2")
+        let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
+        let app = HitoikiApp(settings: settings, history: scratch.history, updateCheck: check)
+        app.showSettings(nil)
+        let window = try #require(app.settingsWindow)
+        defer { window.orderOut(nil) }
+
+        // Partition 3.
+        stand.hold()
+        try await startManualCheck(in: window, held: stand)
+        window.performClose(nil)
+        app.showSettings(nil)
+        stand.release()
+        try await until { !check.checking }
+        #expect(check.answer == nil)
+        #expect(check.available == "1.2")
+
+        // The new check, started in this opening.
+        stand.reply = .success((FetchStandIn.body(tag: "v1.0.0"), FetchStandIn.response()))
+        stand.hold()
+        try await startManualCheck(in: window, held: stand)
+        #expect(check.answer == nil)
+        stand.release()
+        try await until { !check.checking }
+        #expect(check.answer == .upToDate)
+        #expect(check.available == "1.2")
+        #expect(stand.requests.count == 2)
+    }
+
     @Test("Open at Login is read from the system each time settings is shown; nothing is written to the defaults")
     internal func loginItemReadOnShow() throws {
         let suite = try ThrowawaySuite()
@@ -653,6 +780,17 @@ extension PanelTests.SettingsWindowTests {
         first.sendEvent(try escape(in: first))
         #expect(!first.isVisible)
     }
+}
+
+/// Presses the footer's Check for Updates as a click does, and waits for the request to reach the stand-in.
+///
+/// The stand-in holds the request there until the test releases it.
+@MainActor
+private func startManualCheck(in window: SettingsWindow, held stand: FetchStandIn) async throws {
+    let sent = stand.requests.count
+    let button = window.footer.checkButton
+    #expect(button.sendAction(button.action, to: button.target))
+    try await until { stand.requests.count == sent + 1 }
 }
 
 /// The macros' nine boxes in the shown settings window, from the top, once the form has laid them out.

@@ -2,8 +2,9 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// The settings window: one titled AppKit window hosting the SwiftUI form, the one place System Design §5
-/// lets SwiftUI in, above a footer that stays in view while the form scrolls (ho-06.1 Decision 7).
+/// The settings window: one titled AppKit window hosting the SwiftUI form, as System Design §5 allows for
+/// settings and small views such as About (ho-06.1 Decision 8), above a footer that stays in view while the
+/// form scrolls (ho-06.1 Decision 7).
 ///
 /// Made once for the app's life; its close button and Escape hide it, and the next Settings… brings back
 /// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11), and
@@ -132,7 +133,7 @@ internal final class SettingsWindow: NSWindow {
 /// ordinary padding; the manual check's answer is in the form, under the update switch (Decision 17).
 @MainActor
 internal final class SettingsFooter: NSView {
-    /// Shows the About window.
+    /// Internal, with the check button, so a test sends each one's action as a click does.
     internal let aboutButton = NSButton()
     /// Runs a manual check; reads "Checking…" while one is in flight.
     internal let checkButton = NSButton()

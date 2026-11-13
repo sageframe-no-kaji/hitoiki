@@ -39,7 +39,11 @@ internal final class LoginItem {
     /// False in a build from source, which has no bundle identifier: the switch is off and disabled.
     internal let available: Bool
     /// What the switch shows: on while the app is registered, approved or waiting for approval.
-    internal private(set) var isOn = false
+    ///
+    /// Derived from the service's last reported state, so the two cannot disagree.
+    internal var isOn: Bool {
+        state == .enabled || state == .requiresApproval
+    }
     /// The line under the switch: the service's refusal, or the wait for approval; nil for none.
     internal var line: String? {
         refusal ?? (state == .requiresApproval ? Self.approvalLine : nil)
@@ -56,7 +60,8 @@ internal final class LoginItem {
         self.service = service
     }
 
-    /// The service's state for `status`.
+    /// The system's status in the login item's own terms, which a test's stand-in can report; a status a
+    /// later macOS adds reads as not registered, so the switch shows off rather than guessing.
     internal static func mapped(_ status: SMAppService.Status) -> State {
         switch status {
         case .enabled:
@@ -74,7 +79,6 @@ internal final class LoginItem {
     internal func read() {
         guard available else { return }
         state = service.status()
-        isOn = state == .enabled || state == .requiresApproval
     }
 
     /// The switch moved: registers the app for on, unregisters it for off, and shows what the service then

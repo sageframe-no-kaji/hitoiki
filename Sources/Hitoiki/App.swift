@@ -133,8 +133,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Check for Updates… in the menu bar item's menu: settings, with a manual check whose answer shows in its
-    /// footer (Decision 9).
+    /// Check for Updates… in the menu bar item's menu: settings, with a manual check whose answer shows in the
+    /// form under the update switch (Decisions 9 and 17).
     @objc
     internal func checkForUpdates(_ sender: Any?) {
         showSettings(sender)

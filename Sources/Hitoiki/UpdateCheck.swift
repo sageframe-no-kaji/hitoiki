@@ -57,7 +57,8 @@ internal final class UpdateCheck {
     /// The newest release a check has found that is newer than the running version, without the `v`; once
     /// found, it stays until the app quits.
     internal private(set) var available: String?
-    /// The last manual check's answer, shown under the update switch until the settings window closes.
+    /// The answer of the manual check started in the settings window's current opening, shown under the update
+    /// switch until the window closes; nil otherwise.
     internal private(set) var answer: Answer?
     /// True while a manual check is in flight.
     internal private(set) var checking = false
@@ -72,6 +73,11 @@ internal final class UpdateCheck {
     private let endpoint: URL?
     private let fetch: Fetch
     @ObservationIgnored private var observers: [@MainActor (UpdateCheck) -> Void] = []
+    /// How many times the settings window has closed.
+    ///
+    /// A manual check answers only if this has not moved since it began, so a reply that outlives its window
+    /// is never shown in a later one (Decision 17, as ho-06.1.1 states the answer's lifetime).
+    @ObservationIgnored private var closings = 0
 
     /// A check for `version` that reads `enabled` at each automatic moment and sends through `fetch`.
     ///
@@ -189,27 +195,33 @@ internal final class UpdateCheck {
         changed()
     }
 
-    /// Empties the answer line: the settings window closed.
+    /// Empties the answer line and ends the window's opening: the settings window closed.
+    ///
+    /// A manual check still in flight then finds no answer line to fill, now or in the window's next opening.
     internal func dismissAnswer() {
+        closings += 1
         answer = nil
         changed()
     }
 
     /// Sends `request` and takes the reply.
     ///
-    /// An automatic failure shows nothing; a manual one is answered.
+    /// An automatic failure shows nothing; a manual one is answered, if the window it began in is still open.
+    /// A newer release sets `available` either way: the panel's update line is not the window's (Decision 6).
     private func check(_ request: URLRequest, manual: Bool) async {
+        let opening = closings
         let tag = await latestTag(request)
         lastChecked = Date()
+        let answers = manual && opening == closings
         guard let version, let tag else {
-            if manual { answer = .failed }
+            if answers { answer = .failed }
             return changed()
         }
         if Self.isNewer(tag, than: version) {
             let found = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             available = found
-            if manual { answer = .available(found) }
-        } else if manual {
+            if answers { answer = .available(found) }
+        } else if answers {
             answer = .upToDate
         }
         changed()
