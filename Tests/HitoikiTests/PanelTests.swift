@@ -2665,3 +2665,148 @@ extension PanelTests {
         #expect(line.maxY <= notice.minY)
     }
 }
+
+// Settings opened from the panel returns to it (ho-06.1 Decision 21): from the gear and from Command-comma the
+// panel hides as at a click-out, and closing settings, by Escape or by the close button, shows it as it was; from
+// the menu, with the panel not up, closing shows nothing.
+extension PanelTests {
+    @Test("From the gear: settings hides the panel; Command-Q there still quits; Escape brings the panel back")
+    internal func settingsFromGearReturns() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let app = HitoikiApp(settings: fixture.settings, history: fixture.history)
+        fixture.panel.show()
+        fixture.window.input.stringValue = "typed line"
+        let before = fixture.look()
+        // The click's own delivery, the gear as sender up the responder chain, is gearOpensSettings's to witness.
+        app.showSettings(try gearButton(fixture))
+        let settings = try #require(app.settingsWindow)
+        defer { settings.orderOut(nil) }
+        #expect(settings.isVisible)
+        #expect(!fixture.window.isVisible)
+
+        // Command-Q from settings still quits, and shows nothing.
+        let quit = QuitRecorder()
+        settings.application = quit
+        press(try key("q", code: UInt16(kVK_ANSI_Q), modifiers: .command, in: settings), in: settings)
+        #expect(quit.senders.count == 1)
+        #expect(settings.isVisible)
+        #expect(!fixture.window.isVisible)
+
+        settings.sendEvent(try key("\u{1B}", code: UInt16(kVK_Escape), in: settings))
+        #expect(!settings.isVisible)
+        #expect(fixture.look() == before)
+        #expect(fixture.look().input == "typed line")
+        #expect(fixture.keyboardInInput)
+    }
+
+    @Test("From Command-comma, in Done: the close button closes settings; the panel returns with state and transcript")
+    internal func settingsFromCommandCommaReturns() async throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let app = HitoikiApp(settings: fixture.settings, history: fixture.history)
+        // The delegate at the end of the panel's responder chain, as the application holds it in the app.
+        let forward = SettingsForwarder(app)
+        fixture.window.nextResponder = forward
+        fixture.panel.show()
+        fixture.panel.submit("echo shown; exit 3")
+        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        try await fixture.transcriptContains("shown")
+        let before = fixture.look()
+
+        press(try key(",", code: UInt16(kVK_ANSI_Comma), modifiers: .command, in: fixture.window), in: fixture.window)
+        #expect(forward.senders.count == 1)
+        let settings = try #require(app.settingsWindow)
+        defer { settings.orderOut(nil) }
+        #expect(settings.isVisible)
+        #expect(!fixture.window.isVisible)
+
+        let close = try #require(settings.standardWindowButton(.closeButton))
+        #expect(close.sendAction(close.action, to: close.target))
+        #expect(!settings.isVisible)
+        #expect(fixture.look() == before)
+        #expect(fixture.panel.state == .done(.status(3), retry: nil))
+        #expect(fixture.window.transcript.string.contains("shown"))
+        #expect(fixture.keyboardInInput)
+    }
+
+    @Test("From the menu, the panel not up: Settings… and Check for Updates… close and show nothing")
+    internal func settingsFromMenuShowsNothing() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let app = HitoikiApp(settings: fixture.settings, history: fixture.history)
+        fixture.panel.show()
+        fixture.window.input.stringValue = "typed line"
+        // A click-out took it down.
+        fixture.panel.hide()
+        let hidden = fixture.look()
+        #expect(!hidden.visible)
+        let menu = MenuBarItem {}.menu
+        let settingsItem = menu.items[4]
+        let checkItem = menu.items[3]
+        #expect(settingsItem.title == "Settings…" && checkItem.title == "Check for Updates…")
+
+        app.showSettings(settingsItem)
+        let settings = try #require(app.settingsWindow)
+        defer { settings.orderOut(nil) }
+        #expect(settings.isVisible)
+        settings.sendEvent(try key("\u{1B}", code: UInt16(kVK_Escape), in: settings))
+        #expect(!settings.isVisible)
+        #expect(fixture.look() == hidden)
+
+        app.checkForUpdates(checkItem)
+        #expect(settings.isVisible)
+        let close = try #require(settings.standardWindowButton(.closeButton))
+        #expect(close.sendAction(close.action, to: close.target))
+        #expect(!settings.isVisible)
+        #expect(fixture.look() == hidden)
+    }
+
+    @Test("Opened from the gear, then brought forward from the menu while open: closing still returns to the panel")
+    internal func settingsFromGearThenMenuReturns() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let app = HitoikiApp(settings: fixture.settings, history: fixture.history)
+        fixture.panel.show()
+        let before = fixture.look()
+        app.showSettings(try gearButton(fixture))
+        let settings = try #require(app.settingsWindow)
+        defer { settings.orderOut(nil) }
+        app.showSettings(MenuBarItem {}.menu.items[4])
+        #expect(settings.isVisible)
+        #expect(!fixture.window.isVisible)
+        settings.sendEvent(try key("\u{1B}", code: UInt16(kVK_Escape), in: settings))
+        #expect(fixture.look() == before)
+    }
+}
+
+/// The gear at the bar's trailing edge.
+@MainActor
+private func gearButton(_ fixture: Fixture) throws -> NSButton {
+    let row = try #require(fixture.window.input.superview as? NSStackView)
+    return try #require(row.arrangedSubviews.last as? NSButton)
+}
+
+/// Stands where the application's delegate is in the app: takes the gear's showSettings from the panel's
+/// responder chain, records who sent it, and hands it to `app`.
+@MainActor
+private final class SettingsForwarder: NSResponder {
+    let app: HitoikiApp
+    var senders: [Any?] = []
+
+    init(_ app: HitoikiApp) {
+        self.app = app
+        super.init()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    @objc
+    func showSettings(_ sender: Any?) {
+        senders.append(sender)
+        app.showSettings(sender)
+    }
+}

@@ -17,6 +17,9 @@ internal final class SettingsWindow: NSWindow {
     internal var application: NSResponder = NSApplication.shared
     /// About Hitoiki and Check for Updates, pinned under the form.
     internal let footer: SettingsFooter
+    /// The panel this window was opened from, shown again as it was when the window closes; nil when it was
+    /// opened from the menu bar item (ho-06.1 Decision 21).
+    internal weak var origin: Panel?
 
     private let updateCheck: UpdateCheck
 
@@ -55,10 +58,13 @@ internal final class SettingsWindow: NSWindow {
     }
 
     /// The manual check's answer goes as the window closes, by its close button, Escape or anything else
-    /// (Decisions 7 and 17).
+    /// (Decisions 7 and 17), and the panel it was opened from comes back as the hotkey shows it (Decision 21).
     override internal func close() {
         super.close()
         updateCheck.dismissAnswer()
+        let panel = origin
+        origin = nil
+        panel?.show()
     }
 
     /// Command-Q quits and Command-1 to Command-9 go to their macro's box, whatever in the window has the

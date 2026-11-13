@@ -99,10 +99,20 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     }
 
     /// The gear's click and the menu bar item's Settings…, reached through the responder chain.
+    ///
+    /// Opened from the panel, by the gear or Command-comma, whose sender is the gear in the panel's window,
+    /// settings hides the panel as a click-out does, and closing settings shows it again (ho-06.1 Decision 21).
+    /// Opened from the menu, it returns to nothing, unless it was already open from the panel.
     @objc
     internal func showSettings(_ sender: Any?) {
         let window = settingsWindow ?? makeSettingsWindow()
         settingsWindow = window
+        if let panel = ((sender as? NSView)?.window as? PanelWindow)?.panel {
+            window.origin = panel
+            panel.hide()
+        } else if !window.isVisible {
+            window.origin = nil
+        }
         // A change made in System Settings › General › Login Items shows here (ho-06.1 Decision 20).
         loginItem.read()
         // An accessory app takes no typing until it is active. The deprecated forcing call, not activate():
