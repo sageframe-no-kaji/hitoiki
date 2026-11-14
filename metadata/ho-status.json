@@ -7,9 +7,9 @@
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 35,
+    "hos": 36,
     "drafted": 0,
-    "complete": 34,
+    "complete": 35,
     "planned": 0,
     "ready": 1
   },
@@ -316,6 +316,14 @@
           "status": "complete",
           "fixes": "06.2",
           "doc": "ho-process/hos/ho-06.2.1-fix-pass.md"
+        },
+        {
+          "ho": "06.2.2",
+          "title": "Second fix pass for The Audit — answer ho-06.2x run 2",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "06.2",
+          "doc": "ho-process/hos/ho-06.2.2-fix-pass.md"
         }
       ]
     }

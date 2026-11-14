@@ -1012,3 +1012,17 @@ Spec `c48bcdb`, build `69af386`. A fixture wait that times out names its line an
 - **NEXT** — ho-06.2x run 2 in Codex over `a1b0a9b` through this fix pass's closing commit; report `ho-process/reviews/ho-06.2x-report-2.md`.
 - **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-06.2x — run 2 — Return — 2026-11-14
+
+Range `a1b0a9b..6ccb6bd`; x document advanced to run 2 as `06e250d`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session) committed `ho-process/reviews/ho-06.2x-report-2.md` as `8d2c364`. Build pass through one run of `scripts/vm-test.sh`, six green, 205 and 71 tests, 95.76% / 98.24%, no timeout. Verdict **Return**: 1 Must-fix, 0 Should-fix, 0 Notes. M1, the 34 direct `until` waits name their line but not their condition in words, against ho-06.2.1's invariant 1 as worded. Run-1 M1, M2 and N1 are answered; M3 and M4 by the practitioner's ruling.
+
+### ho-06.2.2 — Second fix pass for The Audit — closed 2026-11-14
+
+By the practitioner's ruling: a direct wait names itself by its line, which holds its condition; a phrase beside each would duplicate the code. ho-06.2.1's invariant 1 restated; no code changed.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.2.2: run 2's M1 answered by ruling.
+- **NEXT** — ho-06.2x run 3 in Codex over `a1b0a9b` through this pass's commit; report `ho-process/reviews/ho-06.2x-report-3.md`. The last run; a third Return stops.
+- **ACTION ITEMS / BLOCKS** — None blocking.
+- **PROJECT LIFECYCLE** — kamae.
