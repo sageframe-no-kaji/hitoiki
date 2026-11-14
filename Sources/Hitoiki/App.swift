@@ -91,7 +91,7 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
 
     /// Quit waits for a command still running, a start in flight, or a kill a clear sent and has not seen end.
     internal func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let panel, panel.isBusy || panel.awaitsClearedDone else { return .terminateNow }
+        guard let panel, panel.quitMustWait else { return .terminateNow }
         Task {
             await panel.killForQuit()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)

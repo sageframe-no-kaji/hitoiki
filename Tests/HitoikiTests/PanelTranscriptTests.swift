@@ -332,4 +332,27 @@ extension PanelTests {
         transcript.copy(nil)
         #expect(NSPasteboard.general.string(forType: .string) == surviving)
     }
+
+    @Test("A selection the line ceiling evicts wholly leaves nothing selected, and Copy takes the whole transcript")
+    internal func selectionWhollyEvicted() throws {
+        let fixture = try Fixture()
+        defer { fixture.tearDown() }
+        let saved = savePasteboard()
+        defer { restorePasteboard(saved) }
+        let transcript = fixture.window.transcript
+        transcript.append(Array((0..<10_000).map { "line \($0)\n" }.joined().utf8))
+        let text = transcript.string as NSString
+        let from = text.range(of: "line 5000\n").location
+        let through = NSMaxRange(text.range(of: "line 5009\n"))
+        transcript.setSelectedRange(NSRange(location: from, length: through - from))
+
+        transcript.append(Array((10_000..<16_000).map { "line \($0)\n" }.joined().utf8))
+        // Lines 0 to 5999 are gone, the selected ones with them.
+        let whole = (6_000..<16_000).map { "line \($0)\n" }.joined()
+        #expect(transcript.string == whole)
+        #expect(transcript.selectedRanges.allSatisfy { $0.rangeValue.length == 0 })
+        NSPasteboard.general.clearContents()
+        transcript.copy(nil)
+        #expect(NSPasteboard.general.string(forType: .string) == whole)
+    }
 }

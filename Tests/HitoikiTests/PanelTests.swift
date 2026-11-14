@@ -429,11 +429,12 @@ extension PanelTests {
         // Stop, which the command ignores, then the clear, which kills it; Quit is asked for at once.
         fixture.panel.escape()
         fixture.panel.escape()
-        #expect(fixture.panel.awaitsClearedDone)
+        // The panel is clean, but the clear's kill is still on its way: Quit must wait for it.
+        #expect(fixture.panel.quitMustWait)
         #expect(fixture.look() == .clean)
         await fixture.panel.killForQuit()
         // Read before the test yields: the kill was sent and the command's Done had arrived when Quit returned.
-        #expect(!fixture.panel.awaitsClearedDone)
+        #expect(!fixture.panel.quitMustWait)
         #expect(try ps(["-o", "pid=", "-p", "\(pid)"]).isEmpty)
         #expect(try await survivors(ofGroup: pid).isEmpty)
         #expect(fixture.look() == .clean)

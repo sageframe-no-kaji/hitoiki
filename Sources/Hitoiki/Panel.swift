@@ -70,6 +70,12 @@ internal final class Panel {
     /// and changed nothing on it.
     internal var awaitsClearedDone: Bool { cleared != nil }
 
+    /// True while Quit must wait: a command runs, a start is in flight, or a kill a clear sent has not seen
+    /// its Done.
+    ///
+    /// The app's termination and `killForQuit()` both read it, so the two cannot disagree.
+    internal var quitMustWait: Bool { isBusy || awaitsClearedDone }
+
     /// Drives `run` through `window` for the app's life.
     ///
     /// - Parameters:
@@ -276,10 +282,10 @@ internal final class Panel {
     /// waits at most one second for its Done.
     internal func killForQuit() async {
         await submission?.value
-        guard isBusy || awaitsClearedDone else { return }
+        guard quitMustWait else { return }
         await run.kill()
         let deadline = ContinuousClock.now + .seconds(1)
-        while isBusy || awaitsClearedDone, ContinuousClock.now < deadline {
+        while quitMustWait, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

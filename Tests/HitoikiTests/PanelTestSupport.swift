@@ -107,8 +107,19 @@ internal func key(
             keyCode: code))
 }
 
-/// A condition the test waited ten seconds for.
-internal struct TimedOut: Error {}
+/// A condition the test waited ten seconds for: where in the test file the wait was asked for, and what it
+/// waited for, so a timeout in the log can be read without running the test again.
+internal struct TimedOut: Error, CustomStringConvertible {
+    let waitingFor: String
+    let location: SourceLocation
+
+    init(_ waitingFor: String = "the condition written there", at location: SourceLocation = #_sourceLocation) {
+        self.waitingFor = waitingFor
+        self.location = location
+    }
+
+    var description: String { "TimedOut at \(location) waiting for \(waitingFor)" }
+}
 
 /// The panel as the tests read it: visibility, key status, `state`, transcript text, status text, the
 /// offer, and the input's text.
@@ -209,40 +220,49 @@ internal struct Fixture {
     }
 
     /// Submits `line` and waits until its command has ended, or its start has failed.
-    func ran(_ line: String) async throws {
+    func ran(_ line: String, at location: SourceLocation = #_sourceLocation) async throws {
         panel.submit(line)
-        try await until { !panel.isBusy }
+        try await until("\"\(line)\" to end or fail to start", at: location) { !panel.isBusy }
     }
 
-    /// Waits, between main-actor jobs, until `condition` holds.
-    func until(_ condition: () -> Bool) async throws {
+    /// Waits, between main-actor jobs, until `condition` holds; after ten seconds it throws, naming the line
+    /// that asked and `waitingFor`.
+    ///
+    /// The helpers below pass their caller's line on, so a timeout names the test's line, not this file's.
+    func until(
+        _ waitingFor: String = "the condition written there",
+        at location: SourceLocation = #_sourceLocation,
+        _ condition: () -> Bool
+    ) async throws {
         let deadline = ContinuousClock.now + .seconds(10)
         while !condition() {
-            guard ContinuousClock.now < deadline else { throw TimedOut() }
+            guard ContinuousClock.now < deadline else { throw TimedOut(waitingFor, at: location) }
             try await Task.sleep(for: .milliseconds(5))
         }
     }
 
     /// The pid of the running command, once Panel shows it running.
-    func running() async throws -> pid_t {
-        try await until {
+    func running(at location: SourceLocation = #_sourceLocation) async throws -> pid_t {
+        try await until("Running", at: location) {
             if case .running = panel.state { return true }
             return false
         }
-        guard case .running(let pid) = panel.state else { throw TimedOut() }
+        guard case .running(let pid) = panel.state else { throw TimedOut("Running", at: location) }
         return pid
     }
 
-    func done() async throws -> RunState? {
-        try await until {
+    func done(at location: SourceLocation = #_sourceLocation) async throws -> RunState? {
+        try await until("Done", at: location) {
             if case .done = panel.state { return true }
             return false
         }
         return panel.state
     }
 
-    func transcriptContains(_ text: String) async throws {
-        try await until { window.transcript.string.contains(text) }
+    func transcriptContains(_ text: String, at location: SourceLocation = #_sourceLocation) async throws {
+        try await until("the transcript to contain \"\(text)\"", at: location) {
+            window.transcript.string.contains(text)
+        }
     }
 
     /// An `ssh` in the test's directory: sudo's refusal on stderr and status 1, unless its first argument
@@ -292,20 +312,22 @@ internal struct Fixture {
 
     /// The command alive and reading: writes `tag` and a carriage return to it and waits for the file
     /// `Fixture.held` touches for that line.
-    func alive(_ tag: String) async throws {
+    func alive(_ tag: String, at location: SourceLocation = #_sourceLocation) async throws {
         panel.keystroke(.write(Array("\(tag)\r".utf8)))
-        try await until { FileManager.default.fileExists(atPath: home + "/got-" + tag) }
+        try await until("the file got-\(tag)", at: location) {
+            FileManager.default.fileExists(atPath: home + "/got-" + tag)
+        }
     }
 
     /// Opens the launch, and if a command runs or is in flight, kills it, waits for its Done and
     /// checks that its group is gone.
-    func end(opening open: () -> Void) async throws {
+    func end(opening open: () -> Void, at location: SourceLocation = #_sourceLocation) async throws {
         open()
         guard panel.isBusy else { return }
-        let group = try await running()
+        let group = try await running(at: location)
         panel.stop()
         panel.stop()
-        _ = try await done()
+        _ = try await done(at: location)
         #expect(try await survivors(ofGroup: group).isEmpty)
     }
 
@@ -351,7 +373,9 @@ extension PanelTests {
 /// Running states run `Fixture.held` at its readiness point; Running, stopped is reached with
 /// `stop()`, the Stop button's call. Done is `echo shown; exit 3`.
 @MainActor
-internal func reach(_ rung: PanelTests.Rung) async throws -> (fixture: Fixture, open: () -> Void) {
+internal func reach(
+    _ rung: PanelTests.Rung, at location: SourceLocation = #_sourceLocation
+) async throws -> (fixture: Fixture, open: () -> Void) {
     let (launch, open) = gate()
     if rung != .inFlight { open() }
     let fixture = try Fixture(launch: launch)
@@ -367,12 +391,12 @@ internal func reach(_ rung: PanelTests.Rung) async throws -> (fixture: Fixture, 
         await Task.yield()
     case .live, .stopped:
         fixture.panel.submit(Fixture.held)
-        _ = try await fixture.running()
-        try await fixture.transcriptContains("ready")
+        _ = try await fixture.running(at: location)
+        try await fixture.transcriptContains("ready", at: location)
         if rung == .stopped { fixture.panel.stop() }
     case .done, .doneTyped:
         fixture.panel.submit("echo shown; exit 3")
-        #expect(try await fixture.done() == .done(.status(3), retry: nil))
+        #expect(try await fixture.done(at: location) == .done(.status(3), retry: nil))
         if rung == .doneTyped { fixture.window.input.stringValue = "typed line" }
     }
     return (fixture, open)
