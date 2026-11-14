@@ -2,8 +2,8 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// The About window (ho-06.1 Decision 8): palana's layout in the Theme's colours, one instance for the app's
-/// life, made by the application at the first About Hitoiki.
+/// The About window: palana's layout in the Theme's colours, one instance for the app's life, made by the
+/// application at the first About Hitoiki.
 ///
 /// OK, Return, Escape and the close button hide it; the next About Hitoiki brings back the same window.
 @MainActor
@@ -57,8 +57,7 @@ private struct AboutView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.top, 4)
-            // A localized key, not a plain string, so the markdown links are parsed and open in the browser; no
-            // date (Decision 8).
+            // A localized key, not a plain string, so the markdown links are parsed and open in the browser.
             Text(
                 LocalizedStringKey(
                     "Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · "
@@ -93,21 +92,19 @@ private struct AboutView: View {
         .background(Theme.ground)
     }
 
-    /// Website · GitHub · Support (ho-06.1 Decision 18); Website is the site the update line and the answer open.
+    /// Website · GitHub · Support; Website is the site the update line and the answer open.
     private var links: some View {
         HStack(spacing: 10) {
-            if let site = UpdateCheck.site {
-                Link("Website", destination: site)
-                separator
-            }
-            if let github = URL(string: "https://github.com/sageframe-no-kaji/hitoiki") {
-                Link("GitHub", destination: github)
-                separator
-            }
-            if let coffee = URL(string: "https://buymeacoffee.com/sageframe") {
-                Link(destination: coffee) {
-                    Label("Support", systemImage: "heart.fill")
-                }
+            Link("Website", destination: UpdateCheck.site)
+            separator
+            // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+            // swift-format-ignore: NeverForceUnwrap
+            Link("GitHub", destination: URL(string: "https://github.com/sageframe-no-kaji/hitoiki")!)
+            separator
+            // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+            // swift-format-ignore: NeverForceUnwrap
+            Link(destination: URL(string: "https://buymeacoffee.com/sageframe")!) {
+                Label("Support", systemImage: "heart.fill")
             }
         }
         .font(.system(size: 14, weight: .semibold))

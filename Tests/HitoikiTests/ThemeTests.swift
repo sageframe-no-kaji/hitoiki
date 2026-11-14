@@ -16,7 +16,7 @@ internal struct ThemeTests {
         Theme.Token.plugin,
     ]
 
-    /// The three transcript colours derived from them (ho-04 Decision 2).
+    /// The three transcript colours derived from them.
     private static let transcriptTokens: [Palette] = [
         Theme.Token.transcriptBlue,
         Theme.Token.transcriptMagenta,

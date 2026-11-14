@@ -8,7 +8,7 @@ internal enum DirectoryMode: String, Sendable {
     case fixed
 }
 
-/// The appearance override (System Design §2.4, amended 2026-11-09).
+/// The appearance: the system's, or always light, or always dark.
 internal enum Appearance: String, Sendable, CaseIterable {
     case system
     case light
@@ -30,7 +30,7 @@ internal enum Appearance: String, Sendable, CaseIterable {
     }
 }
 
-/// Everything Hitoiki keeps: ten keys in one user-defaults domain, read and written in place.
+/// The settings and the macros: ten keys in one user-defaults domain, read and written in place.
 ///
 /// The store holds no copy of any value; every read goes to the defaults and every write goes to them, and
 /// an absent key reads as its default, so a fresh install writes nothing until the user changes something.
@@ -38,7 +38,7 @@ internal enum Appearance: String, Sendable, CaseIterable {
 @MainActor
 @Observable
 internal final class Settings {
-    /// The ten keys of ho-05.1 Decision 1, and no other.
+    /// The ten keys the store writes, and no other.
     internal enum Key: String, CaseIterable, Sendable {
         case shortcutKeyCode
         case shortcutModifiers
@@ -123,7 +123,7 @@ internal final class Settings {
         set { withMutation(keyPath: \.appearance) { store(newValue.rawValue, .appearance) } }
     }
 
-    /// The history switch; ho-05.2 reads it.
+    /// The history switch.
     internal var historyEnabled: Bool {
         get {
             access(keyPath: \.historyEnabled)
@@ -141,7 +141,7 @@ internal final class Settings {
         set { withMutation(keyPath: \.menuBarEnabled) { defaults.set(newValue, forKey: Key.menuBarEnabled.rawValue) } }
     }
 
-    /// The automatic update check's switch, on when its key is absent (replan ruling 5); ho-06 reads it.
+    /// The automatic update check's switch, on when its key is absent.
     internal var updateCheckEnabled: Bool {
         get {
             access(keyPath: \.updateCheckEnabled)
@@ -154,10 +154,10 @@ internal final class Settings {
         }
     }
 
-    /// The nine slots, always nine, each a command or empty (ho-05.1 Decision 16).
+    /// The nine slots, always nine, each a command or empty.
     ///
-    /// Stored as an array of nine strings. Missing slots read empty, and only nine are written; an entry that is not a string,
-    /// as the first build's `{name, command}` dictionaries are, reads as an empty slot in its place.
+    /// Stored as an array of nine strings. Missing slots read empty, and only nine are written; an entry that is
+    /// not a string, as an older shape of this setting may hold, reads as an empty slot in its place.
     internal var macros: [String] {
         get {
             access(keyPath: \.macros)

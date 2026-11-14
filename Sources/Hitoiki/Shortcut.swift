@@ -100,7 +100,7 @@ internal enum Shortcut {
 
     /// Checks 1 to 3 of the recorder's four, in order; check 4 is the registration itself.
     ///
-    /// The default, `Settings.defaultShortcut`, is exempt from check 3 (Decision 14).
+    /// The default, `Settings.defaultShortcut`, is exempt from check 3.
     ///
     /// - Parameters:
     ///   - keyCode: The key pressed, or nil when modifiers were pressed and released with no key.
@@ -114,13 +114,13 @@ internal enum Shortcut {
             return .refused(.noQualifyingModifier)
         }
         let candidate = Combination(keyCode: keyCode, modifiers: held)
-        // The app's own default passes check 3 whatever the list says (ho-05.1 Decision 14): the list reports
-        // Control-Command-Space enabled (the Character Viewer) on Macs whose System Settings show no such
-        // item, and System Design §2.1 chose the default knowing the collision. Checks 1 and 2 above still
-        // apply to it, and check 4, the registration, still refuses it where macOS really holds it.
+        // The app's own default passes check 3 whatever the list says: the list reports Control-Command-Space
+        // enabled (the Character Viewer) on Macs whose System Settings show no such item, and the default was
+        // chosen knowing the collision. Checks 1 and 2 above still apply to it, and check 4, the registration,
+        // still refuses it where macOS really holds it (ho-05.1 Decision 14).
         if candidate == Settings.defaultShortcut { return .allowed(candidate) }
-        // Discovery (ho-05.1 Decision 4): the system's list reports the app switcher, Command-Tab and
-        // Shift-Command-Tab, with the rest, so no combination is refused by name.
+        // The system's list reports the app switcher, Command-Tab and Shift-Command-Tab, with the rest, so no
+        // combination is refused by name (ho-05.1 Decision 4).
         let taken = system.contains { $0.enabled && $0.combination == candidate }
         return taken ? .refused(.takenByMacOS) : .allowed(candidate)
     }
@@ -190,8 +190,10 @@ internal enum Shortcut {
     }
 
     private static func function(_ key: Int) -> Character {
-        // The function-key constants are scalars in the private-use area, every one of them valid.
-        Character(Unicode.Scalar(UInt32(key)) ?? " ")
+        // FORCE: the function-key constants are scalars in the private-use area, every one of them valid.
+        // swift-format-ignore: NeverForceUnwrap
+        // swiftlint:disable:next force_unwrapping
+        Character(Unicode.Scalar(UInt32(key))!)
     }
 
     /// What the key types with no modifier under the current keyboard layout, or nil for nothing printable.

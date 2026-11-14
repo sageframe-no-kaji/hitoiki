@@ -2,13 +2,12 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// The settings window: one titled AppKit window hosting the SwiftUI form, as System Design §5 allows for
-/// settings and small views such as About (ho-06.1 Decision 8), above a footer that stays in view while the
-/// form scrolls (ho-06.1 Decision 7).
+/// The settings window: one titled AppKit window hosting the SwiftUI form, above a footer that stays in view
+/// while the form scrolls.
 ///
 /// Made once for the app's life; its close button and Escape hide it, and the next Settings… brings back
-/// the same window where it was. Command-Q quits from it as from the panel (ho-05.2 Decision 11), and
-/// Command-1 to Command-9 put the keyboard in that macro's box (Decision 14).
+/// the same window where it was. Command-Q quits from it as from the panel, and Command-1 to Command-9 put
+/// the keyboard in that macro's box.
 @MainActor
 internal final class SettingsWindow: NSWindow {
     /// Where Command-Q sends the terminate selector: the application.
@@ -58,8 +57,8 @@ internal final class SettingsWindow: NSWindow {
         updateCheck.observe { footer.show($0) }
     }
 
-    /// The manual check's answer goes as the window closes, by its close button, Escape or anything else
-    /// (Decisions 7 and 17), and the panel it was opened from comes back as the hotkey shows it (Decision 21).
+    /// The manual check's answer goes as the window closes, by its close button, Escape or anything else, and
+    /// the panel it was opened from comes back as the hotkey shows it.
     override internal func close() {
         super.close()
         updateCheck.dismissAnswer()
@@ -69,11 +68,12 @@ internal final class SettingsWindow: NSWindow {
     }
 
     /// Command-Q quits and Command-1 to Command-9 go to their macro's box, whatever in the window has the
-    /// keyboard; Command-comma does nothing here (ho-05.2 Decisions 11, 14 and 15).
+    /// keyboard; Command-comma does nothing here.
     ///
     /// An accessory app has no menu to route them. The four modifier keys alone decide each, as on the panel,
     /// so Caps Lock does not stop them. Taken before the views, the shortcut recorder included: a global
-    /// Command-N would take the panel's own macro keys, so the recorder has no use for one.
+    /// Command-N would take the panel's own macro keys, so the recorder has no use for one (ho-05.2 Decisions
+    /// 11, 14 and 15).
     override internal func performKeyEquivalent(with event: NSEvent) -> Bool {
         let held = event.modifierFlags.intersection([.control, .option, .shift, .command])
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
@@ -91,9 +91,9 @@ internal final class SettingsWindow: NSWindow {
         return true
     }
 
-    /// Escape hides the window as the close button does (ho-05.1 Decision 13), whatever has the keyboard,
-    /// but for the two that own Escape: the shortcut recorder while it records, where Escape cancels the
-    /// recording, and a text input method composing, where it cancels the composition.
+    /// Escape hides the window as the close button does, whatever has the keyboard, but for the two that own
+    /// Escape: the shortcut recorder while it records, where Escape cancels the recording, and a text input
+    /// method composing, where it cancels the composition (ho-05.1 Decision 13).
     ///
     /// Taken here, before the first responder: a macro's box would otherwise keep Escape for completion and
     /// the window would never see it.
@@ -108,7 +108,7 @@ internal final class SettingsWindow: NSWindow {
 
     /// Puts the keyboard in the box of the macro numbered `slot`, the cursor at the end of its text.
     ///
-    /// The box is scrolled into view, nothing is selected, and nothing else changes (Decision 14). The macros'
+    /// The box is scrolled into view, nothing is selected, and nothing else changes. The macros'
     /// nine boxes are the form's only text inputs, in slot order from the top.
     private func focusMacro(_ slot: Int) {
         let boxes = Self.descendants(of: contentView)
@@ -129,8 +129,8 @@ internal final class SettingsWindow: NSWindow {
     }
 }
 
-/// The settings footer (ho-06.1 Decisions 7 and 16): About Hitoiki and Check for Updates, one centred row with
-/// ordinary padding; the manual check's answer is in the form, under the update switch (Decision 17).
+/// The settings footer: About Hitoiki and Check for Updates, one centred row with ordinary padding; the manual
+/// check's answer is in the form, under the update switch.
 @MainActor
 internal final class SettingsFooter: NSView {
     /// Internal, with the check button, so a test sends each one's action as a click does.

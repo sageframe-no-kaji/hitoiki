@@ -1,26 +1,23 @@
 import AppKit
-import Carbon.HIToolbox
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The settings page: one form of the seven settings, Clear History…, then the nine macros.
+/// The settings page: one form of the settings, Clear History…, then the nine macros.
 ///
-/// The shortcut, where commands start, the terminal, the appearance and the four switches. Bound to the
-/// store: every change is written as it is made, and there is no Apply. There is no Quit button: Command-Q
-/// quits from this window as from the panel (ho-05.2 Decision 11). The form scrolls; About Hitoiki and Check
-/// for Updates are in the window's footer, outside it (ho-06.1 Decision 7). Open at Login is kept by macOS, not
-/// the store (Decision 20).
+/// Bound to the store: every change is written as it is made, and there is no Apply. There is no Quit button:
+/// Command-Q quits from this window as from the panel. The form scrolls; About Hitoiki and Check for Updates
+/// are in the window's footer, outside it. Open at Login is kept by macOS, not the store.
 internal struct SettingsView: View {
     @Bindable internal var settings: Settings
-    /// What Clear History… clears: the file and the session's commands (ho-05.2 Decision 9).
+    /// What Clear History… clears: the file and the session's commands.
     internal let history: History
     /// The recorder's candidate, through `Hotkey.record`: nil once it is the hotkey, or the refusal.
     internal let record: @MainActor (UInt32?, UInt32) -> String?
     /// The line under the recorder when nothing is refused: what is registered, or why nothing is.
     internal let hotkeyLine: @MainActor () -> String
-    /// The update check, whose manual answer shows under the update switch (ho-06.1 Decision 17).
+    /// The update check, whose manual answer shows under the update switch.
     internal let updateCheck: UpdateCheck
-    /// Open at Login, through the system's login-item service (Decision 20).
+    /// Open at Login, through the system's login-item service.
     internal let loginItem: LoginItem
 
     @State private var refusal: String?
@@ -84,13 +81,12 @@ internal struct SettingsView: View {
                 .pickerStyle(.segmented)
             }
             Section { switches }
-            // One command box a row, bordered and with its placeholder, so an empty row shows where to type
-            // (ho-05.1 Decision 16).
+            // One command box a row, bordered and with its placeholder, so an empty row shows where to type.
             Section("Macros") {
                 // The nine lines are one form row, stacked with a 5-point gap between the boxes, so they stand
                 // 32 points apart with no dividers between them: the grouped form held its own rows at least 37
-                // points apart and drew dividers it would not hide (ho-05.2 Decision 16). Every other section
-                // keeps its rows and dividers.
+                // points apart and drew dividers it would not hide. Every other section keeps its rows and
+                // dividers (ho-05.2 Decision 16).
                 VStack(spacing: 5) {
                     ForEach(0..<Settings.macroSlots, id: \.self) { slot in
                         HStack {
@@ -126,8 +122,7 @@ internal struct SettingsView: View {
     /// History, the menu bar item, Open at Login and the update check, each with what it says under it.
     @ViewBuilder private var switches: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // One row: the label, Clear History…, the switch (ho-06.1 Decision 19). Clear works with history off,
-            // so a file left from before can go.
+            // Clear works with history off, so a file left from before can go.
             HStack {
                 Text("Keep a history of commands")
                 Spacer()
@@ -136,7 +131,7 @@ internal struct SettingsView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
             }
-            // The space rule (ho-05.2 Decision 12): how a command with a secret in it runs unkept.
+            // How a command with a secret in it runs unkept.
             Text("Commands that start with a space are not kept.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -159,14 +154,13 @@ internal struct SettingsView: View {
         }
         VStack(alignment: .leading, spacing: 4) {
             Toggle("Check for updates automatically", isOn: $settings.updateCheckEnabled)
-            // Decision 6's caption, word for word.
             Text(
                 "When Hitoiki opens and once a day, it asks GitHub for the latest version. Only the app's "
                     + "name and version are sent."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
-            // Only after a manual check, until the window closes (Decision 17).
+            // Only after a manual check, until the window closes.
             if let answer = updateCheck.answer {
                 AnswerLine(answer: answer)
             }
@@ -198,7 +192,7 @@ internal struct SettingsView: View {
     }
 
     // The system's state, not the store's: a change goes to the service and the switch shows what it then
-    // reports (ho-06.1 Decision 20).
+    // reports.
     private var openAtLogin: Binding<Bool> {
         let item = loginItem
         return Binding {
@@ -241,8 +235,8 @@ internal struct SettingsView: View {
     }
 }
 
-/// The manual check's answer (ho-06.1 Decision 17): the failure in the alarm colour with a link to the site, a
-/// newer release in the accent colour and wholly a link, up to date in the secondary grey.
+/// The manual check's answer: the failure in the alarm colour with a link to the site, a newer release in the
+/// accent colour and wholly a link, up to date in the secondary grey.
 private struct AnswerLine: View {
     let answer: UpdateCheck.Answer
 
@@ -253,15 +247,11 @@ private struct AnswerLine: View {
                 HStack(spacing: 6) {
                     Text(answer.text)
                         .foregroundStyle(Theme.Token.alarm.color)
-                    if let site = UpdateCheck.site {
-                        Link("Visit \(UpdateCheck.siteName)", destination: site)
-                    }
+                    Link("Visit \(UpdateCheck.siteName)", destination: UpdateCheck.site)
                 }
             case .available:
-                if let site = UpdateCheck.site {
-                    Link(answer.text, destination: site)
-                        .foregroundStyle(Theme.Token.accent.color)
-                }
+                Link(answer.text, destination: UpdateCheck.site)
+                    .foregroundStyle(Theme.Token.accent.color)
             case .upToDate:
                 Text(answer.text)
                     .foregroundStyle(.secondary)
@@ -269,263 +259,5 @@ private struct AnswerLine: View {
         }
         .font(.caption)
         .tint(Theme.Token.accent.color)
-    }
-}
-
-/// The terminal row's pop-up: Terminal.app, the other known terminals installed, the stored one when it is
-/// neither, then Other….
-///
-/// An AppKit pop-up, where SwiftUI's picker builds its list once with the view: the list is read from
-/// Launch Services each time the pop-up is about to open and each time the window becomes key, so a
-/// terminal installed while the window stood open is offered (ho-05.1 Decision 15). Nothing is cached.
-private struct TerminalPopUp: NSViewRepresentable {
-    /// The stored bundle identifier, read in the form's body so a change redraws the row.
-    let selected: String
-    /// A terminal picked, by bundle identifier, or nil for Other….
-    let choose: @MainActor (String?) -> Void
-
-    func makeNSView(context: Context) -> TerminalPopUpButton {
-        TerminalPopUpButton(selected: selected, choose: choose)
-    }
-
-    func updateNSView(_ view: TerminalPopUpButton, context: Context) {
-        view.selected = selected
-        view.choose = choose
-        view.readList()
-    }
-}
-
-private final class TerminalPopUpButton: NSPopUpButton, NSMenuDelegate {
-    var selected: String
-    var choose: @MainActor (String?) -> Void
-
-    init(selected: String, choose: @escaping @MainActor (String?) -> Void) {
-        self.selected = selected
-        self.choose = choose
-        super.init(frame: .zero, pullsDown: false)
-        menu?.delegate = self
-        target = self
-        action = #selector(picked)
-        readList()
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        readList()
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        NotificationCenter.default.removeObserver(self, name: NSWindow.didBecomeKeyNotification, object: nil)
-        guard let window else { return }
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(windowBecameKey), name: NSWindow.didBecomeKeyNotification, object: window)
-    }
-
-    /// The list as Launch Services gives it now, with the stored terminal selected.
-    func readList() {
-        let installed = Terminals.installed()
-        let identifiers = installed.contains(selected) ? installed : installed + [selected]
-        removeAllItems()
-        for identifier in identifiers {
-            let item = NSMenuItem(title: Terminals.name(of: identifier), action: nil, keyEquivalent: "")
-            item.representedObject = identifier
-            menu?.addItem(item)
-        }
-        menu?.addItem(.separator())
-        menu?.addItem(NSMenuItem(title: "Other…", action: nil, keyEquivalent: ""))
-        selectItem(at: identifiers.firstIndex(of: selected) ?? 0)
-    }
-
-    @objc
-    private func windowBecameKey() {
-        readList()
-    }
-
-    @objc
-    private func picked() {
-        let identifier = selectedItem?.representedObject as? String
-        choose(identifier)
-        if let identifier { selected = identifier }
-        // Other… cancelled leaves the stored terminal; the pop-up shows it again rather than "Other…".
-        readList()
-    }
-}
-
-/// Calls `closed` when the window holding the form closes, by its close button, Escape, or anything else.
-///
-/// The settings window is hidden on close, not released, so the form and its state live on through a close;
-/// the window's own close notice is what marks one.
-private struct WindowCloseWatch: NSViewRepresentable {
-    let closed: @MainActor () -> Void
-
-    func makeNSView(context: Context) -> CloseWatchView {
-        CloseWatchView(closed: closed)
-    }
-
-    func updateNSView(_ view: CloseWatchView, context: Context) {
-        view.closed = closed
-    }
-}
-
-private final class CloseWatchView: NSView {
-    var closed: @MainActor () -> Void
-
-    init(closed: @escaping @MainActor () -> Void) {
-        self.closed = closed
-        super.init(frame: .zero)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: nil)
-        guard let window else { return }
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(windowWillClose), name: NSWindow.willCloseNotification, object: window)
-    }
-
-    @objc
-    private func windowWillClose() {
-        closed()
-    }
-}
-
-/// The shortcut row: the form's wrapper for the recorder's capturing view.
-private struct ShortcutRecorder: NSViewRepresentable {
-    let shortcut: Shortcut.Combination
-    let begin: @MainActor () -> Void
-    let record: @MainActor (UInt32?, UInt32) -> Void
-
-    func makeNSView(context: Context) -> RecorderView {
-        RecorderView(shortcut: shortcut, begin: begin, record: record)
-    }
-
-    func updateNSView(_ view: RecorderView, context: Context) {
-        view.shortcut = shortcut
-        view.begin = begin
-        view.record = record
-    }
-}
-
-/// The recorder: the current combination until clicked, then "Type a shortcut" and the keyboard.
-///
-/// It reads raw key codes and modifier flags, not characters. Escape cancels; the settings window asks
-/// `isRecording` so its own Escape (Decision 13) leaves a recording to the recorder.
-internal final class RecorderView: NSView {
-    var shortcut: Shortcut.Combination {
-        didSet { needsDisplay = true }
-    }
-    var begin: @MainActor () -> Void
-    var record: @MainActor (UInt32?, UInt32) -> Void
-
-    private var recording = false {
-        didSet { needsDisplay = true }
-    }
-
-    /// True from the click that starts a recording until a key, a release, Escape or losing the keyboard ends it.
-    var isRecording: Bool { recording }
-    /// The modifiers held since the recording began, for a release with no key.
-    private var held: UInt32 = 0
-
-    init(
-        shortcut: Shortcut.Combination,
-        begin: @escaping @MainActor () -> Void,
-        record: @escaping @MainActor (UInt32?, UInt32) -> Void
-    ) {
-        self.shortcut = shortcut
-        self.begin = begin
-        self.record = record
-        super.init(frame: NSRect(x: 0, y: 0, width: 180, height: 24))
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-
-    override func mouseDown(with event: NSEvent) {
-        guard window?.makeFirstResponder(self) == true else { return }
-        held = 0
-        recording = true
-        begin()
-    }
-
-    override func resignFirstResponder() -> Bool {
-        recording = false
-        return super.resignFirstResponder()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        guard recording else { return super.keyDown(with: event) }
-        take(event)
-    }
-
-    // A key with Command reaches the window's key equivalents before `keyDown`.
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard recording, window?.firstResponder === self else { return super.performKeyEquivalent(with: event) }
-        take(event)
-        return true
-    }
-
-    override func flagsChanged(with event: NSEvent) {
-        guard recording else { return super.flagsChanged(with: event) }
-        let now = Shortcut.carbonModifiers(event.modifierFlags)
-        if now != 0 {
-            held |= now
-            needsDisplay = true
-        } else if held != 0 {
-            finish(keyCode: nil, modifiers: held)
-        }
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let frame = bounds.insetBy(dx: 0.5, dy: 0.5)
-        let shape = NSBezierPath(roundedRect: frame, xRadius: 5, yRadius: 5)
-        NSColor.controlBackgroundColor.setFill()
-        shape.fill()
-        (recording ? NSColor.keyboardFocusIndicatorColor : NSColor.separatorColor).setStroke()
-        shape.lineWidth = recording ? 2 : 1
-        shape.stroke()
-        let text: String
-        if recording {
-            text = held == 0 ? "Type a shortcut" : Shortcut.symbols(held)
-        } else {
-            text = Shortcut.displayName(shortcut)
-        }
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13),
-            .foregroundColor: recording && held == 0 ? NSColor.secondaryLabelColor : NSColor.labelColor,
-        ]
-        let size = (text as NSString).size(withAttributes: attributes)
-        (text as NSString).draw(
-            at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2), withAttributes: attributes)
-    }
-
-    private func take(_ event: NSEvent) {
-        guard !event.isARepeat else { return }
-        let modifiers = Shortcut.carbonModifiers(event.modifierFlags)
-        if Int(event.keyCode) == kVK_Escape, modifiers == 0 {
-            recording = false
-            window?.makeFirstResponder(nil)
-            return
-        }
-        finish(keyCode: UInt32(event.keyCode), modifiers: modifiers)
-    }
-
-    private func finish(keyCode: UInt32?, modifiers: UInt32) {
-        recording = false
-        window?.makeFirstResponder(nil)
-        record(keyCode, modifiers)
     }
 }

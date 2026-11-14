@@ -1,3 +1,7 @@
+// The History suite and the file watcher its rewrite test needs. Stopping the watcher's stream on every path
+// took the file a few lines past the length rule (ho-06.2 Decision 9).
+// swiftlint:disable file_length
+
 import CoreServices
 import Foundation
 import Testing
@@ -84,7 +88,7 @@ private func numbered(_ count: Int) -> String {
     (1...count).map { "line \($0)\n" }.joined()
 }
 
-// Writing (Decisions 1 and 12, invariant 2).
+// Writing: what is kept, in what order, and with what permissions.
 @Suite("History")
 @MainActor
 internal struct HistoryTests {
@@ -157,7 +161,7 @@ internal struct HistoryTests {
     }
 }
 
-// The ceiling (Decision 4, invariant 3).
+// The ceiling: the file and session memory keep the newest 5,000.
 extension HistoryTests {
     @Test("A file of 5,000 lines and one write holds 5,000: the oldest gone, the new one last, permissions kept")
     internal func ceiling() throws {
@@ -220,6 +224,8 @@ extension HistoryTests {
         try place.write(byHand: numbered(History.ceiling))
         let folder = Watcher.named(place.folder.path) + "/"
         let watcher = try Watcher(watching: NSTemporaryDirectory())
+        // Stopped on every way out, a failed wait included: the stream must not outlive the watcher it calls.
+        defer { _ = watcher.stop() }
         place.history.record("echo new")
         // A file made after the rewrite: once its event has arrived, every earlier event has.
         let marker = place.root.appending(path: "marker")
@@ -239,7 +245,7 @@ extension HistoryTests {
     }
 }
 
-// Entries (Decision 2, invariant 5) and reads (Decision 3, invariant 6).
+// Entries, each command once with the session's first, and reads, fresh from the file every time.
 extension HistoryTests {
     @Test("Entries: the session's commands before the file's, newest first in each")
     internal func sessionBeforeFile() throws {
@@ -319,8 +325,7 @@ extension HistoryTests {
     }
 }
 
-// The filter and the suggestion (Decisions 7 and 8, invariant 10); Clear (Decision 9, invariant 7); a write
-// that fails (Decision 1).
+// The filter and the suggestion; Clear; a write that fails.
 extension HistoryTests {
     @Test("The filter: entries containing the text anywhere, either case, newest first; empty gives all; none")
     internal func filter() throws {
@@ -406,8 +411,8 @@ extension HistoryTests {
     }
 }
 
-// ho-05.2.1: a Clear that cannot delete the file says so (M1, invariant 7 as restated); an entry is the text
-// as it ran (N1, invariant 5 as restated); the history switch's two transitions (N2, Decision 1).
+// A Clear that cannot delete the file says so; an entry is the text as it ran, so an escaped space survives;
+// the history switch's two transitions (ho-05.2.1, review findings M1, N1 and N2).
 extension HistoryTests {
     @Test("Clear with no file at all reports nothing: a file already gone is what Clear wants; nothing is made")
     internal func clearWithNoFile() throws {
@@ -478,7 +483,7 @@ extension HistoryTests {
         place.history.record("df -h")
         let ran = try place.text()
         try place.write(byHand: ran + " df -h \n")
-        // The session comes before the file (invariant 5): its spelling is the newest.
+        // The session comes before the file: its spelling is the newest.
         #expect(place.history.entries == ["df -h"])
         // A relaunch has no session: the file's last line is the newest, spelled as it stands.
         let relaunched = History(folder: place.folder) { true }
@@ -552,14 +557,24 @@ private final class Watcher: @unchecked Sendable {
         let stream = try #require(made)
         self.stream = stream
         FSEventStreamSetDispatchQueue(stream, queue)
-        try #require(FSEventStreamStart(stream))
+        let started = FSEventStreamStart(stream)
+        // A stream that did not start has queued no callback; it is released here, as the test cannot stop it.
+        if !started {
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            self.stream = nil
+        }
+        try #require(started)
     }
 
     var seen: [String] {
         lock.withLock { paths }
     }
 
-    /// Stops watching and gives every path seen.
+    /// Stops watching and gives every path seen; a second call only gives the paths.
+    ///
+    /// The stream holds the watcher unretained, so a callback already on the queue runs to its end before this
+    /// returns, while the caller still holds the watcher.
     func stop() -> [String] {
         if let stream {
             FSEventStreamFlushSync(stream)
@@ -567,6 +582,7 @@ private final class Watcher: @unchecked Sendable {
             FSEventStreamInvalidate(stream)
             FSEventStreamRelease(stream)
             self.stream = nil
+            queue.sync {}
         }
         return seen
     }

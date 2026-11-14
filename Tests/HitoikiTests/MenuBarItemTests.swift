@@ -66,7 +66,6 @@ internal struct MenuBarItemTests {
     internal func menu() {
         let shown = Shown()
         let menuBar = MenuBarItem { shown.count += 1 }
-        // ho-06.1 Decision 9, a divider written as "—".
         let titles = menuBar.menu.items.map { $0.isSeparatorItem ? "—" : $0.title }
         #expect(
             titles == ["Show Hitoiki", "—", "About Hitoiki", "Check for Updates…", "Settings…", "—", "Quit"])

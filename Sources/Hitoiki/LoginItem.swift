@@ -2,11 +2,11 @@ import Foundation
 import Observation
 import ServiceManagement
 
-/// Open at Login (ho-06.1 Decision 20): the app as its own login item, through Apple's login-item service.
+/// Open at Login: the app as its own login item, through Apple's login-item service.
 ///
 /// macOS keeps the state, not user defaults, so no key is written; the switch shows what the service reports,
-/// read again each time settings is shown. The service's three calls are handed in, so a test stands in for
-/// them and never touches the real login items.
+/// read again each time settings is shown (ho-06.1 Decision 20). The service's three calls are handed in, so a
+/// test stands in for them and never touches the real login items.
 @MainActor
 @Observable
 internal final class LoginItem {

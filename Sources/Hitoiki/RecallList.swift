@@ -1,6 +1,6 @@
 import AppKit
 
-/// The recall list (ho-05.2 Decision 5): past commands under the input, newest first, ten rows in view.
+/// The recall list: past commands under the input, newest first, ten rows in view.
 ///
 /// A borderless child window of the panel with the panel's card look, the cards' width, its top just under
 /// the bar card; it lies over whatever is below, and the panel does not move. It never takes the keyboard:
@@ -59,7 +59,7 @@ internal final class RecallList: NSPanel {
         contentView = root
     }
 
-    // The input keeps the keyboard while the list is open (Decision 5, invariant 8).
+    // The input keeps the keyboard while the list is open.
     override internal var canBecomeKey: Bool { false }
 
     override internal var canBecomeMain: Bool { false }

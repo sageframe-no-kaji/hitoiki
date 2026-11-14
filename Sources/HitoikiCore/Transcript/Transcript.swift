@@ -2,7 +2,8 @@ import Foundation
 
 /// What a command printed, as lines of styled text, within a fixed ceiling.
 ///
-/// Bytes in, a change out. The grammar is the ho-01 list and nothing more (ho-04 Decision 1):
+/// Bytes in, a change out. The grammar is what the commands measured in ho-01 needed and nothing more; anything
+/// wider is a terminal emulator (ho-04 Decision 1):
 /// - SGR `0` or empty resets, `1` is bold, `22` is regular weight, `30`–`37` set the colour and `39`
 ///   returns to the default. Every other parameter is ignored; `38`, `48` and `58` take their `5;n`
 ///   or `2;r;g;b` arguments with them. A parameter holding `:` is ignored whole.
@@ -68,14 +69,14 @@ public struct Transcript: Sendable {
     public static let lineByteLimit = 1 << 20
     /// The most bytes kept across every retained line, oldest whole lines dropped first.
     ///
-    /// Ten times the per-line cap, so 10,000 lines of wide output stay bounded too (ho-04 Decision 3,
-    /// from ho-01 findings, §4).
+    /// Ten times the per-line cap, so 10,000 lines of wide output stay bounded too (ho-01 findings, §4).
     public static let byteLimit = 10 << 20
     /// How far the origin of the line in progress may move before the bytes behind it are dropped,
     /// so the dropping is paid once per this many bytes, not per byte; Run's read size (16 KiB), so a
     /// chunk from Run compacts at most once before the end-of-feed compaction.
     internal static let trimSlack = 16_384
-    /// The longest escape or control sequence, ESC included, before it is abandoned (ho-01.1).
+    /// The longest escape or control sequence, ESC included, before it is abandoned: an unfinished one would
+    /// otherwise grow without bound, outside the line cap (ho-01.1).
     public static let sequenceByteLimit = 256
 
     private enum State {

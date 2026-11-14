@@ -1,7 +1,7 @@
 import AppKit
 
 /// The menu bar item, there exactly while its setting is on: the app icon's two ink shapes as a template
-/// image, and its menu (ho-06.1 Decision 9).
+/// image, and its menu.
 @MainActor
 internal final class MenuBarItem: NSObject, NSMenuDelegate {
     /// The glyph: the breath and the chevron on no ground, so the menu bar tints it for light and dark.

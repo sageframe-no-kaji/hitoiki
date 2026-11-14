@@ -3,8 +3,8 @@ import Testing
 
 @testable import Hitoiki
 
-/// The six terminals of ho-03 Decision 12, written out here rather than read from the code.
-private let decisionTwelve = [
+/// The six known terminals, Terminal.app first, written out here rather than read from the code.
+private let sixTerminals = [
     "com.apple.Terminal", "com.mitchellh.ghostty", "com.googlecode.iterm2", "net.kovidgoyal.kitty",
     "com.github.wez.wezterm", "org.alacritty",
 ]
@@ -12,16 +12,16 @@ private let decisionTwelve = [
 @Suite("Terminals")
 @MainActor
 internal struct TerminalsTests {
-    @Test("The list is Decision 12's six, Terminal.app first")
+    @Test("The list is the six known terminals, Terminal.app first")
     internal func known() {
-        #expect(Terminals.known == decisionTwelve)
+        #expect(Terminals.known == sixTerminals)
     }
 
     @Test("Detection returns Terminal.app on any Mac, every installed one of the six in order, and only those")
     internal func detection() {
         let installed = Terminals.installed()
         #expect(installed.first == "com.apple.Terminal")
-        let resolving = decisionTwelve.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
+        let resolving = sixTerminals.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
         #expect(installed == resolving)
     }
 

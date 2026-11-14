@@ -5,13 +5,12 @@
 //
 // The eight light values are copied from `palana/design/palana-design-system.md`
 // §2. Their dark values are copied from pālana's `Sources/Palana/Theme.swift`,
-// its ho-15 port of Sharibako's dark mode. pālana is the source of truth for
-// both; a change there is copied here, never made here first. The three
-// transcript colours are Hitoiki's own, derived from those eight (ho-04
-// Decision 2).
+// its port of Sharibako's dark mode. pālana is the source of truth for both; a
+// change there is copied here, never made here first. The three transcript
+// colours are Hitoiki's own, derived from those eight.
 //
 // The pure `resolved(dark:)` seam is unit-tested per token, so the palette
-// carries real coverage even though the app target sits outside the floor.
+// carries real coverage under the app target's floor.
 
 import AppKit
 import SwiftUI
@@ -37,7 +36,7 @@ internal struct RGBA: Sendable, Equatable {
 internal struct Palette: Sendable, Equatable {
     /// The value in light appearance (pālana design system §2).
     internal let light: RGBA
-    /// The value in dark appearance (pālana's ho-15 port of Sharibako).
+    /// The value in dark appearance (pālana's port of Sharibako).
     internal let dark: RGBA
 
     /// The raw components for a given appearance — the pure, tested seam both
@@ -65,12 +64,11 @@ internal struct Palette: Sendable, Equatable {
 
 /// The surface's colors — appearance-aware tokens, per the design language.
 internal enum Theme {
-    // Each token is resolved ONCE into a `Color` that wraps a *dynamic*
-    // `NSColor` — so it stays appearance-aware (re-resolving on the light/dark
-    // flip) while costing nothing per access. In pālana, computed accessors
-    // allocated a fresh dynamic `NSColor` on every read, which per-cell color
-    // reads turned into a navigation stutter (pālana ho-13/15 review). `let`,
-    // not `var`, is the fix.
+    // Each token is resolved once, by `let`, into a `Color` wrapping a dynamic
+    // `NSColor`: it still follows the light/dark flip and costs nothing per
+    // read. A computed accessor allocates a new dynamic colour on every read,
+    // which in pālana turned per-cell reads into a stutter (pālana's ho-13/15
+    // review).
 
     /// The paper every view sits on.
     internal static let ground: Color = Token.ground.color
@@ -96,7 +94,7 @@ internal enum Theme {
     /// Burnt umber — one extra category tint that reads distinct from accent and alarm.
     internal static let plugin: Color = Token.plugin.color
 
-    /// The eight basic colours of SGR `30`–`37`, by index, for the transcript (ho-04 Decision 2).
+    /// The eight basic colours of SGR `30`–`37`, by index, for the transcript.
     internal static let transcriptColors: [Palette] = [
         Token.ink,
         Token.alarm,

@@ -146,7 +146,7 @@ private func stream(
     return (feeds, last)
 }
 
-// Serialized: the resident-size reading must not see another test's allocations.
+// Serialized: the allocator's in-use reading must not see another test's allocations.
 @Suite("Transcript", .serialized)
 internal struct TranscriptTests {
     @Test("LF commits a line; the line in progress is reported on every feed")
@@ -429,8 +429,8 @@ internal struct TranscriptTests {
     }
 }
 
-// The ceilings across feed ends and within one feed (ho-04.2): an extension, not a second suite, so
-// these stay serialized with the rest of the suite.
+// The ceilings across feed ends and within one feed: an extension, not a second suite, so these stay
+// serialized with the rest of the suite (ho-04.2).
 extension TranscriptTests {
     @Test("Fed whole or in 16 KiB or 1,024-byte chunks across all three ceilings, with overwrites, it is the same")
     internal func ceilingsChunked() {
@@ -494,7 +494,7 @@ extension TranscriptTests {
         #expect(fed(input, by: 16_384).transcript.lines == whole.lines)
     }
 
-    @Test("The reviewer's probe: the oldest line goes at the byte that passes 10 MiB, under every partition")
+    @Test("The aggregate ceiling: the oldest line goes at the byte that passes 10 MiB, under every partition")
     internal func aggregateCeilingPerByte() {
         var prefix: [UInt8] = []
         for letter in "ABCDEFGHI".utf8 {

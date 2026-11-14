@@ -1,110 +1,8 @@
-// One serialized suite in the one test file ho-02 named for Run: ho-04.6.1's reaped-leader test cannot
-// move to a second file, since that ho allows none, so the file runs past the length rule.
-// swiftlint:disable file_length
-
 import Darwin
 import Foundation
 import Testing
 
 @testable import HitoikiCore
-
-/// A command run to Done: every byte it sent, how it ended, the offer, and its pid and group.
-internal struct Outcome {
-    let output: [UInt8]
-    let exit: Exit
-    let retry: String?
-    let pid: pid_t
-
-    var text: String { String(bytes: output, encoding: .utf8) ?? "" }
-}
-
-/// A state other than the one the test waited for.
-internal struct UnexpectedState: Error {
-    let state: RunState?
-}
-
-/// An environment the test owns.
-///
-/// HOME is the test's own empty directory, so the login shell reads no startup file of the user's;
-/// HOME and LOGNAME are given because zsh exports them when absent.
-internal func ownedEnvironment(home: String, path: String = "/usr/bin:/bin:/usr/sbin:/sbin") -> [String: String] {
-    ["HOME": home, "LOGNAME": NSUserName(), "PATH": path, "TERM": "xterm-256color"]
-}
-
-/// Runs `line` to Done on a fresh Run started in `environment["HOME"]`.
-///
-/// `before` runs on the Run before the start. With a `marker`, waits until the output holds it, then
-/// calls `act`. The rest of the bytes are taken alongside the wait for Done, which follows the taking
-/// of every chunk, so what was taken by Done is every byte the command sent.
-internal func drive(
-    _ line: String,
-    environment: [String: String],
-    captureShell: String? = nil,
-    size: WindowSize = WindowSize(columns: 80, rows: 24),
-    before: (Run) async throws -> Void = { _ in },
-    after marker: String? = nil,
-    act: (Run, pid_t) async throws -> Void = { _, _ in }
-) async throws -> Outcome {
-    var output: [UInt8] = []
-    let run = Run(environment: environment, captureShell: captureShell)
-    var bytes = run.bytes.makeAsyncIterator()
-    try await before(run)
-    var states = run.states.makeAsyncIterator()
-    try await run.start(line: line, cwd: environment["HOME"] ?? "/", size: size)
-    let started = await states.next()
-    guard case .running(let pid) = started else { throw UnexpectedState(state: started) }
-    if let marker {
-        while !output.contains(Array(marker.utf8)), let chunk = await bytes.next() {
-            output += chunk
-        }
-    }
-    try await act(run, pid)
-    let rest = remaining(bytes)
-    let ended = await states.next()
-    rest.cancel()
-    output += await rest.value
-    guard case .done(let exit, let retry) = ended else { throw UnexpectedState(state: ended) }
-    return Outcome(output: output, exit: exit, retry: retry, pid: pid)
-}
-
-/// Takes every chunk `bytes` has left, each as it arrives, until the task is cancelled.
-///
-/// Cancel it after Done, by which every chunk has been taken; cancelling the wait for another ends the stream.
-internal func remaining(_ bytes: sending Run.Output.Iterator) -> Task<[UInt8], Never> {
-    Task {
-        var bytes = bytes
-        var taken: [UInt8] = []
-        while let chunk = await bytes.next() { taken += chunk }
-        return taken
-    }
-}
-
-/// What `/bin/ps` prints for `arguments`, trimmed.
-///
-/// The process table is the witness, not Run.
-internal func ps(_ arguments: [String]) throws -> String {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/bin/ps")
-    process.arguments = arguments
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    try process.run()
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    process.waitUntilExit()
-    return (String(bytes: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
-/// The pids left in process group `group`, read until none remain or two seconds pass.
-internal func survivors(ofGroup group: pid_t) async throws -> String {
-    let deadline = ContinuousClock.now + .seconds(2)
-    while true {
-        let listed = try ps(["-o", "pid=", "-g", "\(group)"])
-        if listed.isEmpty || ContinuousClock.now >= deadline {
-            return listed
-        }
-        try await Task.sleep(for: .milliseconds(50))
-    }
-}
 
 // Serialized: Run runs one command at a time by design, and the app never opens two pseudoterminals
 // at once. Run tests in parallel with each other intermittently fail forkpty with errno -6.
@@ -291,9 +189,9 @@ internal struct RunTests {
         #expect(try await survivors(ofGroup: outcome.pid).isEmpty)
     }
 
-    // ho-02 Discovery, recorded: when the child exits normally, the session leader is gone and the
-    // kernel hangs up the terminal; the backgrounded sleep (same group) receives SIGHUP and is gone
-    // by Done. Run does nothing for this. A grandchild that ignores SIGHUP survives, detached.
+    // When the child exits normally, the session leader is gone and the kernel hangs up the terminal;
+    // the backgrounded sleep, in the same group, receives SIGHUP and is gone by Done. Run does nothing
+    // for this. A grandchild that ignores SIGHUP survives, detached (ho-02's discovery and ruling).
     @Test("A backgrounded grandchild is gone after a normal exit (the kernel's hang-up)")
     internal func grandchildAfterNormalExit() async throws {
         let home = try makeDirectory()
@@ -309,10 +207,10 @@ internal struct RunTests {
         #expect(left.isEmpty)
     }
 
-    // ho-04.6.1: interrupt and kill reach the group until Done, not only until the leader is reaped.
-    // The leader, a shell waiting on its background job, dies of the interrupt; the job ignores the
-    // interrupt and the hang-up of the leader's exit, so it lives on in the group. Done is withheld
-    // while the chunk holding the marker is untaken, so Run still holds the command at the kill.
+    // Interrupt and kill reach the group until Done, not only until the leader is reaped. The leader, a
+    // shell waiting on its background job, dies of the interrupt; the job ignores the interrupt and the
+    // hang-up of the leader's exit, so it lives on in the group. Done is withheld while the chunk holding
+    // the marker is untaken, so Run still holds the command at the kill (ho-04.6.1).
     @Test("kill() after the leader is reaped, before Done, still empties the group")
     internal func killAfterLeaderReaped() async throws {
         let home = try makeDirectory()
@@ -590,9 +488,9 @@ extension RunTests {
         #expect(outcome.text == "kept\r\n")
     }
 
-    // ho-02x N2 (run 2), landed with Refresh Environment at ho-05.1 Decision 10. The command sleeps so the
-    // refresh, called while it runs, has its whole sleep to capture alongside it; the command looks for the
-    // marker at the end of that sleep, while it is still alive.
+    // A refresh never captures alongside a command. The command sleeps so the refresh, called while it runs,
+    // has its whole sleep to capture alongside it; the command looks for the marker at the end of that sleep,
+    // while it is still alive (ho-02x finding N2, run 2).
     @Test(
         "Refresh called while a command runs captures only after its Done: the capture's marker is absent while it lives"
     )
@@ -615,14 +513,5 @@ extension RunTests {
         #expect(outcome.text == "absent\r\n")
         try await #require(refresh).value
         #expect(FileManager.default.fileExists(atPath: marker))
-    }
-}
-
-/// The order events were observed in.
-internal actor Order {
-    private(set) var events: [String] = []
-
-    func append(_ event: String) {
-        events.append(event)
     }
 }

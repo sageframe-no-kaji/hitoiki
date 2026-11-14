@@ -4,7 +4,7 @@ import AppKit
 /// listed: the lookup costs nothing worth caching.
 @MainActor
 internal enum Terminals {
-    /// Terminal.app first, which every Mac has, then the terminals ho-03 Decision 12 detects.
+    /// Terminal.app first, which every Mac has, then the other terminals detected when installed.
     internal static let known = [
         "com.apple.Terminal",
         "com.mitchellh.ghostty",

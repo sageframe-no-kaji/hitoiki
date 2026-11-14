@@ -66,7 +66,7 @@ internal final class TranscriptView: NSTextView {
     override internal var acceptsFirstResponder: Bool { true }
 
     override internal func keyDown(with event: NSEvent) {
-        // No command runs: the key is the input's, so Escape reaches the ladder (ho-04.6).
+        // No command runs: the key is the input's, so Escape reaches the ladder.
         guard showsCursor else {
             (window as? PanelWindow)?.typeInInput(event)
             return
@@ -115,10 +115,15 @@ internal final class TranscriptView: NSTextView {
         let change = model.feed(chunk)
         guard let storage = textStorage else { return }
         let following = visibleRect.maxY >= bounds.maxY
-        storage.beginEditing()
-        if change.evicted > 0 {
-            storage.deleteCharacters(in: NSRange(location: 0, length: Self.leadingLength(change.evicted, in: storage)))
+        let evicted = change.evicted > 0 ? Self.leadingLength(change.evicted, in: storage) : 0
+        // What survives of the selection, moved with the text: left alone, the edit collapses it to the end.
+        let surviving = selectedRanges.map(\.rangeValue).compactMap { range -> NSValue? in
+            let start = max(range.location - evicted, 0)
+            let end = NSMaxRange(range) - evicted
+            return end > start ? NSValue(range: NSRange(location: start, length: end - start)) : nil
         }
+        storage.beginEditing()
+        if evicted > 0 { storage.deleteCharacters(in: NSRange(location: 0, length: evicted)) }
         let held = NSRange(location: storage.length - inProgressLength, length: inProgressLength)
         let inProgress = Self.rendered(change.inProgress)
         // A line that only grew gets its new characters appended: replacing it whole lays the whole
@@ -142,6 +147,7 @@ internal final class TranscriptView: NSTextView {
         }
         inProgressLength = inProgress.length
         storage.endEditing()
+        if evicted > 0 { selectedRanges = surviving.isEmpty ? [NSValue(range: NSRange())] : surviving }
         // The block moves with the end of the text, outside the range the text system redraws.
         if showsCursor { needsDisplay = true }
         if following { scrollToEndOfDocument(nil) }

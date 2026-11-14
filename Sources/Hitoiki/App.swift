@@ -82,15 +82,16 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         updateCheck.begin()
     }
 
-    // The recovery path when the hotkey never fires. macOS sends reopen only to a bundled app; the
-    // bundle is ho-06's, and so is the demonstration.
+    // The recovery path when the hotkey never fires: relaunching the app brings the panel up. macOS sends
+    // reopen only to a bundled app.
     internal func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         panel?.show()
         return false
     }
 
+    /// Quit waits for a command still running, a start in flight, or a kill a clear sent and has not seen end.
     internal func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let panel, panel.isBusy else { return .terminateNow }
+        guard let panel, panel.isBusy || panel.awaitsClearedDone else { return .terminateNow }
         Task {
             await panel.killForQuit()
             NSApplication.shared.reply(toApplicationShouldTerminate: true)
@@ -101,7 +102,7 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     /// The gear's click and the menu bar item's Settings…, reached through the responder chain.
     ///
     /// Opened from the panel, by the gear or Command-comma, whose sender is the gear in the panel's window,
-    /// settings hides the panel as a click-out does, and closing settings shows it again (ho-06.1 Decision 21).
+    /// settings hides the panel as a click-out does, and closing settings shows it again.
     /// Opened from the menu, it returns to nothing, unless it was already open from the panel.
     @objc
     internal func showSettings(_ sender: Any?) {
@@ -113,12 +114,12 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         } else if !window.isVisible {
             window.origin = nil
         }
-        // A change made in System Settings › General › Login Items shows here (ho-06.1 Decision 20).
+        // A change made in System Settings › General › Login Items shows here.
         loginItem.read()
         // An accessory app takes no typing until it is active. The deprecated forcing call, not activate():
         // macOS 14's cooperative activation refuses a request made from a key in a non-activating panel, so
         // Command-comma left settings behind the front app; Electron and OpenJDK use this call for the same
-        // case (ho-05.2 Decision 17). Marked to be deprecated in a future release; it builds without a warning.
+        // case. Marked to be deprecated in a future release; it builds without a warning (ho-05.2 Decision 17).
         NSApplication.shared.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
@@ -128,13 +129,13 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     internal func showAbout(_ sender: Any?) {
         let window = aboutWindow ?? AboutWindow(version: updateCheck.version)
         aboutWindow = window
-        // The forcing call, as in showSettings and for the same reason (ho-06.1 Decision 8).
+        // The forcing call, as in showSettings and for the same reason.
         NSApplication.shared.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
 
     /// Check for Updates… in the menu bar item's menu: settings, with a manual check whose answer shows in the
-    /// form under the update switch (Decisions 9 and 17).
+    /// form under the update switch.
     @objc
     internal func checkForUpdates(_ sender: Any?) {
         showSettings(sender)

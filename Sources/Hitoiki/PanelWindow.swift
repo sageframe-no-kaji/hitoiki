@@ -6,7 +6,7 @@ import HitoikiCore
 /// It takes the keyboard while the app underneath stays frontmost. Two cards: the bar, with the
 /// input, the gear, the notice and the update line, always shown; and beneath it the output card, with the
 /// transcript and the strip at its foot. Layout, placement and the strip live here, with the recall list beneath the
-/// bar and the grey suggestion's drawing (ho-05.2); every event goes to Panel, but the gear's click and
+/// bar and the grey suggestion's drawing; every event goes to Panel, but the gear's click and
 /// Command-comma, which go up the responder chain to the application's delegate, and Command-Q, which goes
 /// to the application.
 @MainActor
@@ -22,7 +22,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     internal let copyButton = NSButton()
     internal let transcript = TranscriptView(width: width - 2 * inset)
     /// The update line, under the notice in the bar: faint, the whole line one click to the site; hidden
-    /// until a check finds a newer release (ho-06.1 Decision 6).
+    /// until a check finds a newer release.
     internal let updateLine = NSButton()
     /// The input, the gear, the notice and the update line; in Composing, the whole panel.
     internal let bar = NSView()
@@ -42,11 +42,11 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     private static let spacing: CGFloat = 8
     /// A card's margin above its first row and below its last.
     private static let margin: CGFloat = 10
-    /// The input's own size, apart from the transcript's (ho-04 Decision 7).
+    /// The input's own size, apart from the transcript's.
     ///
     /// 18 is a deliberate departure from the top of the inherited pālana scale, 15: the input is one line
-    /// that is the whole interface when the panel appears, and the size was judged in the live app (replan
-    /// ruling 4, `ho-process/hos/replan-after-ho-04x.md`).
+    /// that is the whole interface when the panel appears, and the size was judged in the live app (ruling 4
+    /// of the replan after ho-04x).
     private static let inputSize: CGFloat = 18
     private static let inputFont = NSFont.monospacedSystemFont(ofSize: inputSize, weight: .regular)
     private static let inputLineHeight = NSLayoutManager().defaultLineHeight(for: inputFont)
@@ -84,7 +84,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-        // The panel appears over the current app (System Design 2.1), even when that app is full screen.
+        // The panel appears over the current app, even when that app is full screen.
         collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
         input.isBordered = false
@@ -113,8 +113,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         gear.isBordered = false
         gear.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")
         gear.contentTintColor = Theme.Token.inkFaint.nsColor
-        // A click opens settings, no menu (ho-05.1 Decision 18): no target, so the action climbs the
-        // responder chain to the application's delegate, as the menu bar item's Settings… does.
+        // A click opens settings, with no menu: no target, so the action climbs the responder chain to the
+        // application's delegate, as the menu bar item's Settings… does (ho-05.1 Decision 18).
         gear.target = nil
         gear.action = #selector(HitoikiApp.showSettings(_:))
 
@@ -140,8 +140,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             panel?.loadMacro(slot)
             return true
         }
-        // Command-Q quits in every state, as it does from settings (ho-05.2 Decision 11): an accessory app
-        // has no menu to route it. The same four keys decide it, so Caps Lock does not stop it.
+        // Command-Q quits in every state, as it does from settings: an accessory app has no menu to route it.
+        // The same four keys decide it, so Caps Lock does not stop it.
         let lowered = key.lowercased()
         if held == .command, lowered == "q" {
             _ = application.tryToPerform(#selector(NSApplication.terminate(_:)), with: self)
@@ -154,12 +154,12 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
             _ = gear.sendAction(gear.action, to: gear.target)
             return true
         }
-        // The editing keys too: with Caps Lock on, Command-C, V, X and A act as with it off (ho-05.2
-        // Decision 10, N10), and the key may come as a capital.
+        // The editing keys too: with Caps Lock on, Command-C, V, X and A act as with it off, and the key may
+        // come as a capital (ho-05.2 Decision 10).
         guard held == .command, let action = Self.editing[lowered] else {
             return super.performKeyEquivalent(with: event)
         }
-        // Command-C is the transcript's (System Design 2.3) unless text is selected in the input.
+        // Command-C copies the transcript unless text is selected in the input.
         let editor = input.currentEditor()
         if lowered == "c", firstResponder !== editor || editor?.selectedRange.length == 0 {
             transcript.copy(nil)
@@ -253,7 +253,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     /// draws nothing.
     ///
     /// The text is drawn by a view laid over the field editor, never put in its storage, so it is not part
-    /// of the input's value, and Command-A and Command-C never reach it (ho-05.2 Decision 8).
+    /// of the input's value, and Command-A and Command-C never reach it.
     internal func showSuggestion(_ text: String?) {
         suggestionView.text = text
         // Laid over the field editor only when there is text to draw: never during a hide or a clear.
@@ -279,8 +279,8 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
         case #selector(NSResponder.cancelOperation(_:)):
             panel?.escape()
             return true
-        // The recall list and the suggestion take these when they apply (ho-05.2); otherwise the field
-        // editor moves the cursor as in any text field.
+        // The recall list and the suggestion take these when they apply; otherwise the field editor moves
+        // the cursor as in any text field.
         case #selector(NSResponder.moveDown(_:)):
             return panel?.down() ?? false
         case #selector(NSResponder.moveUp(_:)):
@@ -407,7 +407,7 @@ internal final class PanelWindow: NSPanel, NSTextFieldDelegate {
     }
 }
 
-// The update line (ho-06.1 Decision 6), kept apart from the class body.
+// The update line under the notice.
 extension PanelWindow {
     /// Shows `text` on the update line in the faint ink, or hides the line for nil.
     internal func showUpdate(_ text: String?) {
@@ -432,8 +432,8 @@ extension PanelWindow {
     }
 }
 
-/// The grey suggestion (ho-05.2 Decision 8): a view laid over the field editor that draws the rest of an entry
-/// after the last glyph, in the faint ink, cut at the input's edge.
+/// The grey suggestion: a view laid over the field editor that draws the rest of an entry after the last glyph,
+/// in the faint ink, cut at the input's edge.
 ///
 /// It is never part of the editor's storage, and it takes no click.
 private final class SuggestionView: NSView {

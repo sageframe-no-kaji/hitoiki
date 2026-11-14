@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// The update check (ho-06.1 Decisions 4, 5, 6 and 15): one GET to GitHub's latest release for Hitoiki, at
-/// launch and every 24 hours while the switch is on, and whenever Check for Updates asks.
+/// The update check: one GET to GitHub's latest release for Hitoiki, at launch and every 24 hours while the
+/// switch is on, and whenever Check for Updates asks.
 ///
 /// The check is the app's only network request. It sends the app's name and version and nothing about the
 /// user; the fetch is handed in, so a test hands a stand-in and nothing reaches GitHub. Nothing is persisted:
@@ -11,7 +11,7 @@ import Observation
 @MainActor
 @Observable
 internal final class UpdateCheck {
-    /// What a manual check ends in, one of three (Decision 6).
+    /// What a manual check ends in, one of three.
     internal enum Answer: Equatable, Sendable {
         case upToDate
         /// A newer release, by the version its tag gives without the `v`.
@@ -35,14 +35,20 @@ internal final class UpdateCheck {
     /// Sends a request and returns the reply: the shared memory-only session in the app, a stand-in in a test.
     internal typealias Fetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
+    // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+    // swift-format-ignore: NeverForceUnwrap
     /// GitHub's latest-release endpoint for the Hitoiki repository.
     nonisolated internal static let github = URL(
-        string: "https://api.github.com/repos/sageframe-no-kaji/hitoiki/releases/latest")
+        string: "https://api.github.com/repos/sageframe-no-kaji/hitoiki/releases/latest")!
     /// The project's site by name, as the failed answer's link says it.
     nonisolated internal static let siteName = "hitoiki.sageframe.net"
+    // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+    // swift-format-ignore: NeverForceUnwrap
+    // swiftlint:disable force_unwrapping
     /// Where the update line, the answer and About's Website send the user: the site carries the download and
     /// what changed.
-    nonisolated internal static let site = URL(string: "https://" + siteName)
+    nonisolated internal static let site = URL(string: "https://" + siteName)!
+    // swiftlint:enable force_unwrapping
     /// The automatic check's period, timed from launch.
     nonisolated internal static let interval: TimeInterval = 24 * 60 * 60
 
@@ -70,13 +76,13 @@ internal final class UpdateCheck {
     internal private(set) var timer: Timer?
 
     private let enabled: @MainActor () -> Bool
-    private let endpoint: URL?
+    private let endpoint: URL
     private let fetch: Fetch
     @ObservationIgnored private var observers: [@MainActor (UpdateCheck) -> Void] = []
     /// How many times the settings window has closed.
     ///
     /// A manual check answers only if this has not moved since it began, so a reply that outlives its window
-    /// is never shown in a later one (Decision 17, as ho-06.1.1 states the answer's lifetime).
+    /// is never shown in a later one (ho-06.1 Decision 17, as restated by ho-06.1.1).
     @ObservationIgnored private var closings = 0
 
     /// A check for `version` that reads `enabled` at each automatic moment and sends through `fetch`.
@@ -89,7 +95,7 @@ internal final class UpdateCheck {
     internal init(
         version: String?,
         enabled: @escaping @MainActor () -> Bool,
-        endpoint: URL? = UpdateCheck.github,
+        endpoint: URL = UpdateCheck.github,
         fetch: @escaping Fetch
     ) {
         self.version = version
@@ -103,10 +109,10 @@ internal final class UpdateCheck {
         bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     }
 
-    /// The request a check sends for `version`, exactly as Decisions 4 and 15 fix it.
+    /// The request a check sends for `version`.
     ///
     /// The networking library fills `Accept-Language` from the user's language list unless the request sets
-    /// it, so it is set empty: the header goes, carrying no language (Decision 15).
+    /// it, so it is set empty: the header goes, carrying no language (ho-06.1 Decision 15).
     nonisolated internal static func request(version: String, to endpoint: URL) -> URLRequest {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
@@ -130,7 +136,7 @@ internal final class UpdateCheck {
         return configuration
     }
 
-    /// True when `tag` names a version newer than `running` (Decision 5).
+    /// True when `tag` names a version newer than `running`.
     ///
     /// Each, less a leading `v`, must be one to three whole numbers joined by dots; they are compared number by
     /// number, a missing number counting as 0. Anything else is never newer.
@@ -142,7 +148,7 @@ internal final class UpdateCheck {
         return false
     }
 
-    /// The update line's words for `version` (Decision 6).
+    /// The update line's words for `version`.
     nonisolated internal static func notice(for version: String) -> String {
         "Hitoiki \(version) is available"
     }
@@ -173,7 +179,7 @@ internal final class UpdateCheck {
     /// Returns the check's task, or nil when nothing is sent.
     @discardableResult
     internal func tick() -> Task<Void, Never>? {
-        guard enabled(), let version, let endpoint else { return nil }
+        guard enabled(), let version else { return nil }
         return Task { await check(Self.request(version: version, to: endpoint), manual: false) }
     }
 
@@ -182,7 +188,7 @@ internal final class UpdateCheck {
     /// While one is in flight, another does nothing. The automatic schedule does not move.
     internal func manual() async {
         guard !checking else { return }
-        guard let version, let endpoint else {
+        guard let version else {
             // A build with no version sends nothing; nothing was checked.
             answer = .failed
             return changed()
@@ -207,7 +213,7 @@ internal final class UpdateCheck {
     /// Sends `request` and takes the reply.
     ///
     /// An automatic failure shows nothing; a manual one is answered, if the window it began in is still open.
-    /// A newer release sets `available` either way: the panel's update line is not the window's (Decision 6).
+    /// A newer release sets `available` either way: the panel's update line is not the window's.
     private func check(_ request: URLRequest, manual: Bool) async {
         let opening = closings
         let tag = await latestTag(request)

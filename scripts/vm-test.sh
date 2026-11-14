@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Runs the verification stack inside a macOS guest under Tart, so the Panel
-# suite's windows open on the guest's screen and never on the practitioner's
-# (ho-04.7). Run from anywhere; no arguments.
+# suite's windows open on the guest's screen and never on the practitioner's.
+# Run from anywhere; no arguments.
 #
 #   HITOIKI_VM       the guest's Tart name   (default: hitoiki-test)
 #   HITOIKI_VM_USER  the guest's user        (default: admin, Tart's published default)
@@ -18,15 +18,15 @@
 # no host name, no key path and no password. It connects by key with
 # BatchMode=yes, so it can never prompt.
 #
-# Window server (ho-04.7 Discovery 3): a plain SSH session is enough. The
-# image logs `admin` in automatically at boot, so the console session belongs
-# to the same user as the SSH session, and a test process started over SSH
-# reaches that session's window server: the Panel suite creates its windows
-# and makes them key (its #expect(window.isKeyWindow) checks pass). Neither
-# `launchctl asuser` nor a LaunchAgent is needed.
+# Window server: a plain SSH session is enough. The image logs `admin` in
+# automatically at boot, so the console session belongs to the same user as
+# the SSH session, and a test process started over SSH reaches that session's
+# window server: the Panel suite creates its windows and makes them key (its
+# #expect(window.isKeyWindow) checks pass). Neither `launchctl asuser` nor a
+# LaunchAgent is needed (ho-04.7 Discovery 3).
 #
-# Provisioning record (ho-04.7 Decision 9). The guest is made once, by hand,
-# from these steps; this script does not make it.
+# Provisioning record. The guest is made once, by hand, from these steps; this
+# script does not make it (ho-04.7 Decision 9).
 #
 #   1. Tart, from the openai/tools tap (the project moved from Cirrus Labs to
 #      OpenAI; the old cirruslabs/cli tap does not install under Homebrew 7,
@@ -44,11 +44,11 @@
 #      Tart's published password for `admin` once, in your own terminal:
 #        tart run --no-graphics hitoiki-test &
 #        ssh-copy-id admin@"$(tart ip hitoiki-test --wait 120)"
-#   5. The toolchain (Decision 2, rung 3, ruled by the practitioner): the
-#      host's own Xcode, copied into the guest. No download, no Apple ID.
-#      Rung 1 failed: the image's Command Line Tools 27.2 (Swift 6.4.2) left
-#      swift-testing's macro plugin (TestingMacros) out of about half of all
-#      test builds, at random. The copy is streamed with ditto, which keeps
+#   5. The toolchain: the host's own Xcode, copied into the guest. No
+#      download, no Apple ID (ho-04.7 Decision 2, rung 3, ruled by the
+#      practitioner). The image's own Command Line Tools 27.2 (Swift 6.4.2),
+#      tried first, left swift-testing's macro plugin (TestingMacros) out of
+#      about half of all test builds, at random. The copy is streamed with ditto, which keeps
 #      the bundle's attributes and signature and its APFS compression (rsync
 #      would land it uncompressed, 9.6 GB against 4.0 GB, past the guest's
 #      free space). With the guest running:
@@ -133,8 +133,8 @@ STOPPED=0
 STOP_SECS=0
 
 # Stopping. `tart stop` alone ends a macOS guest at once, without a shutdown,
-# and the guest loses its last writes: at ho-04.7 that left the guest's
-# .build database corrupt, and the next run's builds failed. So the guest is
+# and the guest loses its last writes: that once left the guest's .build
+# database corrupt, and the next run's builds failed (ho-04.7). So the guest is
 # first shut down from inside (the image gives `admin` passwordless sudo) and
 # given a minute to power off; `tart stop` then runs on every path, and is
 # what ends the guest if it cannot be reached or does not stop in time.
@@ -216,8 +216,8 @@ if [[ $COPY_STATUS -eq 0 ]]; then
         STATUS[i]=${PIPESTATUS[0]}
         SECS[i]=$((SECONDS - T0))
         # `swift test` exits 0 when the test process dies partway through a
-        # suite (ho-05.1: an AppKit run loop ended and the runtime called
-        # exit(0) mid-test), so its exit code alone is not the verdict. A test
+        # suite: an AppKit run loop ended and the runtime called exit(0)
+        # mid-test (ho-05.1). So its exit code alone is not the verdict. A test
         # step passes only if every test target reported its own run passing.
         if [[ "${STATUS[i]}" == "0" && "${STEPS[i]}" == "swift test"* ]]; then
             PASSED=$(tail -n +"$((LOG_BEFORE + 1))" "$LOG" | grep -c "Test run with .* passed")

@@ -19,8 +19,8 @@ internal final class FetchStandIn {
     private var opener: AsyncStream<Void>.Continuation?
 
     /// A stand-in answering with a release whose tag is `tag`, or with GitHub's not-found body for nil.
-    internal init(tag: String?) {
-        reply = .success((Self.body(tag: tag), Self.response()))
+    internal init(tag: String?) throws {
+        reply = try .success((Self.body(tag: tag), Self.response()))
     }
 
     /// The fetch to hand the check.
@@ -30,17 +30,17 @@ internal final class FetchStandIn {
 
     /// GitHub's reply body: a release carrying `tag`, or, for nil, the body GitHub sends for a repository it
     /// does not show.
-    internal static func body(tag: String?) -> Data {
+    internal static func body(tag: String?) throws -> Data {
         let object: [String: String] =
             tag.map { ["tag_name": $0, "name": "Hitoiki \($0)"] } ?? ["message": "Not Found"]
-        return (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
+        return try JSONSerialization.data(withJSONObject: object)
     }
 
     /// A reply with `status`, at GitHub's address.
-    internal static func response(status: Int = 200) -> URLResponse {
-        let url = URL(fileURLWithPath: "/")
-        return HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)
-            ?? URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)
+    internal static func response(status: Int = 200) throws -> URLResponse {
+        try #require(
+            HTTPURLResponse(
+                url: URL(fileURLWithPath: "/"), statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil))
     }
 
     /// From now on, each request waits until `release`.
@@ -75,7 +75,7 @@ private final class Switch {
 
 /// A listener on the loopback address, at a port the system chose, that answers one request.
 ///
-/// The one test that sends a real check sends it here: nothing leaves the machine (Decision 15).
+/// The one test that sends a real check sends it here: nothing leaves the machine.
 private struct Loopback {
     let descriptor: Int32
     let port: UInt16
@@ -140,7 +140,7 @@ private struct Loopback {
     }
 }
 
-/// One case of Decision 5's rule: a tag, the running version, and whether the tag is newer.
+/// One case of the newer-version rule: a tag, the running version, and whether the tag is newer.
 internal struct NewerCase: Sendable, CustomTestStringConvertible {
     let tag: String
     let running: String
@@ -176,10 +176,9 @@ internal func appDomainKeys() -> Set<String> {
 @Suite("Update check", .serialized)
 @MainActor
 internal struct UpdateCheckTests {
-    // Invariant 2, Decisions 4 and 15: the request as built.
     @Test("The request for 1.2.3: GET to the exact URL, no body, no query, the two headers, an empty language")
-    internal func request() throws {
-        let github = try #require(UpdateCheck.github)
+    internal func request() {
+        let github = UpdateCheck.github
         #expect(github.absoluteString == "https://api.github.com/repos/sageframe-no-kaji/hitoiki/releases/latest")
         let request = UpdateCheck.request(version: "1.2.3", to: github)
         #expect(request.httpMethod == "GET")
@@ -204,12 +203,13 @@ internal struct UpdateCheckTests {
         }
     }
 
-    // Decision 15: the library adds headers the built request does not show, so what arrives is read.
-    @Test("A real check to a loopback listener: what arrives is the request of Decisions 4 and 15")
+    // The networking library adds headers the built request does not show, so what arrives is read
+    // (ho-06.1 Decision 15).
+    @Test("A real check to a loopback listener: what arrives is one GET, the two headers and an empty language")
     internal func onTheWire() async throws {
         let loopback = try Loopback()
         defer { loopback.close() }
-        let path = try #require(UpdateCheck.github).path
+        let path = UpdateCheck.github.path
         let endpoint = try #require(URL(string: "http://127.0.0.1:\(loopback.port)\(path)"))
         let check = UpdateCheck(version: "1.2.3", enabled: { true }, endpoint: endpoint, fetch: UpdateCheck.send)
         async let heard = loopback.answerOne(with: #"{"tag_name":"v1.3"}"#)
@@ -266,10 +266,9 @@ internal struct UpdateCheckTests {
         #expect(!UpdateCheck.isNewer("v9", than: "1.0.0-dev"))
     }
 
-    // Invariant 3.
     @Test("The switch: automatic off sends nothing, on sends once; manual sends with it off")
-    internal func theSwitch() async {
-        let stand = FetchStandIn(tag: "v1.0.0")
+    internal func theSwitch() async throws {
+        let stand = try FetchStandIn(tag: "v1.0.0")
         let toggle = Switch(false)
         let check = UpdateCheck(version: "1.0.0", enabled: { toggle.on }, fetch: stand.fetch)
         #expect(check.tick() == nil)
@@ -283,8 +282,8 @@ internal struct UpdateCheckTests {
     }
 
     @Test("Without a running version, neither kind of check sends anything")
-    internal func noVersion() async {
-        let stand = FetchStandIn(tag: "v9")
+    internal func noVersion() async throws {
+        let stand = try FetchStandIn(tag: "v9")
         let check = UpdateCheck(version: nil, enabled: { true }, fetch: stand.fetch)
         #expect(check.begin() == nil)
         check.timer?.invalidate()
@@ -292,7 +291,7 @@ internal struct UpdateCheckTests {
         await check.manual()
         #expect(stand.requests.isEmpty)
         #expect(check.available == nil)
-        // Invariant 6: still one of the three answers; nothing was checked.
+        // Still one of the three answers; nothing was checked.
         #expect(check.answer == .failed)
     }
 
@@ -315,7 +314,6 @@ internal struct UpdateCheckTests {
         #expect(UpdateCheck.runningVersion(in: try #require(Bundle(url: bare))) == nil)
     }
 
-    // Invariants 5 and 6.
     @Test(
         "A manual check's answer, by reply",
         arguments: [
@@ -329,9 +327,9 @@ internal struct UpdateCheckTests {
             ReplyCase(tag: nil, status: 200, answer: .failed, available: nil),
             ReplyCase(tag: "v1.1", status: 500, answer: .failed, available: nil),
         ])
-    internal func manualAnswer(_ reply: ReplyCase) async {
-        let stand = FetchStandIn(tag: reply.tag)
-        stand.reply = .success((FetchStandIn.body(tag: reply.tag), FetchStandIn.response(status: reply.status)))
+    internal func manualAnswer(_ reply: ReplyCase) async throws {
+        let stand = try FetchStandIn(tag: reply.tag)
+        stand.reply = try .success((FetchStandIn.body(tag: reply.tag), FetchStandIn.response(status: reply.status)))
         let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
         await check.manual()
         #expect(stand.requests.count == 1)
@@ -341,20 +339,20 @@ internal struct UpdateCheckTests {
         #expect(check.lastChecked != nil)
     }
 
-    @Test("The three answers' words, and the update line's, are Decision 6's")
+    @Test("The three answers' words, the update line's, and the site the links open")
     internal func words() {
         #expect(UpdateCheck.Answer.upToDate.text == "Hitoiki is up to date.")
         #expect(UpdateCheck.Answer.available("1.1").text == "Hitoiki 1.1 is available.")
         #expect(UpdateCheck.Answer.failed.text == "Couldn't check for updates.")
         #expect(UpdateCheck.notice(for: "1.1") == "Hitoiki 1.1 is available")
-        #expect(UpdateCheck.site?.absoluteString == "https://hitoiki.sageframe.net")
-        // The failed answer's link names the site by the same name (Decision 17).
+        #expect(UpdateCheck.site.absoluteString == "https://hitoiki.sageframe.net")
+        // The failed answer's link names the site by the same name.
         #expect(UpdateCheck.siteName == "hitoiki.sageframe.net")
     }
 
     @Test("A failed fetch: a manual check says so; an automatic one leaves no version and no answer")
-    internal func failure() async {
-        let stand = FetchStandIn(tag: "v2")
+    internal func failure() async throws {
+        let stand = try FetchStandIn(tag: "v2")
         stand.reply = .failure(URLError(.notConnectedToInternet))
         let check = UpdateCheck(version: "1.0.0", enabled: { true }, fetch: stand.fetch)
         await check.tick()?.value
@@ -367,8 +365,8 @@ internal struct UpdateCheckTests {
     }
 
     @Test("An automatic check that finds a newer release sets the version and no answer; observers hear it")
-    internal func automaticFinds() async {
-        let stand = FetchStandIn(tag: "v1.1")
+    internal func automaticFinds() async throws {
+        let stand = try FetchStandIn(tag: "v1.1")
         let check = UpdateCheck(version: "1.0.0", enabled: { true }, fetch: stand.fetch)
         var heard: [String?] = []
         check.observe { heard.append($0.available) }
@@ -385,7 +383,7 @@ internal struct UpdateCheckTests {
 
     @Test("While a manual check is in flight it is Checking…, and another does nothing; the answer then empties")
     internal func oneManualAtATime() async throws {
-        let stand = FetchStandIn(tag: "v1.0.0")
+        let stand = try FetchStandIn(tag: "v1.0.0")
         stand.hold()
         let check = UpdateCheck(version: "1.0.0", enabled: { false }, fetch: stand.fetch)
         let first = Task { await check.manual() }
@@ -402,10 +400,9 @@ internal struct UpdateCheckTests {
         #expect(check.answer == nil)
     }
 
-    // Invariant 4.
     @Test("Launch makes one automatic check; a tick of the 24-hour timer one more; a manual check adds none")
     internal func schedule() async throws {
-        let stand = FetchStandIn(tag: "v1.0.0")
+        let stand = try FetchStandIn(tag: "v1.0.0")
         let check = UpdateCheck(version: "1.0.0", enabled: { true }, fetch: stand.fetch)
         await check.begin()?.value
         let timer = try #require(check.timer)
@@ -436,7 +433,7 @@ internal struct UpdateCheckTests {
         defer { suite.remove() }
         let settings = Settings(defaults: suite.defaults)
         settings.updateCheckEnabled = true
-        let stand = FetchStandIn(tag: "v1.1")
+        let stand = try FetchStandIn(tag: "v1.1")
         let check = UpdateCheck(version: "1.0.0", enabled: { settings.updateCheckEnabled }, fetch: stand.fetch)
         await check.begin()?.value
         check.timer?.fire()

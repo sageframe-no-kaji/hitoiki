@@ -6,7 +6,7 @@ import HitoikiCore
 ///
 /// The ladder's six states are read, where an event arrives, from facts held here and in the window:
 /// `state`, `stopped`, `submission`, the input's text, and the window's visibility and key status. Recall,
-/// the list under the input and the grey suggestion, is in the extension at the end (ho-05.2).
+/// the list under the input and the grey suggestion, is in the extension at the end.
 @MainActor
 internal final class Panel {
     /// The last state Run reported, or nil before the first command and after a clear.
@@ -39,7 +39,7 @@ internal final class Panel {
     /// from its Running.
     private var starting: (directory: String, missing: String?)?
     /// The line the submission in flight hands to Run: kept in the history at its Running, and at no other
-    /// moment (ho-05.2 Decision 1).
+    /// moment.
     private var startingLine: String?
     /// The directory the shown command ran in: Open in Terminal opens it.
     private var ranIn: String?
@@ -52,7 +52,7 @@ internal final class Panel {
     private var notices: [String] = []
 
     /// The rest of the newest entry that starts with the input's last line, drawn in grey after the cursor
-    /// and never part of the input's value (ho-05.2 Decision 8); nil when none is shown.
+    /// and never part of the input's value; nil when none is shown.
     internal private(set) var suggestion: String?
 
     /// Opens a page in the browser: the site, from the update line.
@@ -96,7 +96,7 @@ internal final class Panel {
             for await chunk in bytes {
                 guard let self, !self.stopped else { continue }
                 self.window.transcript.append(chunk)
-                // At the cap a chunk cannot change the panel's height (Decision 6).
+                // At the cap a chunk cannot change the panel's height.
                 if !self.window.transcript.atCap { self.window.fit() }
             }
         }
@@ -109,7 +109,7 @@ internal final class Panel {
             do {
                 try await launch.value
             } catch {
-                self?.noteCaptureFailed(error)
+                self?.note("Login environment not captured (\(Self.reason(error))); using the app's own environment.")
             }
         }
         apply()
@@ -126,7 +126,7 @@ internal final class Panel {
     /// flight; the next summons shows it as it was.
     ///
     /// The click-out comes here; so do Escape on a clean panel and the hotkey on a panel with the keyboard.
-    /// The recall list closes and the suggestion goes with it (ho-05.2).
+    /// The recall list closes and the suggestion goes with it.
     internal func hide() {
         guard !isBusy else { return }
         closeList()
@@ -144,7 +144,7 @@ internal final class Panel {
 
     /// Escape, by every route: peels one layer.
     ///
-    /// An open recall list is closed and nothing else changes (ho-05.2 Decision 5). Otherwise a running
+    /// An open recall list is closed and nothing else changes. Otherwise a running
     /// command not yet stopped is stopped; a stopped command, a result or a typed line is cleared; a clean
     /// panel is hidden. In flight, nothing.
     internal func escape() {
@@ -227,8 +227,7 @@ internal final class Panel {
         apply()
     }
 
-    /// The update line (ho-06.1 Decision 6): shown under the bar with `version`, the newer release a check
-    /// found; nil shows none.
+    /// The update line: shown under the bar with `version`, the newer release a check found; nil shows none.
     ///
     /// It touches nothing else: not the state, the input, the transcript, the keyboard or a running command.
     /// Only the panel's height follows the line.
@@ -239,8 +238,7 @@ internal final class Panel {
 
     /// A click on the update line: the project's site, where the download and what changed are.
     internal func openSite() {
-        guard let site = UpdateCheck.site else { return }
-        openURL(site)
+        openURL(UpdateCheck.site)
     }
 
     /// Command-1 through Command-9: the slot's command replaces the input's text, the cursor at its end.
@@ -274,13 +272,14 @@ internal final class Panel {
             configuration: NSWorkspace.OpenConfiguration())
     }
 
-    /// Quit: waits for a submission in flight, then kills the command and waits at most one second for its Done.
+    /// Quit: waits for a submission in flight, then kills the command, or the one a clear is still killing, and
+    /// waits at most one second for its Done.
     internal func killForQuit() async {
         await submission?.value
-        guard isBusy else { return }
+        guard isBusy || awaitsClearedDone else { return }
         await run.kill()
         let deadline = ContinuousClock.now + .seconds(1)
-        while isBusy, ContinuousClock.now < deadline {
+        while isBusy || awaitsClearedDone, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -317,7 +316,7 @@ internal final class Panel {
     ///
     /// A Done that finds no command on the panel is the Done of one a clear killed: it changes nothing,
     /// and a start waiting for it goes ahead. At Running the line that started is kept in the history, and
-    /// at no other moment (ho-05.2 Decision 1); the recall list closes and the suggestion goes.
+    /// at no other moment; the recall list closes and the suggestion goes.
     private func enter(_ next: RunState) {
         var ran: String?
         switch next {
@@ -412,10 +411,6 @@ internal final class Panel {
         return (path, nil)
     }
 
-    private func noteCaptureFailed(_ error: any Error) {
-        note("Login environment not captured (\(Self.reason(error))); using the app's own environment.")
-    }
-
     private static func reason(_ error: any Error) -> String {
         switch error as? LoginEnvironment.CaptureError {
         case .noLoginShell?:
@@ -430,9 +425,9 @@ internal final class Panel {
     }
 }
 
-// Recall (ho-05.2): the list under the input and the grey suggestion after the cursor. Neither runs anything:
-// a choice, a taken suggestion and the list's opening change the input's text and nothing else, and only
-// Return or Retry submits, with the input's value, which never holds grey text (invariant 1).
+// Recall: the list under the input and the grey suggestion after the cursor. Neither runs anything: a choice,
+// a taken suggestion and the list's opening change the input's text and nothing else, and only Return or
+// Retry submits, with the input's value, which never holds grey text.
 extension Panel {
     /// Asked of the list itself, not kept here, so it can never disagree with what is on screen.
     internal var listOpen: Bool { window.recall.isOpen }
@@ -496,7 +491,7 @@ extension Panel {
     }
 
     /// After a key that changed the input's text: an open list filters by the last line again, its top row
-    /// selected; with the list closed, the suggestion is worked out again (Decisions 7 and 8).
+    /// selected; with the list closed, the suggestion is worked out again.
     internal func textChanged() {
         guard !listOpen else { return refilter() }
         setSuggestion(isBusy || !cursorAtEnd ? nil : history.suggestion(for: lastLine))

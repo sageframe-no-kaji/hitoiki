@@ -49,7 +49,7 @@ internal struct ShortcutTests {
         }
     }
 
-    // The four refusals of ho-05.1 Decision 4, checked in order, and the cases next to each that pass.
+    // The recorder's refusals, checked in order, and the cases next to each that pass.
     private static let cases: [Case] = [
         Case("Command alone, released", nil, command, [], .refused(.noKey)),
         Case("no key and no modifier", nil, 0, [], .refused(.noKey)),
@@ -109,7 +109,8 @@ internal struct ShortcutTests {
         #expect(Shortcut.verdict(keyCode: row.keyCode, modifiers: row.modifiers, system: row.system) == row.verdict)
     }
 
-    @Test("Decision 14: the default, Control-Command-Space, passes check 3 against a list that holds it enabled")
+    // The default is exempt from the system-list check on purpose (ho-05.1 Decision 14).
+    @Test("The default, Control-Command-Space, passes check 3 against a list that holds it enabled")
     internal func defaultExempt() {
         let list = [
             shortcut(space, control | command, enabled: true),
@@ -147,7 +148,7 @@ internal struct ShortcutTests {
         #expect(list.contains(shortcut(tab, command, enabled: true)))
         #expect(list.contains(shortcut(tab, shift | command, enabled: true)))
         #expect(Shortcut.verdict(keyCode: tab, modifiers: command, system: list) == .refused(.takenByMacOS))
-        // The default passes check 3 against the system's own list, whatever it says (Decision 14).
+        // The default passes check 3 against the system's own list, whatever it says.
         #expect(
             Shortcut.verdict(keyCode: space, modifiers: control | command, system: list)
                 == .allowed(combination(space, control | command)))

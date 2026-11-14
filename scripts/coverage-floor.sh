@@ -5,10 +5,10 @@
 #   HitoikiCore ≥ $1 (default 90) — the headless library: Run and the
 #   Transcript model. The truth lives in the core.
 #
-#   Sources/Hitoiki ≥ $1 — the surface's logic (ho-03 Decision 14, ho-05.1
-#   Decision 12, ho-05.2 Decision 13, ho-06.1): Panel, Keystrokes, Hotkey,
+#   Sources/Hitoiki ≥ $1 — the surface's logic: Panel, Keystrokes, Hotkey,
 #   Theme, Settings, Shortcut, Terminals, MenuBarItem, History, RecallList,
-#   UpdateCheck and LoginItem. Six files are excluded by name, below.
+#   UpdateCheck and LoginItem. Nine files are excluded by name, below, each
+#   with its reason (ho-03 Decision 14).
 #
 # The exit is non-zero if either set is under the floor.
 
@@ -52,28 +52,25 @@ xcrun llvm-cov export "${BINARIES[0]}" ${OBJECTS[@]+"${OBJECTS[@]}"} \
 import json, sys
 data = json.load(sys.stdin)['data'][0]
 files = [f['filename'] for f in data['files']]
-# ho-02 turns this into a failure once HitoikiCore holds code.
-if not files:
-    print('HitoikiCore: nothing to measure yet; the floor applies from the first code in Sources/HitoikiCore')
-    sys.exit(0)
 percent = data['totals']['lines']['percent']
 print(f'HitoikiCore line coverage: {percent:.2f}% over {len(files)} files (floor: $FLOOR%)')
-sys.exit(0 if percent >= $FLOOR else 1)
+sys.exit(0 if files and percent >= $FLOOR else 1)
 "
 
 
 # The surface. Excluded by name: App.swift, because the delegate needs a running
 # application; PanelWindow.swift, TranscriptView.swift and SettingsWindow.swift,
 # because they hold layout, drawing and event forwarding that cannot be driven
-# headless; SettingsView.swift (ho-05.1 Decision 12), because it holds the
-# SwiftUI form and the recorder's capturing view, neither of which can be driven
-# without a window on a screen and a user's keys; AboutWindow.swift (ho-06.1),
-# because it is SwiftUI text and links in a window, which the tests in the
-# guest cannot read (ho-05.2's finding): its look and links are witnessed live.
+# headless; SettingsView.swift, the SwiftUI form, and TerminalPopUp.swift,
+# WindowCloseWatch.swift and ShortcutRecorder.swift, the native controls it
+# hosts, among them the recorder's capturing view, because none of them can be
+# driven without a window on a screen and a user's clicks and keys;
+# AboutWindow.swift, because it is SwiftUI text and links in a window, which the
+# tests in the guest cannot read: its look and links are witnessed live.
 # The transcript's logic is the model, measured with HitoikiCore; the settings'
 # logic is Settings, Shortcut and Hotkey, the update check's is UpdateCheck, and
 # Open at Login's is LoginItem, its service's calls handed in; all measured here.
-APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow|SettingsView|AboutWindow)\.swift)'
+APP_IGNORE='(Tests/|\.build/|Sources/HitoikiCore/|Sources/Hitoiki/(App|PanelWindow|TranscriptView|SettingsWindow|SettingsView|TerminalPopUp|WindowCloseWatch|ShortcutRecorder|AboutWindow)\.swift)'
 
 echo
 echo "== Sources/Hitoiki =="

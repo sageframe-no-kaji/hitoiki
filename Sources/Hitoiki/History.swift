@@ -1,19 +1,19 @@
 import Darwin
 import Foundation
 
-/// The commands run: the session's own memory always, and the history file while history is on (ho-05.2).
+/// The commands run: the session's own memory always, and the history file while history is on.
 ///
 /// The file is `history.txt` in the folder handed in at init, one command per line. It is written only by
 /// `record`, which Panel calls when Run reports Running for a submission, and read again at every recall:
 /// nothing read from it is kept, so a line deleted in a text editor is gone from the next keystroke's
-/// recall (Decision 3). Nothing here touches user defaults; the switch is read through `enabled` at use.
+/// recall. Nothing here touches user defaults; the switch is read through `enabled` at use.
 @MainActor
 internal final class History {
-    /// The most lines the file holds after a write, and the most commands session memory holds (Decision 4).
+    /// The most lines the file holds after a write, and the most commands session memory holds.
     internal static let ceiling = 5_000
 
     /// Named once, so every read, append, rewrite and delete aims at this one file and at no other in the
-    /// folder (invariant 4).
+    /// folder.
     internal let file: URL
 
     /// Where a notice line goes: the panel's notice, each line once.
@@ -36,7 +36,7 @@ internal final class History {
     }
 
     /// Entries: the session's commands newest first, then, with history on, the file's newest first, each
-    /// command once, at its newest place (Decision 2).
+    /// command once, at its newest place.
     ///
     /// Two commands are the same when they match with leading and trailing whitespace ignored; an entry is
     /// the newest one's text exactly as it ran, so `cd My\ ` comes back with its escaped space (ho-05.2.1).
@@ -53,7 +53,7 @@ internal final class History {
     }
 
     /// Keeps what ran: each line of `ran` that does not start with a space and is not blank, in session
-    /// memory and, with history on, at the end of the file (Decisions 1 and 12).
+    /// memory and, with history on, at the end of the file.
     ///
     /// Panel calls it at Running, with the line it handed to Run, so the file is written when a command
     /// starts running and at no other moment. With history off the file is not created, opened or changed.
@@ -72,7 +72,7 @@ internal final class History {
     }
 
     /// The list's rows for `filter`: the entries that contain it anywhere, upper and lower case alike, or
-    /// every entry when it is empty (Decision 7).
+    /// every entry when it is empty.
     internal func matches(_ filter: String) -> [String] {
         let all = entries
         guard !filter.isEmpty else { return all }
@@ -80,7 +80,7 @@ internal final class History {
     }
 
     /// The grey suggestion for `text`: the rest of the newest entry that starts with it exactly, case and all,
-    /// and is longer; nil for empty text or when no entry does (Decision 8).
+    /// and is longer; nil for empty text or when no entry does.
     internal func suggestion(for text: String) -> String? {
         guard !text.isEmpty, let entry = entries.first(where: { $0.count > text.count && $0.hasPrefix(text) })
         else { return nil }
@@ -88,11 +88,11 @@ internal final class History {
     }
 
     /// Clear History: session memory is emptied and the file deleted, with history on or off; the folder and
-    /// every setting stay (Decision 9).
+    /// every setting stay.
     ///
     /// Nil when the file is gone afterwards. Otherwise the line the settings window shows under the button,
-    /// "History not cleared: <reason>" (ho-05.2.1): the file is still there and its commands still recalled,
-    /// so Clear must not look done.
+    /// "History not cleared: <reason>": the file is still there and its commands still recalled, so Clear must
+    /// not look done (ho-05.2.1).
     internal func clear() -> String? {
         session.removeAll()
         do {
@@ -105,7 +105,8 @@ internal final class History {
         return nil
     }
 
-    /// The space rule (Decision 12) and the blank rule (Decision 1): a line kept is neither.
+    /// A line is kept unless it is blank or starts with a space, which is how a command with a secret in it
+    /// runs unkept.
     private static func kept(_ line: String) -> Bool {
         !line.hasPrefix(" ") && !line.allSatisfy(\.isWhitespace)
     }
