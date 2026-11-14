@@ -433,6 +433,8 @@ The last review before anyone else runs the code. The antagonist reads the updat
 - Does the build script's bundle contain anything beyond the binary, the icon, and Info.plist? List the bundle.
 - Are there credential-shaped strings anywhere in the repo, including the build script and its environment handling?
 
+*For ho-06.2x, 2026-11-14 (`ho-process/hos/ho-06.2-the-audit.md`, Step 5):* the audit's changes are reviewed against the practitioner's rulings, with these questions in place of the four above. Does every change trace to a numbered ruling? Is behaviour unchanged except where a ruling names a bug, and which test fails on the old code for each? Was any test that is the only witness for a spec'd behaviour deleted? Was any finding ruled "leave" changed anyway?
+
 ## What's NOT in this sequence
 
 - A Mac App Store build. Deferred past 1.0.
@@ -985,4 +987,14 @@ Range `632f351..b823cdf`; x document advanced to run 2 as `fb8acb4`; Codex (`gpt
 - **COMPLETED** — ho-06.1x: review of The Build, Pass on run 2; ho-06.1 closed.
 - **NEXT** — ho-06.2, The Audit, in a fresh session: author its spec with the Kamae 5 skill; Codex reviews the whole finished codebase for bugs, tightening, chaff and AI-isms; the practitioner rules; one builder makes the ruled changes.
 - **ACTION ITEMS / BLOCKS** — None blocking. Inputs for ho-06.2 in ho-06.1's Reflect followups.
+- **PROJECT LIFECYCLE** — kamae.
+
+### ho-06.2 — The Audit — closed 2026-11-14
+
+Opening hash: `a1b0a9b`; spec and the Codex audit brief `bc802dc`; the audit `6b4f7b0` (Codex `gpt-6.1-sol`, a fresh `codex exec` session); rulings `6f1d536` and `72acbbb`; build `eb04b97`. Spec: `ho-process/hos/ho-06.2-the-audit.md`, ha shape, six Think decisions and nine rulings. Codex read the whole codebase at `bc802dc` (12,477 lines) and reported 46 findings: for ruling 5/7/2 by grade, routine 0/18/14, none outside the AI-ism list. The practitioner took the 32 routine findings as one batch and ruled the rest one at a time; his question whether every bug should be removed became Decision 9, harm rather than existence. Taken: Quit waits for a clear's kill (F1), the history test's watcher released on every path (F3), the core coverage gate fails on an empty set (F5), the unused core version removed (F6), four files segmented (F7–F10), two tests made exact (F11, F14), the comment and citation clean-up (F15–F46). Left: F2 and F4 as known limits, F12 kept and filed as an issue in ho-06.3, F13 (`hdiutil create`) kept. F11's exact test exposed that a selection the line ceiling evicts through was lost and Copy took the whole transcript; Decision 15 keeps what survives, nine lines. One Opus builder, one halt (that one). Tests 203 → 204 app, 72 → 71 core; 95.76% / 98.17% → 95.76% / 98.24%; `Sources/` 4,773 → 4,772 lines, `Tests/` 6,946 → 7,013. The orchestrator's run `20261114T125856Z`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.2: the audit, the rulings and the ruled changes.
+- **NEXT** — ho-06.2x run 1 in Codex from `ho-process/hos/ho-06.2x-review-of-the-audit.md`, over `a1b0a9b` through this ho's closing commit; report `ho-process/reviews/ho-06.2x-report-1.md`. The orchestrator drives Codex, up to three runs.
+- **ACTION ITEMS / BLOCKS** — None blocking. For ho-06.3: file the retry issue (Decision 13's text) once the repository exists, with the practitioner's yes; the known limits F2, F4, F13 for the technical document; the README list in ho-06.1's Reflect.
 - **PROJECT LIFECYCLE** — kamae.
