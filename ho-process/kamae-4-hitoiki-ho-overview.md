@@ -998,3 +998,17 @@ Opening hash: `a1b0a9b`; spec and the Codex audit brief `bc802dc`; the audit `6b
 - **NEXT** — ho-06.2x run 1 in Codex from `ho-process/hos/ho-06.2x-review-of-the-audit.md`, over `a1b0a9b` through this ho's closing commit; report `ho-process/reviews/ho-06.2x-report-1.md`. The orchestrator drives Codex, up to three runs.
 - **ACTION ITEMS / BLOCKS** — None blocking. For ho-06.3: file the retry issue (Decision 13's text) once the repository exists, with the practitioner's yes; the known limits F2, F4, F13 for the technical document; the README list in ho-06.1's Reflect.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-06.2x — run 1 — Return — 2026-11-14
+
+Range `a1b0a9b..84892b9`; x document `d9c61a9`; Codex (`gpt-6.1-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-06.2x-report-1.md` as `2fa2ed6`. Verdict **Return**: 4 Must-fix, 0 Should-fix, 1 Note. M1, `offerWritten` timed out once in the reviewer's ordinary test step and passed in its coverage step, with no way to tell which wait; M2, F1's test drives `killForQuit()` but not the app's own termination check, which wrote the rule a second time; M3 and M4, F3 (a test helper) and F5 (the coverage script) have no test that fails on the old code. N1, the wholly evicted selection untested. The practitioner ruled M3 and M4: the failing-first test is for bugs in the app; bugs in test code and scripts are witnessed by a demonstration recorded in the spec.
+
+### ho-06.2.1 — Fix pass for The Audit — closed 2026-11-14
+
+Spec `c48bcdb`, build `69af386`. A fixture wait that times out names its line and its condition; Quit's rule is one property, `Panel.quitMustWait`, read by the app's termination and by `killForQuit()`, asserted by the F1 test (the app's one-line read cannot be called in a test; recorded); the wholly evicted selection is tested. M1 not reproduced. Tests 204 → 205 app, 71 core; 95.76% / 98.24%; the orchestrator's run `20261114T133713Z`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.2.1: the named wait, Quit's one rule, the evicted-selection test; M3 and M4 ruled.
+- **NEXT** — ho-06.2x run 2 in Codex over `a1b0a9b` through this fix pass's closing commit; report `ho-process/reviews/ho-06.2x-report-2.md`.
+- **ACTION ITEMS / BLOCKS** — None blocking. Run 2 of three.
+- **PROJECT LIFECYCLE** — kamae.

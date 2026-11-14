@@ -37,4 +37,5 @@
 | 06.1.1 | Fix pass for The Build — answer ho-06.1x run 1 | ri | complete |
 | 06.2 | The Audit | ha | complete |
 | 06.2x | Review of The Audit | x | ready |
+| 06.2.1 | Fix pass for The Audit — answer ho-06.2x run 1 | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |
