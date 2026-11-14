@@ -292,6 +292,8 @@ internal final class Panel {
 
     /// The panel becomes Clean and stays on screen with the keyboard in the input; a command still
     /// running is killed, and nothing of it is drawn from here on.
+    ///
+    /// The input's placeholder goes with the rest.
     private func clear() {
         closeList()
         setSuggestion(nil)
@@ -305,6 +307,7 @@ internal final class Panel {
         missingFolder = nil
         terminalFailure = nil
         window.input.stringValue = ""
+        window.input.placeholderString = nil
         window.transcript.clear()
         apply()
     }
@@ -322,7 +325,9 @@ internal final class Panel {
     ///
     /// A Done that finds no command on the panel is the Done of one a clear killed: it changes nothing,
     /// and a start waiting for it goes ahead. At Running the line that started is kept in the history, and
-    /// at no other moment; the recall list closes and the suggestion goes.
+    /// at no other moment; the recall list closes and the suggestion goes. The input empties, and the line
+    /// shows as its placeholder, in the placeholder's grey and never part of its value, until a clear or the
+    /// next command's Running (ho-06.3 Decision 9).
     private func enter(_ next: RunState) {
         var ran: String?
         switch next {
@@ -338,6 +343,7 @@ internal final class Panel {
             starting = nil
             stops = 0
             stopped = false
+            window.input.placeholderString = ran
             window.transcript.clear()
         case .done:
             guard state != nil else {
