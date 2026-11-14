@@ -9,9 +9,9 @@
   "summary": {
     "hos": 36,
     "drafted": 0,
-    "complete": 35,
+    "complete": 36,
     "planned": 0,
-    "ready": 1
+    "ready": 0
   },
   "phases": [
     {
@@ -306,7 +306,7 @@
           "ho": "06.2x",
           "title": "Review of The Audit",
           "shape": "x",
-          "status": "ready",
+          "status": "complete",
           "doc": "ho-process/hos/ho-06.2x-review-of-the-audit.md"
         },
         {
