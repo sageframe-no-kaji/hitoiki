@@ -39,4 +39,9 @@
 | 06.2x | Review of The Audit | x | complete |
 | 06.2.1 | Fix pass for The Audit — answer ho-06.2x run 1 | ri | complete |
 | 06.2.2 | Second fix pass for The Audit — answer ho-06.2x run 2 | ri | complete |
+| 06.3 | The Documents | ha | complete |
+| 06.3x | Review of The Documents | x | complete |
+| 06.3.1 | Fix pass for The Documents — answer ho-06.3x run 1 | ri | complete |
+| 06.3.2 | Second fix pass for The Documents — answer ho-06.3x run 2 | ri | complete |
+| 06.3.3 | Third fix pass for The Documents — answer ho-06.3x run 3 | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |

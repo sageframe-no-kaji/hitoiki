@@ -1070,3 +1070,13 @@ By the practitioner's rulings: both stand (a private virtual-machine network; an
 ### ho-06.3x — run 3 — Return, closed by ruling — 2026-11-14
 
 Range `ccb30ee..1b98557`; x document advanced to run 3 as `7edd6cf`; Codex (`gpt-6-sol`, a fresh `codex exec` session) committed `ho-process/reviews/ho-06.3x-report-3.md` as `3dad4c3`. Build pass on its second `scripts/vm-test.sh` run (the first lost SSH), six green, 215 and 71 tests in both steps, 95.76% / 98.25%. Every commit message read; run 2's findings answered by ruling. Verdict **Return**: 1 Must-fix, the release-tag sentence in `TECHNICAL.md` (the leading `v` is optional to the check). ho-06.3.3 corrects it there and in `RELEASING.md`; by the practitioner's ruling the review closes on that fix as passed, with no fourth run.
+
+### ho-06.3 — The Documents — closed 2026-11-14
+
+Opening hash `ccb30ee`; spec `6693870`; closing `0433bbe` and this close. Spec: `ho-process/hos/ho-06.3-the-documents.md`, ha shape, four Think questions and nine rulings in execution (Decisions 5–13). One Opus builder wrote `TECHNICAL.md` (how Hitoiki works, the Ho process linked) and the README (feedback taken: two install paths, behaviour and limits split, examples, the GIF); a second built three code changes from the screenshot session (edit keys and Return in settings; the last command as the input's grey placeholder), 205 → 215 app tests. The history swept: three early host names, the home path in checkpoint messages and the guest address ruled to stand. GitHub releases carry no disk image; the app is sold, the source free (Decision 12; K2 §6 amended). v1.0.0 built from `ae30a07`, notarised, cleanly installed; ho-06.3x three runs (Return on the space rule and a spec error; on two history disclosures, ruled; on one tag sentence, fixed and closed by ruling). Then, each with his yes: the repository public at github.com/sageframe-no-kaji/hitoiki, `main` and `v1.0.0` pushed, issues #1 and #2, v1.0.0 Latest with no assets; a 0.9.0 copy showed the update line against it. The disk image for sale: `~/hitoiki-release/`.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.3: the documents, three small code changes, v1.0.0 built and published on GitHub without its disk image, the repository public, two issues filed, the update line proven live
+- **NEXT** — ho-07, The Storefront, in a fresh session: the site at `hitoiki.sageframe.net` and the Payhip listing selling `~/hitoiki-release/hitoiki-1.0.0.dmg`
+- **ACTION ITEMS / BLOCKS** — none blocking. The closing commits after `0433bbe` are local until his yes to push. Issue #2 (placement) waits for a logging build. The README's "Get the app" assumes the buyer gets a disk image.
+- **PROJECT LIFECYCLE** — kamae

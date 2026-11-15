@@ -1,15 +1,15 @@
 {
   "schema": "ho-status/1",
   "project": "hitoiki",
-  "generated_at": "2026-11-14",
+  "generated_at": "2026-11-15T03:39:03Z",
   "source": {
     "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 36,
+    "hos": 41,
     "drafted": 0,
-    "complete": 36,
+    "complete": 41,
     "planned": 0,
     "ready": 0
   },
@@ -324,6 +324,44 @@
           "status": "complete",
           "fixes": "06.2",
           "doc": "ho-process/hos/ho-06.2.2-fix-pass.md"
+        },
+        {
+          "ho": "06.3",
+          "title": "The Documents",
+          "shape": "ha",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-06.3-the-documents.md"
+        },
+        {
+          "ho": "06.3x",
+          "title": "Review of The Documents",
+          "shape": "x",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-06.3x-review-of-the-documents.md"
+        },
+        {
+          "ho": "06.3.1",
+          "title": "Fix pass for The Documents — answer ho-06.3x run 1",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "06.3",
+          "doc": "ho-process/hos/ho-06.3.1-fix-pass.md"
+        },
+        {
+          "ho": "06.3.2",
+          "title": "Second fix pass for The Documents — answer ho-06.3x run 2",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "06.3",
+          "doc": "ho-process/hos/ho-06.3.2-fix-pass.md"
+        },
+        {
+          "ho": "06.3.3",
+          "title": "Third fix pass for The Documents — answer ho-06.3x run 3",
+          "shape": "ri",
+          "status": "complete",
+          "fixes": "06.3",
+          "doc": "ho-process/hos/ho-06.3.3-fix-pass.md"
         }
       ]
     }
