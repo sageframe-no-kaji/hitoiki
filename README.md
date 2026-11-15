@@ -6,11 +6,15 @@ A command runner for Mac. · [hitoiki.sageframe.net](https://hitoiki.sageframe.n
 
 Hitoiki runs a shell command from a floating panel. Press a shortcut, type a command, see the output, and dismiss the panel. Commands run locally or over SSH with your own shell, configuration and keys, and there is no terminal window to manage. The name, 一息 (*hitoiki*), means "one breath" in Japanese. The early documents in `ho-process/` use the project's first name, Issoku.
 
-![A screen recording of the Hitoiki panel running a command](screenshots/demo.gif)
+<p align="center">
+  <img src="screenshots/demo.gif" width="560" alt="A screen recording of the Hitoiki panel running a command"><br>
+  <em>Summon the panel, run a command, read the result.</em>
+</p>
 
-![The panel after ls -la -G in a sample folder](screenshots/panel-local.png)
-
-![The panel after an ssh uptime](screenshots/panel-remote.png)
+<p align="center">
+  <img src="screenshots/panel-local.png" width="520" alt="The panel after ls -la -G in a sample folder"><br>
+  <em>Colour output and the exit status. The command stays in grey.</em>
+</p>
 
 ## Using Hitoiki
 
@@ -27,17 +31,15 @@ ssh homelab 'systemctl status caddy'
 - **Working directory.** Commands start in your home folder, or in a fixed folder you choose in settings.
 - **Macros.** Settings holds nine macros. `Command-1` to `Command-9` put a macro's text in the input. Nothing runs until you press Return.
 - **History.** History is off by default. When you turn it on, Hitoiki keeps the commands you run in `~/Library/Application Support/Hitoiki/history.txt`, one per line. A line that starts with a space is kept nowhere; in a command of several lines, each line is kept or left on its own. Down-arrow shows past commands, and Right-arrow takes the grey suggestion after the cursor. Clear History in settings deletes the file.
-
-![The list of past commands under the input](screenshots/history.png)
-
 - **Copy.** `Command-C` or the Copy button copies the selected output, or all of it when nothing is selected.
 - **Open in Terminal.** After a command ends, this button opens a new terminal window in the folder the command ran in. It does not run the command again. Terminal.app is the default. Settings can choose Ghostty, iTerm2, Kitty, WezTerm or Alacritty when installed, or another terminal.
 - **Open at Login.** A switch in settings, off by default. macOS keeps this setting, so it also shows in System Settings › General › Login Items.
 - **Menu bar item.** Off by default; turn it on in settings. Its menu has Show Hitoiki, About Hitoiki, Check for Updates…, Settings… and Quit.
 
-![The menu bar item's menu](screenshots/menu.png)
-
-![The settings window](screenshots/settings.png)
+<p align="center">
+  <img src="screenshots/settings.png" width="380" alt="The settings window"><br>
+  <em>Settings: the shortcut, the working directory, history, macros and the update check.</em>
+</p>
 
 ## Behaviour and limits
 
