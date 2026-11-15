@@ -48,6 +48,8 @@ Run lives one command's life. It is the only component that starts or signals a 
 
 Run holds one child at a time. A second start while a child is alive fails with `RunError.alreadyRunning`.
 
+Run starts each command under a pseudoterminal because ordinary pipes give the child no terminal. The pseudoterminal is the child's controlling terminal, so a program that reads a password from its terminal, such as `sudo`, can read it there, and keys typed in the panel reach the program as terminal input. A program that turns off echo for a password works as it does in a terminal: Run never echoes, so the password never appears in the transcript. `forkpty` also makes the child the leader of a new session and process group, so Stop and `Control-C` signal the shell and every process in its group. The child sees a terminal of a known size, with `TERM` set, so a program that checks for a terminal can send colour sequences, which the Transcript model reads.
+
 ### Transcript
 
 Transcript shows what the child sent, within fixed limits.

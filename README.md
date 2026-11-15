@@ -17,7 +17,7 @@ Hitoiki runs a shell command from a floating panel. Press a shortcut, type a com
 Press `Control-Command-Space` to show the panel. Type a command and press Return. The output appears under the input as the command runs, followed by its exit status. The command you ran stays in the input in grey after it runs. You can change the shortcut in settings. If another app or macOS already holds the shortcut, Hitoiki says so in the panel and in settings. If the shortcut does not work, open Hitoiki again from Applications to show the panel.
 
 ```sh
-git status
+git -C ~/code/project status
 ssh homelab uptime
 ssh homelab 'systemctl status caddy'
 ```
