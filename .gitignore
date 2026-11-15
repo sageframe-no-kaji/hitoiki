@@ -38,6 +38,8 @@ coverage/
 *.pkg
 build/
 dist/
+# Signed release files kept for sale (ho-07); the build script never touches this folder.
+release/
 
 # ─── IDEs and editors ───────────────────────────────────────────────────
 .vscode/
