@@ -159,7 +159,7 @@ Accept-Language: (set to an empty value)
 
 A bare executable from `swift build` has no `Info.plist` and so no version. It never sends the request. Its manual check answers "Couldn't check for updates."
 
-**What is done with the reply.** The check reads one field, `tag_name`. No reply, a status outside 200–299, or a body without that field is a failure. A tag is newer when, after a leading `v`, it is one to three whole numbers joined by dots and is greater number by number than the running version; a missing number counts as 0. Any other tag is never newer. A newer release shows the update line under the input, "Hitoiki <version> is available". A click on it opens `https://hitoiki.sageframe.net`. The update line changes nothing else on the panel and does not touch a running command.
+**What is done with the reply.** The check reads one field, `tag_name`. No reply, a status outside 200–299, or a body without that field is a failure. A tag is newer when, after an optional leading `v`, it is one to three whole numbers joined by dots and is greater number by number than the running version; a missing number counts as 0. Any other tag is never newer. A newer release shows the update line under the input, "Hitoiki <version> is available". A click on it opens `https://hitoiki.sageframe.net`. The update line changes nothing else on the panel and does not touch a running command.
 
 A manual check also answers under the switch: "Hitoiki is up to date.", "Hitoiki <version> is available." (a link to the site), or "Couldn't check for updates." with a link to the site. The answer goes when the settings window closes. A reply that arrives after its window closed is not shown. An automatic check that fails shows nothing.
 
@@ -191,7 +191,7 @@ The last-checked time and the newest release found stay in memory. Nothing about
 
 The two signing values, `CODESIGN_IDENTITY` and `NOTARIZE_KEYCHAIN_PROFILE`, come from `scripts/.env`. Git ignores that file; `scripts/.env.example` shows its form. The script reads only those two keys and does not run the file. A value already set in the environment wins. Without the values, the app is signed ad hoc for local use, and Gatekeeper on another Mac refuses it.
 
-A release is published as GitHub's normal Latest release, with a tag `v` followed by one to three whole numbers joined by dots. A prerelease, or a tag in another form, gives users no update line.
+A release is published as GitHub's normal Latest release, with a tag `v` followed by one to three whole numbers joined by dots. A prerelease, or a tag the check cannot read, such as `v1.1-beta`, gives users no update line.
 
 ## How the tests run
 

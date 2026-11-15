@@ -1066,3 +1066,7 @@ By the practitioner's rulings: both stand (a private virtual-machine network; an
 - **NEXT** — ho-06.3x run 3 in Codex, the last
 - **ACTION ITEMS / BLOCKS** — none
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-06.3x — run 3 — Return, closed by ruling — 2026-11-14
+
+Range `ccb30ee..1b98557`; x document advanced to run 3 as `7edd6cf`; Codex (`gpt-6-sol`, a fresh `codex exec` session) committed `ho-process/reviews/ho-06.3x-report-3.md` as `3dad4c3`. Build pass on its second `scripts/vm-test.sh` run (the first lost SSH), six green, 215 and 71 tests in both steps, 95.76% / 98.25%. Every commit message read; run 2's findings answered by ruling. Verdict **Return**: 1 Must-fix, the release-tag sentence in `TECHNICAL.md` (the leading `v` is optional to the check). ho-06.3.3 corrects it there and in `RELEASING.md`; by the practitioner's ruling the review closes on that fix as passed, with no fourth run.

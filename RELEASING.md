@@ -12,9 +12,10 @@ are adapted from pālana's.
 3. **The site** — the signed DMG is sold there, through Payhip; the release notes point at the release
 
 > The in-app update check reads GitHub's latest-release endpoint, so publish as
-> GitHub's normal Latest release, never as a prerelease. The tag must be `v`
-> followed by one to three whole numbers separated by dots (`v1.1`, `v1.0.1`).
-> A tag in any other form, such as `v1.1-beta`, gives users no notice.
+> GitHub's normal Latest release, never as a prerelease. Tag it `v` followed by
+> one to three whole numbers separated by dots (`v1.1`, `v1.0.1`); the check also
+> reads the numbers without the `v`. A tag it cannot read, such as `v1.1-beta`,
+> gives users no notice.
 
 ---
 
