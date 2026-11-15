@@ -90,7 +90,7 @@ Settings are ten keys in the app's user defaults: `shortcutKeyCode`, `shortcutMo
 
 - **Working directory.** Home (the default), or a fixed folder. If the fixed folder does not exist when the user presses Return, the command runs in home and the strip says so.
 - **Macros.** Nine strings. `Command-1` to `Command-9` put a macro's text in the input. Nothing runs until Return.
-- **History.** Off by default. Hitoiki always keeps the commands run since launch in memory. With history on, it also appends them to `~/Library/Application Support/Hitoiki/history.txt`, one command per line. The folder is made with mode 0700 and the file with mode 0600. The file keeps the newest 5,000 lines. A command that starts with a space is kept nowhere. Clear History deletes the file and forgets the session's commands.
+- **History.** Off by default. Hitoiki always keeps the commands run since launch in memory. With history on, it also appends them to `~/Library/Application Support/Hitoiki/history.txt`, one command per line. The folder is made with mode 0700 and the file with mode 0600. The file keeps the newest 5,000 lines. A command of several lines is kept line by line. A line that starts with a space, or is blank, is kept nowhere; the other lines of the same command are kept. Clear History deletes the file and forgets the session's commands.
 - **Recall.** Down-arrow opens a list of past commands, newest first, filtered by what is typed. A grey suggestion after the cursor completes the newest command that starts with the typed text; Right-arrow takes it. Neither runs anything.
 
 The gear in the panel and `Command-comma` open settings. Settings opened from the panel hide the panel; closing settings shows it again.

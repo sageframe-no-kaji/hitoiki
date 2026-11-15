@@ -1038,3 +1038,17 @@ Range `a1b0a9b..dca18b3`; x document advanced to run 3 as `db4efc7`; Codex (`gpt
 - **NEXT** — ho-06.3, The Documents, in a fresh session: file the retry issue once the repository exists (his yes), the technical document, the README, the final release build, the repository made public, the test release.
 - **ACTION ITEMS / BLOCKS** — None blocking. The retry issue's text is in `ho-06.2-the-audit.md` Decision 13; known limits F2, F4, F13 for the technical document.
 - **PROJECT LIFECYCLE** — kamae.
+
+### ho-06.3x — run 1 — Return — 2026-11-14
+
+Range `ccb30ee..4091114`, run before anything is pushed (ho-06.3 Decision 1); x document `11560c2`; Codex (`gpt-6-sol`, a fresh `codex exec` session driven by the orchestrator) committed `ho-process/reviews/ho-06.3x-report-1.md` as `3fa2b74`. Verdict **Return**: 3 Must-fix, 0 Should-fix, 3 Notes. M1, both documents said a command starting with a space is kept nowhere, while history judges each line on its own; M2, the spec's Decision 5 named a Refresh Environment button that does not exist; M3, the reviewer's guest lost SSH during `swift test`, leaving three steps unrecorded. The publication sweep, the privacy text, Decision 9's three changes, the tag on `ae30a07` and the notarised build all held.
+
+### ho-06.3.1 — Fix pass for The Documents — closed 2026-11-14
+
+The space rule stated per line in the README and `TECHNICAL.md`; Decision 5 read without the button; no code changed. The orchestrator's run `20261115T022121Z`: six green, 215 / 71, 95.76% / 98.25%.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.3.1: the space rule per line; Decision 5 corrected
+- **NEXT** — ho-06.3x run 2 in Codex over `ccb30ee` through this pass's commit
+- **ACTION ITEMS / BLOCKS** — none
+- **PROJECT LIFECYCLE** — kamae

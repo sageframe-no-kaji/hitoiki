@@ -26,7 +26,7 @@ ssh homelab 'systemctl status caddy'
 - **Escape** takes one step at a time. It stops a running command. Then it clears the panel. On an empty panel it hides the panel. A click outside the panel hides it and keeps what is on it, but never while a command runs.
 - **Working directory.** Commands start in your home folder, or in a fixed folder you choose in settings.
 - **Macros.** Settings holds nine macros. `Command-1` to `Command-9` put a macro's text in the input. Nothing runs until you press Return.
-- **History.** History is off by default. When you turn it on, Hitoiki keeps the commands you run in `~/Library/Application Support/Hitoiki/history.txt`, one per line. A command that starts with a space is kept nowhere. Down-arrow shows past commands, and Right-arrow takes the grey suggestion after the cursor. Clear History in settings deletes the file.
+- **History.** History is off by default. When you turn it on, Hitoiki keeps the commands you run in `~/Library/Application Support/Hitoiki/history.txt`, one per line. A line that starts with a space is kept nowhere; in a command of several lines, each line is kept or left on its own. Down-arrow shows past commands, and Right-arrow takes the grey suggestion after the cursor. Clear History in settings deletes the file.
 
 ![The list of past commands under the input](screenshots/history.png)
 
