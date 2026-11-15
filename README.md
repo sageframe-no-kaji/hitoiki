@@ -1,64 +1,86 @@
 # Hitoiki 一息
 
-Hitoiki is a macOS utility for running a shell command from a floating panel. It runs short local commands and remote commands through `/usr/bin/ssh`, using your existing SSH configuration. The name, 一息 (*hitoiki*), means “a breather” in Japanese. The project was begun under the name Issoku, the same characters read another way, and the documents closed before the rename keep it.
+<img src="packaging/hitoiki.png" width="128" alt="Hitoiki icon">
+
+A command runner for Mac. · [hitoiki.sageframe.net](https://hitoiki.sageframe.net)
+
+Hitoiki runs a shell command from a floating panel. Press a shortcut, type a command, see the output, and dismiss the panel. Commands run locally or over SSH with your own shell, configuration and keys, and there is no terminal window to manage. The name, 一息 (*hitoiki*), means "one breath" in Japanese. The early documents in `ho-process/` use the project's first name, Issoku.
+
+![A screen recording of the Hitoiki panel running a command](screenshots/demo.gif)
+
+![The panel after ls -la -G in a sample folder](screenshots/panel-local.png)
+
+![The panel after an ssh uptime](screenshots/panel-remote.png)
 
 ## Using Hitoiki
 
-Press `Control-Command-Space` to open the panel, type a command, and press Return. Output appears below the input as the command runs, followed by its exit status. When it finishes, press Escape or click outside to dismiss the panel.
-
-The shortcut is configurable in settings. Its default conflicts with macOS's Character Viewer shortcut, and Hitoiki reports when the key combination is unavailable. Settings also control the working directory: home, the last directory used, or a fixed path.
-
-- Commands run one at a time in your shell, with the environment captured from your login shell when Hitoiki starts. Use Refresh Environment in settings to capture it again. Commands run non-interactively, so interactive aliases and functions are not available.
-- Output supports color and carriage-return updates, with a bounded buffer. `Command-C` copies the selection, or the retained output when nothing is selected. A Copy button provides the same actions.
-- While a command runs, keystrokes go to its pseudoterminal (PTY), the operating-system interface that gives a process terminal input and output. Password entry uses the running program's terminal echo settings.
-- Stop or `Control-C` sends `SIGINT` to the local process group; a second Stop sends `SIGKILL`. Escape and clicking outside are inactive while a command runs.
-- Open in Terminal opens a terminal at the command's working directory after completion. Terminal.app is the default; settings can select another installed terminal.
-- Nine macros, `Command-1` through `Command-9`, load saved command text into the input for editing and execution. History is optional, off by default, and stored in a text file that can be cleared from settings.
-
-## Commands
+Press `Control-Command-Space` to show the panel. Type a command and press Return. The output appears under the input as the command runs, followed by its exit status. The command you ran stays in the input in grey after it runs. You can change the shortcut in settings. If another app or macOS already holds the shortcut, Hitoiki says so in the panel and in settings. If the shortcut does not work, open Hitoiki again from Applications to show the panel.
 
 ```sh
-uptime
-df -h
-ssh server 'uptime'
-ssh -tt server 'sudo true'
+git status
+ssh homelab uptime
+ssh homelab 'systemctl status caddy'
 ```
 
-If remote sudo reports that it needs a terminal, Hitoiki offers to rerun the SSH command with `-tt`, which requests a remote terminal. You can also type `-tt` yourself, as in the example above. SSH configuration, keys, and agents are managed through the installed OpenSSH client.
+- **Settings.** Press `Command-comma`, or click the gear in the panel.
+- **Escape** takes one step at a time. It stops a running command. Then it clears the panel. On an empty panel it hides the panel. A click outside the panel hides it and keeps what is on it, but never while a command runs.
+- **Working directory.** Commands start in your home folder, or in a fixed folder you choose in settings.
+- **Macros.** Settings holds nine macros. `Command-1` to `Command-9` put a macro's text in the input. Nothing runs until you press Return.
+- **History.** History is off by default. When you turn it on, Hitoiki keeps the commands you run in `~/Library/Application Support/Hitoiki/history.txt`, one per line. A command that starts with a space is kept nowhere. Down-arrow shows past commands, and Right-arrow takes the grey suggestion after the cursor. Clear History in settings deletes the file.
 
-The output model handles text, color, and carriage returns. Use a terminal for full-screen applications such as Vim, htop, and tmux, or for persistent shell sessions. Interrupting the local SSH process can leave a remote command running when SSH has not allocated a remote terminal.
+![The list of past commands under the input](screenshots/history.png)
 
-## Architecture
+- **Copy.** `Command-C` or the Copy button copies the selected output, or all of it when nothing is selected.
+- **Open in Terminal.** After a command ends, this button opens a new terminal window in the folder the command ran in. It does not run the command again. Terminal.app is the default. Settings can choose Ghostty, iTerm2, Kitty, WezTerm or Alacritty when installed, or another terminal.
+- **Open at Login.** A switch in settings, off by default. macOS keeps this setting, so it also shows in System Settings › General › Login Items.
+- **Menu bar item.** Off by default; turn it on in settings. Its menu has Show Hitoiki, About Hitoiki, Check for Updates…, Settings… and Quit.
 
-Hitoiki has four components:
+![The menu bar item's menu](screenshots/menu.png)
 
-| Component | Responsibility |
-|---|---|
-| Panel | Window, shortcut, focus, run state, and dismissal |
-| Run | PTY, child process, process group, captured environment, input, output, and exit status |
-| Transcript | Text rendering, retained-output limit, selection, and copying |
-| Memory | Settings, macros, and optional command history |
+![The settings window](screenshots/settings.png)
 
-Hitoiki uses Swift 6 with strict concurrency. AppKit provides the panel and shortcut handling, with SwiftUI for settings; process execution uses POSIX facilities and `/usr/bin/ssh`. Swift Package Manager builds the project, and the package has no third-party dependencies.
+## Behaviour and limits
+
+- **Stop.** Stop or `Control-C` interrupts the command. A second Stop or `Control-C` ends it by force. Quitting Hitoiki ends any command that is still running.
+- **Typing while a command runs.** Your keys go to the command, so you can answer a prompt. Hitoiki shows only what the command sends back, so a password prompt that hides your typing shows no password.
+- **Your shell environment.** Hitoiki reads your login shell's environment once, when it opens. If you change your shell setup, quit Hitoiki and open it again.
+- **Non-interactive shell.** Commands run in a non-interactive shell, so aliases and shell functions are not available.
+- **The `-tt` retry.** If sudo on a remote host says it needs a terminal to read the password, Hitoiki offers to run the same `ssh` command again with `-tt`, which asks for a remote terminal. Press Return or click Retry. The retry runs the entire remote command again, including anything in it that may already have succeeded. The panel shows the command before it runs. You can also type `-tt` yourself, as in `ssh -tt homelab 'sudo systemctl restart caddy'`.
+- **What needs a terminal.** Hitoiki shows colour, bold text and progress bars that redraw a line. It is not a terminal emulator. Use a terminal for full-screen programs such as `vim`, `htop` and `tmux`, and for sessions that stay open.
+- **Long unbroken lines.** One line over 1 MiB with no line feed streams slowly while it runs. Lines that end stream at full speed.
 
 ## Installation
 
-Hitoiki requires macOS 14 or later. The app is distributed as a signed and notarized `.dmg` through GitHub Releases and Payhip, with the Payhip download priced at about $3. Open the disk image, drag Hitoiki to Applications, and launch it.
+Hitoiki needs macOS 14 or later. There are two ways to get it.
 
-## Development
+**Get the app.** Buy the signed, notarised app at [hitoiki.sageframe.net](https://hitoiki.sageframe.net). It is the same code as this repository, built and ready to install; what you pay for is that convenience.
 
-Building from source requires Swift 6 on macOS. Formatting uses swift-format, linting uses SwiftLint, and pre-commit runs the configured checks. `HitoikiCore`, the headless library, has a configured line-coverage floor of 90%.
+**Build it yourself.** Free, under the MIT license. `ARCH_FLAGS="" ./scripts/build_macos.sh` builds `dist/Hitoiki.app` for your Mac. See [Development](#development).
 
-```sh
-swift build
-swift test
-swift test --enable-code-coverage
-scripts/coverage-floor.sh
-```
+## Removing Hitoiki
+
+Hitoiki keeps data in two places:
+
+- the settings file, `~/Library/Preferences/com.sageframe.hitoiki.plist`
+- with history on, the folder `~/Library/Application Support/Hitoiki/`
+
+If you turned on Open at Login, turn it off first. Then quit Hitoiki, delete it from Applications, and delete those two.
 
 ## Privacy
 
-An optional update check reads the latest release information from GitHub. It is enabled by default and can be disabled in settings; Check for Updates runs it manually. Hitoiki does not collect telemetry or require an account, and transcripts stay in memory. Commands you run can make their own network requests.
+When Hitoiki opens, and once a day while it runs, it asks GitHub for the latest version number. It sends only its name and version, and nothing about you or your commands. GitHub sees your internet address, as any website does. You can turn the check off in settings. If a newer version exists, a line in the panel links to the project's site.
+
+Hitoiki has no telemetry and no account. Output stays in memory and is never saved. Commands you run can make their own network requests.
+
+## Development
+
+Hitoiki is Swift 6, built with Swift Package Manager, with no dependencies.
+
+- The tests run in a macOS guest under Tart, through `scripts/vm-test.sh`, because some tests open windows. The script runs the formatter, the linter, the build, the tests and the coverage floor.
+- [`RELEASING.md`](RELEASING.md) gives the release steps.
+- [`TECHNICAL.md`](TECHNICAL.md) describes how Hitoiki works.
+
+Hitoiki is one of a set of native Mac apps, with [pālana](https://github.com/sageframe-no-kaji/palana), a file manager for the homelab, and [Sharibako](https://github.com/sageframe-no-kaji/sharibako), a vault for API keys.
 
 ## License
 
@@ -66,4 +88,4 @@ An optional update check reads the latest release information from GitHub. It is
 
 ---
 
-Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · [sageframe.net](https://sageframe.net). Lovingly made by hand, in collaboration with AI, using the [Ho process](https://hosystem.sageframe.net/). Last meaningful update: 2026-11-05.
+Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · [sageframe.net](https://sageframe.net). Lovingly made by hand, in collaboration with AI, using the [Ho process](https://hosystem.sageframe.net/). Last meaningful update: 2026-11-14.

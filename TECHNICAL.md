@@ -23,7 +23,7 @@ Panel is the only surface the user works in. It registers the global shortcut, s
 
 | File | Job |
 |---|---|
-| `Sources/Hitoiki/Panel.swift` | The controller: the three states, the Escape ladder, submission, Stop, keystrokes, macros, Open in Terminal, the update line, and the recall keys |
+| `Sources/Hitoiki/Panel.swift` | The controller: the three states, the Escape ladder, submission, Stop, keystrokes, macros, Open in Terminal, the update line, the recall keys, and the last command shown in grey in the empty input |
 | `Sources/Hitoiki/PanelWindow.swift` | The window: layout, placement, height, the strip of status and buttons at the foot, the update line, and the Command-key equivalents |
 | `Sources/Hitoiki/Keystrokes.swift` | What a key pressed while a command runs becomes |
 | `Sources/Hitoiki/Hotkey.swift` | Registration of the global shortcut with the Carbon event manager |
@@ -76,7 +76,7 @@ Memory is what persists: settings, the nine macros, and the command history.
 | `Sources/Hitoiki/Settings.swift` | The settings and macros in user defaults |
 | `Sources/Hitoiki/History.swift` | The session's commands and the history file |
 | `Sources/Hitoiki/RecallList.swift` | The list of past commands under the input |
-| `Sources/Hitoiki/SettingsWindow.swift` | The settings window and its footer |
+| `Sources/Hitoiki/SettingsWindow.swift` | The settings window and its footer, and the window's own keys and clicks |
 | `Sources/Hitoiki/SettingsView.swift` | The settings form |
 | `Sources/Hitoiki/ShortcutRecorder.swift` | The control that records a new shortcut |
 | `Sources/Hitoiki/TerminalPopUp.swift` | The terminal pop-up in settings |
@@ -93,6 +93,13 @@ Settings are ten keys in the app's user defaults: `shortcutKeyCode`, `shortcutMo
 
 The gear in the panel and `Command-comma` open settings. Settings opened from the panel hide the panel; closing settings shows it again.
 
+The settings window handles some keys itself, because the app has no Edit menu:
+
+- While a text box has the keyboard, `Command-X`, `Command-C`, `Command-V`, `Command-A`, `Command-Z` and `Shift-Command-Z` cut, copy, paste, select all, undo and redo in that box. At other times these keys go where they went before, so the shortcut recorder still records them.
+- Return or keypad Enter in a text box takes the keyboard out of the box. A click on the window's background does the same; the background is any place that is not a control, text or the shortcut recorder. The box keeps its value, because every change is stored as it is made.
+- Escape closes the window, except while the shortcut recorder records or an input method composes text.
+- `Command-1` to `Command-9` put the keyboard in that macro's box. `Command-Q` quits.
+
 ### Shared files
 
 | File | Job |
@@ -108,13 +115,13 @@ The gear in the panel and `Command-comma` open settings. Settings opened from th
 2. **Shortcut.** The Carbon event manager calls the handler. If the panel is hidden, Panel places it on the screen that holds the mouse pointer and shows it, with the keyboard in the input. If the panel is visible without the keyboard, Panel gives it the keyboard. If the panel has the keyboard, Panel hides it, unless a command runs or is starting.
 3. **Return.** `PanelWindow.swift` sends the input's text to `Panel.submit`. Shift-Return and Option-Return add a line break instead. Panel reads the working directory now. It sets the terminal size from the transcript's width and the panel's height limit. It waits for the environment capture to end, and for any command that Escape killed to end. Then it calls `Run.start`.
 4. **Start.** `PTY.swift` calls `forkpty`. The child gets a new pseudoterminal as its controlling terminal, and leads a new session and process group. Before `execve`, the child sets every signal to its default action, clears its signal mask, and closes every file descriptor above 2. It then changes to the working directory and runs `<login shell> -c <command>` with exactly the captured environment. If the directory cannot be entered, the child exits with status 127. The shell is not interactive, so aliases and shell functions are not available.
-5. **Running.** Run reports `.running(pid:)`. Panel clears the transcript and gives the command to `History.swift`, which keeps it by the history rule under Memory. A command is kept when it starts running, and at no other time. The input cannot be edited. The keyboard goes to the transcript view, which draws a block cursor.
+5. **Running.** Run reports `.running(pid:)`. Panel clears the transcript and gives the command to `History.swift`, which keeps it by the history rule under Memory. A command is kept when it starts running, and at no other time. The input empties, and the command shows in it as grey placeholder text, which is never part of the input's value. The input cannot be edited. The keyboard goes to the transcript view, which draws a block cursor.
 6. **Output.** Run reads the pseudoterminal in pieces of up to 16 KiB on its own serial queue. It passes each piece on unchanged and scans it for sudo's message. When 1 MiB has been read and not yet taken by Panel, Run stops reading until Panel takes more; the child then waits on its terminal. Panel feeds each piece to the Transcript model, and the view draws the change. The panel grows with the output until the whole panel is about half the screen's height. Then the transcript scrolls.
 7. **Keys.** While a command runs, `Keystrokes.swift` turns each key into an action. Return and keypad Enter write a carriage return. Delete writes DEL. Printable characters are written as UTF-8. `Command-V` writes the clipboard's text. `Control-C` stops. Escape goes to the Escape ladder. Every other key, the arrow keys included, is ignored. `Run.write` writes all bytes in order and holds what the terminal cannot take yet. Hitoiki draws nothing typed. The transcript shows only what the child sends back, so a password prompt that turns off echo shows no password.
 8. **Stop.** Stop, `Control-C` and Escape stop a running command. The first stop sends `SIGINT` to the child's process group. Each later Stop or `Control-C` sends `SIGKILL`. After the first stop, Panel draws no more output but still takes it, so Done arrives. Escape on a stopped command clears the panel and kills the group. A click outside the panel never hides a running command.
 9. **Exit.** A dispatch process source reports the child's exit, and Run reaps it with `waitpid`. Run reports `.done` only when three things are true: the child is reaped, the pseudoterminal has reached end of output and is closed, and Panel has taken every piece. Run then checks the retry rule (below).
 10. **Done.** The strip shows `exit <status>` or `signal <number>`. Any result other than `exit 0` shows in the alarm colour. Open in Terminal appears. It opens a new window of the chosen terminal at the directory the command ran in. It never runs the command again.
-11. **After.** Escape takes one layer at a time: it closes an open recall list; it clears a result or typed text and leaves the panel on screen; on a clean panel it hides the panel. A click outside hides the panel and keeps everything on it for the next shortcut.
+11. **After.** Escape takes one layer at a time: it closes an open recall list; it clears a result or typed text and leaves the panel on screen; on a clean panel it hides the panel. A click outside hides the panel and keeps everything on it for the next shortcut. The grey command stays in the input through Running and Done, and through hiding and showing. Escape's clear removes it, and the next command's Running replaces it. Return on an empty input never runs it; it runs only a `-tt` offer (below).
 
 **Quit.** `Command-Q`, or Quit in the menu bar item. If a command runs, Hitoiki sends `SIGKILL` to its process group and waits up to one second for Done, then quits.
 

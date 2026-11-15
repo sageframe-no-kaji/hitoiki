@@ -8,8 +8,8 @@ are adapted from pālana's.
 ## The sequence
 
 1. **Build + sign + notarize** — run the build script locally, test the DMG
-2. **Push the tag + GitHub Release** — attach the DMG and publish it as Latest
-3. **The site** — the Download button and the release notes point at the release
+2. **Push the tag + GitHub Release** — publish it as Latest, with no DMG attached
+3. **The site** — the signed DMG is sold there, through Payhip; the release notes point at the release
 
 > The in-app update check reads GitHub's latest-release endpoint, so publish as
 > GitHub's normal Latest release, never as a prerelease. The tag must be `v`
@@ -155,7 +155,6 @@ git push origin main
 git tag -a v<version> -m "Hitoiki <version>"    # e.g. v1.0.0
 git push origin v<version>
 gh release create v<version> \
-    dist/hitoiki-<version>.dmg \
     --verify-tag \
     --latest \
     --title "Hitoiki <version>" \
@@ -163,12 +162,14 @@ gh release create v<version> \
 ```
 
 Do not pass `--prerelease`. GitHub excludes prereleases from the latest-release
-endpoint that Hitoiki checks.
+endpoint that Hitoiki checks. Attach no DMG: the signed app is sold through the
+site, and the source is free to build (2026-11-14, ho-06.3 Decision 12). The
+update check reads only the tag.
 
 ## Step 3 — The site
 
-`hitoiki.sageframe.net` carries the download, the Payhip button and what changed.
-Point its Download button directly at the versioned GitHub DMG asset, and its
-release notes at the exact GitHub release page. The panel's update line and the
-settings answer line both link to the site, so nothing is released before the
-site exists.
+`hitoiki.sageframe.net` sells the signed DMG through Payhip and says what changed.
+Upload the DMG to Payhip, and point the site's release notes at the exact GitHub
+release page. The panel's update line and the settings answer line both link to
+the site, so nothing is sold before the site exists. (Amended 2026-11-14, ho-06.3
+Decision 12: the DMG is no longer attached to the GitHub release.)
