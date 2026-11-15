@@ -1052,3 +1052,17 @@ The space rule stated per line in the README and `TECHNICAL.md`; Decision 5 read
 - **NEXT** — ho-06.3x run 2 in Codex over `ccb30ee` through this pass's commit
 - **ACTION ITEMS / BLOCKS** — none
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-06.3x — run 2 — Return — 2026-11-14
+
+Range `ccb30ee..deb6687`; x document advanced to run 2 as `4276042`; Codex (`gpt-6-sol`, a fresh `codex exec` session) committed `ho-process/reviews/ho-06.3x-report-2.md` as `0008bc5`. Build pass through one run of `scripts/vm-test.sh`, six green, 215 and 71 tests in both steps, 95.76% / 98.25%. Every claim in both documents true of the code; run 1's M1 to M3 answered. Verdict **Return**: 2 Must-fix, both disclosures in the history: the guest's virtual-machine address in the run-1 report, and the home path in 66 checkpoint commit messages, which the sweep of Decision 6 did not read.
+
+### ho-06.3.2 — Second fix pass for The Documents — closed 2026-11-14
+
+By the practitioner's rulings: both stand (a private virtual-machine network; an account name already public). Decision 7 restated; nothing else changed.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-06.3.2: run 2's two findings answered by ruling
+- **NEXT** — ho-06.3x run 3 in Codex, the last
+- **ACTION ITEMS / BLOCKS** — none
+- **PROJECT LIFECYCLE** — kamae
