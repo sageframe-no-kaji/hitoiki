@@ -9,7 +9,7 @@ are adapted from pālana's.
 
 1. **Build + sign + notarize** — run the build script locally, test the DMG
 2. **Push the tag + GitHub Release** — publish it as Latest, with no DMG attached
-3. **The site** — the signed DMG is sold there, through Payhip; the release notes point at the release
+3. **The site** — the signed DMG is sold there, through Payhip, inside a ZIP; the release notes point at the release
 
 > The in-app update check reads GitHub's latest-release endpoint, so publish as
 > GitHub's normal Latest release, never as a prerelease. Tag it `v` followed by
@@ -170,7 +170,20 @@ update check reads only the tag.
 ## Step 3 — The site
 
 `hitoiki.sageframe.net` sells the signed DMG through Payhip and says what changed.
-Upload the DMG to Payhip, and point the site's release notes at the exact GitHub
-release page. The panel's update line and the settings answer line both link to
-the site, so nothing is sold before the site exists. (Amended 2026-11-14, ho-06.3
-Decision 12: the DMG is no longer attached to the GitHub release.)
+Payhip refuses `.dmg` files, so zip the DMG alone and upload the ZIP:
+
+```bash
+mkdir -p release
+cp dist/hitoiki-<version>.dmg release/
+(cd release && zip hitoiki-<version>.zip hitoiki-<version>.dmg)
+shasum -a 256 release/hitoiki-<version>.*
+```
+
+`release/` is ignored by git, and the build script never empties it, so the files
+sold stay beside the repository with their fingerprints. Replace the file on the
+Payhip listing (`https://payhip.com/b/2Tgu0`) with the new ZIP, and point the
+site's release notes at the exact GitHub release page. The site's source is
+`sageframe-dharma/hitoiki-web`; a push to its `main` publishes it. The panel's
+update line and the settings answer line both link to the site, so nothing is
+sold before the site exists. (Amended 2026-11-14, ho-06.3 Decision 12: the DMG is
+no longer attached to the GitHub release. Amended 2026-11-17, ho-07: the ZIP.)

@@ -423,6 +423,8 @@ Adapt `scripts/build_macos.sh` and `RELEASING.md` from palana: release build, bu
 
 *Changed in ho-06.3's Think and execution, 2026-11-14 (`ho-process/hos/ho-06.3-the-documents.md`).* The README is written by a builder and approved by the practitioner, not written by him. ho-07 gates the sale, not the release: v1.0.0 is published on GitHub in ho-06.3, with no disk image attached (Decision 12; the signed app is sold through the site, the source is free). ho-06.3x runs before the repository goes public. Three small code changes went into v1.0.0 by ruling (Decision 9); the panel-placement bug is filed as an issue (Decision 11).
 
+*ho-07, 2026-11-17 (`ho-process/hos/ho-07-the-storefront.md`).* ho-07 was built by me outside the ho process, on 2026-11-14 and 2026-11-15: the site at `hitoiki.sageframe.net` (repository `sageframe-dharma/hitoiki-web`) and the Payhip listing at $6, which delivers a ZIP holding the disk image because Payhip refuses `.dmg` files. The ho records them, proves a purchase and the app's links to the site, and is reviewed by ho-07x. No new build: v1.0.0 is the release, and Phase 4 closes as v1.0 when ho-07x passes.
+
 ### ho-06x — Review of the Ship
 
 The last review before anyone else runs the code. The antagonist reads the update checker as the privacy section of the README promises it, and reads the build script for anything that would publish what should not be published.

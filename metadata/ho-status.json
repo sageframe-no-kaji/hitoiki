@@ -362,6 +362,13 @@
           "status": "complete",
           "fixes": "06.3",
           "doc": "ho-process/hos/ho-06.3.3-fix-pass.md"
+        },
+        {
+          "ho": "07",
+          "title": "The Storefront",
+          "shape": "ri",
+          "status": "active",
+          "doc": "ho-process/hos/ho-07-the-storefront.md"
         }
       ]
     }
