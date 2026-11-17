@@ -1,5 +1,5 @@
 {
-  "keisaku": 1,
+  "keisaku": 2,
   "works": [
     {
       "id": "hitoiki",
@@ -15,16 +15,9 @@
       "license": "MIT",
       "tech_stack": "Swift",
       "created": "2026-10-25",
-      "last_updated": "2026-11-15",
-      "headline": "ho-07, The Storefront, in a FRESH session: the site at hitoiki.sageframe.net (now resolves only to a private Tailscale address) and the…",
-      "state": {
-        "stage": "kamae",
-        "last": "ho-06.3, The Documents, closed 2026-11-14 (range `ccb30ee..0433bbe` plus the close). `TECHNICAL.md` and the README written by builders, approved; three code changes by ruling (edit keys and Return in settings; the last command as the input's grey placeholder), 215 app / 71 core tests, 95.76% / 98.25%. v1.0.0 built from `ae30a07`, notarised both layers, clean install passed. ho-06.3x: three runs, two fix passes, the third Return closed by his ruling. Repository PUBLIC at github.com/sageframe-no-kaji/hitoiki (remote `git@github-no-kaji:sageframe-no-kaji/hitoiki.git`); `main` and `v1.0.0` pushed (v0.x tags local only); issues #1 (`-tt` retry) and #2 (panel placement after a drag to the top); release v1.0.0 Latest with NO disk image (Decision 12: app sold via site/Payhip, source free, pālana model; K2 §6 amended). Update line proven live with a local 0.9.0 copy.",
-        "next": "ho-07, The Storefront, in a FRESH session: the site at `hitoiki.sageframe.net` (now resolves only to a private Tailscale address) and the Payhip listing. Then v1.0.",
-        "as_of": "2026-11-15"
-      },
+      "last_updated": "2026-11-17",
       "_keisaku": {
-        "generated_at": "2026-11-16T10:49:45",
+        "generated_at": "2026-11-17T15:26:30",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
@@ -41,8 +34,7 @@
           "created": "2026-10-25",
           "tags": [
             "swift"
-          ],
-          "headline": "ho-07, The Storefront, in a FRESH session: the site at hitoiki.sageframe.net (now resolves only to a private Tailscale address) and the…"
+          ]
         },
         "contract_issues": []
       }
