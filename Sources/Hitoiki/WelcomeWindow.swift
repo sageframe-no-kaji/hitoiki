@@ -3,8 +3,8 @@ import Carbon.HIToolbox
 
 /// The welcome window: what the first launch shows, so a first-time user can tell the app started.
 ///
-/// The app has no Dock icon, and nothing else on screen says it is running. The application makes the window
-/// at that launch only, and never again.
+/// The app has no Dock icon, and a menu bar icon alone does not say how to open the panel. The application
+/// makes the window at that launch only, and never again.
 ///
 /// Built as About is: 360 points wide, the Theme's colours, a transparent title bar, movable by its background
 /// and centred. Its face is AppKit's own labels and buttons, so a test reads each line and sends each button's
