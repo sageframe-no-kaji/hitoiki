@@ -21,6 +21,8 @@ builds-on:
 
 You are the antagonist for ho-08. You did not write this code or these documents. You review one bounded unit of work against the spec that bounded it, report findings, and give a verdict. You change no source files.
 
+**Use the `$ho-antagonist-review` skill**, reviewer role, ho-review mode (`references/standards.md`, `references/ho-review.md`, `references/cycle.md`). Pin it at Ho System commit `552fb4a`, subdirectory `skills/ho-antagonist-review`, and record that in the report. This document is the review context: it names the unit, the revisions, the requirements, the pass (1 of 2; a third only by ruling), the verification and the report's path and format. Where this document and the skill differ, this document binds: the report goes to the path under Files, in the format below, and is the only file you commit.
+
 **This is a scoped review.** Read only the branch's diff, `3b0c944..45c10a1`, against `ho-process/hos/ho-08-the-first-launch.md`. The rest of the codebase passed earlier reviews; read it only where the diff depends on it. Rate nothing outside the diff.
 
 The unit:
