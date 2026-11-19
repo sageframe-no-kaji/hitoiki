@@ -31,9 +31,11 @@ Panel is the only surface the user works in. It registers the global shortcut, s
 | `Sources/Hitoiki/Terminals.swift` | The terminals Open in Terminal can use |
 | `Sources/Hitoiki/MenuBarItem.swift` | The optional menu bar item and its menu |
 
-The panel is a borderless, non-activating floating window. It takes the keyboard while the app underneath stays frontmost. The app has no Dock icon. The menu bar item is off by default.
+The panel is a borderless, non-activating floating window. It takes the keyboard while the app underneath stays frontmost. The app has no Dock icon. The menu bar item is on by default.
 
 The shortcut is registered through `RegisterEventHotKey`. This needs no Accessibility permission. If the registration fails, the panel and settings show the reason. The default shortcut is Control-Command-Space. To change it, Hitoiki registers the new combination first and releases the old one only after the new one succeeds. If the shortcut never works, open Hitoiki again from Applications: the app shows the panel.
+
+**The welcome window.** `Sources/Hitoiki/WelcomeWindow.swift`. The first launch shows a window that says Hitoiki is running and names the shortcut that opens the panel, with "(Control-Command-Space)" under it while that is the shortcut. It says the app has no Dock icon and that its icon is in the menu bar, or, with the menu bar item off, that settings can show the icon there. It also says that `Command-comma` in the panel opens settings. Open Hitoiki, the default button, closes the window and shows the panel. If the launch could not register the shortcut, the window says so in place of the shortcut's lines and adds a second button, Change the Shortcut, which is then the default: it closes the window and opens settings. Escape and the close button close the window and show nothing. The launch writes `welcomeShown` as the window shows, so the window shows once, even if Hitoiki quits while it is open. Version 1.0.0 wrote no such key, so the first launch after an upgrade from it counts as a first launch. A launch whose open-application event carries macOS's login-item mark writes the key and shows nothing. Nothing else opens the window.
 
 ### Run
 
@@ -86,7 +88,7 @@ Memory is what persists: settings, the nine macros, and the command history.
 | `Sources/Hitoiki/UpdateCheck.swift` | The update check (see [The update check](#the-update-check)) |
 | `Sources/Hitoiki/LoginItem.swift` | Open at Login (see [About and Open at Login](#about-and-open-at-login)) |
 
-Settings are ten keys in the app's user defaults: `shortcutKeyCode`, `shortcutModifiers`, `directoryMode`, `directoryPath`, `terminal`, `appearance`, `historyEnabled`, `menuBarEnabled`, `updateCheckEnabled` and `macros`. A key that is absent reads as its default, so a new install writes nothing until the user changes a setting. Every change is written at once; there is no Apply button.
+Settings are eleven keys in the app's user defaults: `shortcutKeyCode`, `shortcutModifiers`, `directoryMode`, `directoryPath`, `terminal`, `appearance`, `historyEnabled`, `menuBarEnabled`, `updateCheckEnabled`, `macros` and `welcomeShown`, which records that the welcome window has shown. A key that is absent reads as its default. A new install writes nothing until the user changes a setting, except `welcomeShown`, which the first launch writes. Every change is written at once; there is no Apply button.
 
 - **Working directory.** Home (the default), or a fixed folder. If the fixed folder does not exist when the user presses Return, the command runs in home and the strip says so.
 - **Macros.** Nine strings. `Command-1` to `Command-9` put a macro's text in the input. Nothing runs until Return.
@@ -109,6 +111,7 @@ The settings window handles some keys itself, because the app has no Edit menu:
 | `Sources/Hitoiki/App.swift` | The application: makes one of each part at launch and connects them; handles reopen and Quit |
 | `Sources/Hitoiki/Theme.swift` | The colour tokens, each with a light and a dark value |
 | `Sources/Hitoiki/AboutWindow.swift` | The About window |
+| `Sources/Hitoiki/WelcomeWindow.swift` | The welcome window the first launch shows |
 | `Sources/Hitoiki/Resources/MenuBarIcon.svg` | The menu bar item's image |
 
 ## One command, from the shortcut to the exit status

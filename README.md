@@ -18,6 +18,8 @@ Hitoiki runs a shell command from a floating panel. Press a shortcut, type a com
 
 ## Using Hitoiki
 
+The first time you open Hitoiki, a welcome window says that it is running and shows the shortcut that opens the panel. It shows once. Hitoiki has no Dock icon.
+
 Press `Control-Command-Space` to show the panel. Type a command and press Return. The output appears under the input as the command runs, followed by its exit status. The command you ran stays in the input in grey after it runs. You can change the shortcut in settings. If another app or macOS already holds the shortcut, Hitoiki says so in the panel and in settings. If the shortcut does not work, open Hitoiki again from Applications to show the panel.
 
 ```sh
@@ -34,7 +36,7 @@ ssh homelab 'systemctl status caddy'
 - **Copy.** `Command-C` or the Copy button copies the selected output, or all of it when nothing is selected.
 - **Open in Terminal.** After a command ends, this button opens a new terminal window in the folder the command ran in. It does not run the command again. Terminal.app is the default. Settings can choose Ghostty, iTerm2, Kitty, WezTerm or Alacritty when installed, or another terminal.
 - **Open at Login.** A switch in settings, off by default. macOS keeps this setting, so it also shows in System Settings › General › Login Items.
-- **Menu bar item.** Off by default; turn it on in settings. Its menu has Show Hitoiki, About Hitoiki, Check for Updates…, Settings… and Quit.
+- **Menu bar item.** On by default; you can turn it off in settings. Its menu has Show Hitoiki, About Hitoiki, Check for Updates…, Settings… and Quit.
 
 <p align="center">
   <img src="screenshots/settings.png" width="380" alt="The settings window"><br>

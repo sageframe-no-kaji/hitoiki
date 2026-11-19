@@ -153,6 +153,8 @@ Transcripts are not stored. **(Confirms seed.)**
 
 **Amendment, 2026-11-12 (ho-06.1 run sheet).** The text above stands. An Open at Login switch joins the settings, off by default. Its state is kept by macOS's login-item service for the app (`SMAppService.mainApp`), not in user defaults, so no key is added and the switch shows a change made in System Settings. It is disabled in a build from source. Document: `ho-process/hos/ho-06.1-the-build.md`, Decision 20.
 
+**Amendment, 2026-11-19 (ho-08).** The menu bar item is on by default: its setting reads on when its key is absent, and a stored off stays off. This supersedes "off by default" in §2.1's Recovery and Settings access and in §7. The first launch shows a welcome window that says the app is running, names the shortcut, and offers to change it when the shortcut could not be registered; a launch macOS marks as a login item's shows nothing. One key, `welcomeShown`, joins the settings, written by the first launch. Document: `ho-process/hos/ho-08-the-first-launch.md`.
+
 ---
 
 ## 3. Core Interaction

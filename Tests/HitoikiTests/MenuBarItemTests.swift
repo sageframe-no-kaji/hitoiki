@@ -28,11 +28,8 @@ internal struct MenuBarItemTests {
         let menuBar = MenuBarItem {}
         defer { menuBar.isShown = false }
         let before = statusWindows()
+        // The key is absent, so the setting reads on and the item is made at once.
         settings.follow({ $0.menuBarEnabled }, apply: { menuBar.isShown = $0 })
-        #expect(menuBar.item == nil)
-
-        settings.menuBarEnabled = true
-        try await until { menuBar.item != nil }
         let first = try #require(menuBar.item)
         #expect(first.menu === menuBar.menu)
         #expect(first.button?.image === MenuBarItem.image)

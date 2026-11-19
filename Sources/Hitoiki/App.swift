@@ -2,7 +2,8 @@ import AppKit
 import HitoikiCore
 
 /// The application: no Dock icon, and a menu bar item only when the setting is on; one store, one history,
-/// one update check, one Run, one Panel, one hotkey, one settings window and one About window for its life.
+/// one update check, one Run, one Panel, one hotkey, one settings window and one About window for its life,
+/// and the welcome window at the one launch that shows it.
 ///
 /// It owns the three live effects: the shortcut, through `Hotkey.record`; the menu bar item and the
 /// appearance, each following its setting.
@@ -13,6 +14,8 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     internal private(set) var settingsWindow: SettingsWindow?
     /// The About window, made at the first About Hitoiki and the same window every time after.
     internal private(set) var aboutWindow: AboutWindow?
+    /// The welcome window, made only by `welcome` at a launch that shows it; nil at every other launch.
+    internal private(set) var welcomeWindow: WelcomeWindow?
 
     private let settings: Settings
     /// Made at launch over the app's folder in Application Support, and shared by the panel, which writes
@@ -62,6 +65,9 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
     }
 
     internal func applicationDidFinishLaunching(_ notification: Notification) {
+        // The open-application event being handled now, which carries the login-item mark when macOS opened
+        // the app at login.
+        let atLogin = Self.launchedAtLogin(NSAppleEventManager.shared().currentAppleEvent)
         NSApplication.shared.setActivationPolicy(.accessory)
         settings.follow({ $0.appearance }, apply: { NSApplication.shared.appearance = $0.nsAppearance })
         let run = Run(environment: ProcessInfo.processInfo.environment)
@@ -80,6 +86,47 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         self.menuBar = menuBar
         updateCheck.observe { panel.announce($0.available) }
         updateCheck.begin()
+        welcome(atLogin: atLogin, status: launchStatus, panel: panel)
+    }
+
+    /// Whether `event`, the launch's open-application event, carries macOS's mark for an app launched as a
+    /// login item.
+    internal static func launchedAtLogin(_ event: NSAppleEventDescriptor?) -> Bool {
+        guard let event, event.eventClass == AEEventClass(kCoreEventClass),
+            event.eventID == AEEventID(kAEOpenApplication)
+        else { return false }
+        return event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue
+            == OSType(keyAELaunchedAsLogInItem)
+    }
+
+    /// The welcome window, once, at the launch that finds `welcomeShown` not holding true.
+    ///
+    /// That launch writes it true and shows the window, so a quit with the window still open counts as seen;
+    /// at a login-item launch it writes it true and shows nothing. Once it holds true, nothing shows and
+    /// nothing is written.
+    ///
+    /// Only `applicationDidFinishLaunching` calls this.
+    ///
+    /// - Parameters:
+    ///   - atLogin: Whether macOS marked the launch as a login item's.
+    ///   - status: The launch registration's status; any but `noErr` and the window says the shortcut couldn't
+    ///     be set up, and offers Change the Shortcut.
+    ///   - panel: What Open Hitoiki shows.
+    internal func welcome(atLogin: Bool, status: OSStatus, panel: Panel) {
+        guard !settings.welcomeShown else { return }
+        settings.welcomeShown = true
+        guard !atLogin else { return }
+        let window = WelcomeWindow(
+            shortcut: settings.shortcut,
+            registered: status == noErr,
+            menuBarShown: settings.menuBarEnabled,
+            open: { panel.show() },
+            // Settings as the menu bar item's Settings… opens it: from no panel, so closing it shows nothing.
+            changeShortcut: { [weak self] in self?.showSettings(nil) })
+        welcomeWindow = window
+        // The forcing call, as in showSettings and for the same reason.
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     // The recovery path when the hotkey never fires: relaunching the app brings the panel up. macOS sends

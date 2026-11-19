@@ -184,7 +184,7 @@ extension PanelTests {
             #expect(quit.senders.count == 3)
         }
 
-        @Test("History, settings, About and a manual check leave the defaults with the ten settings keys alone")
+        @Test("History, settings, About and a manual check leave the defaults with the eleven settings keys alone")
         internal func noNewKey() async throws {
             let suite = try ThrowawaySuite()
             defer { suite.remove() }
