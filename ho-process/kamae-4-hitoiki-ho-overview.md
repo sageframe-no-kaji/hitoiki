@@ -1082,3 +1082,13 @@ Opening hash `ccb30ee`; spec `6693870`; closing `0433bbe` and this close. Spec: 
 - **NEXT** — ho-07, The Storefront, in a fresh session: the site at `hitoiki.sageframe.net` and the Payhip listing selling `~/hitoiki-release/hitoiki-1.0.0.dmg`
 - **ACTION ITEMS / BLOCKS** — none blocking. The closing commits after `0433bbe` are local until his yes to push. Issue #2 (placement) waits for a logging build. The README's "Get the app" assumes the buyer gets a disk image.
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-07 — The Storefront — closed 2026-11-19
+
+Opening hash `546b1d4`; spec `bfaee55`. The site (`sageframe-dharma/hitoiki-web`, live at `hitoiki.sageframe.net`, deploys on push) and the Payhip listing ($6, `release/hitoiki-1.0.0.zip`) were built by the practitioner outside the ho process and recorded here. A $0 purchase delivered the ZIP and the app installed from it. The links were accepted on ho-06.3's witness and the live site; ho-07x skipped by ruling. Phase 4 stays open: a first-time buyer sees nothing at launch, so ho-08 builds v1.0.1 (a welcome window on first launch, the menu bar item on by default) as one pull request, and Phase 4 closes as v1.0 after it.
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-07: the storefront recorded and a purchase proven
+- **NEXT** — ho-08, v1.0.1, in a fresh session: the welcome window and the menu bar default, one PR, a scoped review, a notarised build, the new ZIP on Payhip
+- **ACTION ITEMS / BLOCKS** — none blocking; issues #1 and #2 open
+- **PROJECT LIFECYCLE** — kamae

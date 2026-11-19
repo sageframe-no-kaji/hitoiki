@@ -44,5 +44,5 @@
 | 06.3.1 | Fix pass for The Documents — answer ho-06.3x run 1 | ri | complete |
 | 06.3.2 | Second fix pass for The Documents — answer ho-06.3x run 2 | ri | complete |
 | 06.3.3 | Third fix pass for The Documents — answer ho-06.3x run 3 | ri | complete |
-| 07 | The Storefront | ri | active |
+| 07 | The Storefront | ri | complete |
 | — | Replan checkpoint — after ho-04x | orientation | complete |

@@ -1,6 +1,6 @@
 ---
 created: 2026-11-17
-status: active
+status: complete
 type: ho-document
 project: hitoiki
 ho: "07"
@@ -111,7 +111,12 @@ Each one waits for my yes: any push to either repository, any Payhip change made
 
 ## Results
 
-_Filled at close._
+Closed 2026-11-19, tied off by his rulings.
+
+- **Run sheet 1 — a purchase: passed.** He bought the app at $0 through a Payhip discount code; the ZIP arrived and the app installed from it.
+- **Run sheet 2 — the links: accepted without a new run.** ho-06.3's 0.9.0 copy showed the update line against the real endpoint and opened `hitoiki.sageframe.net`; the site now answers 200 publicly through Cloudflare, with `/.git/HEAD` and `/.env` 404. About's Website link and the settings answer open the same address.
+- **ho-07x: skipped by his ruling.** The site is his own work and live; the app it describes passed ho-06.3x.
+- **Phase 4 does not close here.** On reading the purchase, he ruled that a first-time buyer cannot tell the app started: no Dock icon, the menu bar item off by default, nothing shown at launch. v1 is to be a good product: ho-08 builds v1.0.1 with a welcome window on first launch and the menu bar item on by default, as one pull request with a scoped review. Phase 4 closes as v1.0 after ho-08, and the lifecycle moves to production then.
 
 ### Closing this ho
 
@@ -126,4 +131,4 @@ Closing = fill Results + flip `status: complete` + write the state-summary block
 ---
 
 _Authored: 2026-11-17._
-_Commit: <range>_
+_Commit: 546b1d4..close._
