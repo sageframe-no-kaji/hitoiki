@@ -49,6 +49,13 @@ internal final class UpdateCheck {
     /// what changed.
     nonisolated internal static let site = URL(string: "https://" + siteName)!
     // swiftlint:enable force_unwrapping
+    // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+    // swift-format-ignore: NeverForceUnwrap
+    // swiftlint:disable force_unwrapping
+    /// Where Hitoiki Help, in the menu bar item's menu and the settings footer, sends the user: the site's
+    /// documentation.
+    nonisolated internal static let docs = URL(string: "https://" + siteName + "/docs/")!
+    // swiftlint:enable force_unwrapping
     /// The automatic check's period, timed from launch.
     nonisolated internal static let interval: TimeInterval = 24 * 60 * 60
 

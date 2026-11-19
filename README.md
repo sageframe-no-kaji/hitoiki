@@ -36,7 +36,7 @@ ssh homelab 'systemctl status caddy'
 - **Copy.** `Command-C` or the Copy button copies the selected output, or all of it when nothing is selected.
 - **Open in Terminal.** After a command ends, this button opens a new terminal window in the folder the command ran in. It does not run the command again. Terminal.app is the default. Settings can choose Ghostty, iTerm2, Kitty, WezTerm or Alacritty when installed, or another terminal.
 - **Open at Login.** A switch in settings, off by default. macOS keeps this setting, so it also shows in System Settings › General › Login Items.
-- **Menu bar item.** On by default; you can turn it off in settings. Its menu has Show Hitoiki, About Hitoiki, Check for Updates…, Settings… and Quit.
+- **Menu bar item.** On by default; you can turn it off in settings. Its menu has Show Hitoiki, About Hitoiki, Hitoiki Help, Check for Updates…, Settings… and Quit.
 
 <p align="center">
   <img src="screenshots/settings.png" width="380" alt="The settings window"><br>

@@ -549,8 +549,8 @@ extension PanelTests {
         let hidden = fixture.look()
         #expect(!hidden.visible)
         let menu = MenuBarItem {}.menu
-        let settingsItem = menu.items[4]
-        let checkItem = menu.items[3]
+        let settingsItem = menu.items[5]
+        let checkItem = menu.items[4]
         #expect(settingsItem.title == "Settings…" && checkItem.title == "Check for Updates…")
 
         app.showSettings(settingsItem)
@@ -579,7 +579,7 @@ extension PanelTests {
         app.showSettings(try gearButton(fixture))
         let settings = try #require(app.settingsWindow)
         defer { settings.orderOut(nil) }
-        app.showSettings(MenuBarItem {}.menu.items[4])
+        app.showSettings(MenuBarItem {}.menu.items[5])
         #expect(settings.isVisible)
         #expect(!fixture.window.isVisible)
         settings.sendEvent(try key("\u{1B}", code: UInt16(kVK_Escape), in: settings))

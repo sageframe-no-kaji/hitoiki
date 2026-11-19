@@ -59,21 +59,24 @@ internal struct MenuBarItemTests {
         #expect(menuBar.item != nil)
     }
 
-    @Test("The menu: Show Hitoiki; About Hitoiki, Check for Updates…, Settings…; Quit; in order, with actions")
+    @Test("The menu, in order: Show Hitoiki; About Hitoiki, Hitoiki Help, Check for Updates…, Settings…; Quit")
     internal func menu() {
         let shown = Shown()
         let menuBar = MenuBarItem { shown.count += 1 }
         let titles = menuBar.menu.items.map { $0.isSeparatorItem ? "—" : $0.title }
         #expect(
-            titles == ["Show Hitoiki", "—", "About Hitoiki", "Check for Updates…", "Settings…", "—", "Quit"])
+            titles == [
+                "Show Hitoiki", "—", "About Hitoiki", "Hitoiki Help", "Check for Updates…", "Settings…", "—", "Quit",
+            ])
         let items = menuBar.menu.items
         #expect(items[2].action == #selector(HitoikiApp.showAbout(_:)))
-        #expect(items[3].action == #selector(HitoikiApp.checkForUpdates(_:)))
-        #expect(items[4].action == #selector(HitoikiApp.showSettings(_:)))
-        #expect(items[6].action == #selector(NSApplication.terminate(_:)))
-        // About, Check for Updates… and Settings… have no target: each climbs the responder chain to the
-        // application's delegate, which answers it.
-        for item in items[2...4] {
+        #expect(items[3].action == #selector(HitoikiApp.showHelp(_:)))
+        #expect(items[4].action == #selector(HitoikiApp.checkForUpdates(_:)))
+        #expect(items[5].action == #selector(HitoikiApp.showSettings(_:)))
+        #expect(items[7].action == #selector(NSApplication.terminate(_:)))
+        // About, Hitoiki Help, Check for Updates… and Settings… have no target: each climbs the responder chain
+        // to the application's delegate, which answers it.
+        for item in items[2...5] {
             #expect(item.target == nil)
             #expect(HitoikiApp.instancesRespond(to: item.action))
         }

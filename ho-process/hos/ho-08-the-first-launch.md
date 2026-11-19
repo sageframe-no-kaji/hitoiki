@@ -54,6 +54,8 @@ The buttons: **Open Hitoiki** closes the window and shows the panel. **Change th
 
 **Decision 5 — Documents follow the code.** README and `TECHNICAL.md` describe the welcome window, the menu bar default, and the eleventh key. Nothing else in them changes. `packaging/release-notes-1.0.1.md` is new.
 
+**Decision 6 — Help, and About's maker line (ruled 2026-11-19, after trying the local build).** A **Hitoiki Help** item follows About Hitoiki in the menu bar item's menu, and a **Help** button follows About Hitoiki in the settings footer; both open `https://hitoiki.sageframe.net/docs/`. In About, the maker's line becomes three lines, as pālana's About has it: "by Andrew T. Marcus"; "Sageframe", linked to `https://sageframe.net`; and the "Lovingly made by hand, in collaboration with AI, using the Ho process" sentence with its link. The atmarcus.net link goes. No new tests: the two tests that list the menu's items and the footer's buttons take the new entry. README and `TECHNICAL.md` follow. ho-08x does not run again for this (ruled).
+
 ---
 
 ## Changes

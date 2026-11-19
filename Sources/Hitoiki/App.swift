@@ -181,6 +181,13 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// Hitoiki Help, from the menu bar item and the settings footer: the site's documentation, in the default
+    /// browser.
+    @objc
+    internal func showHelp(_ sender: Any?) {
+        NSWorkspace.shared.open(UpdateCheck.docs)
+    }
+
     /// Check for Updates… in the menu bar item's menu: settings, with a manual check whose answer shows in the
     /// form under the update switch.
     @objc

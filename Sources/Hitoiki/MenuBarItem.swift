@@ -19,7 +19,7 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
 
     /// The item while it is in the menu bar.
     internal private(set) var item: NSStatusItem?
-    /// Show Hitoiki; About Hitoiki, Check for Updates… and Settings…; Quit, in three groups.
+    /// Show Hitoiki; About Hitoiki, Hitoiki Help, Check for Updates… and Settings…; Quit, in three groups.
     internal let menu = NSMenu()
 
     private let show: @MainActor () -> Void
@@ -27,8 +27,8 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
 
     /// A menu whose Show Hitoiki calls `show`.
     ///
-    /// About Hitoiki, Check for Updates… and Settings… go up the responder chain to the application's delegate,
-    /// as the gear's click does; Quit ends the app as Command-Q does.
+    /// About Hitoiki, Hitoiki Help, Check for Updates… and Settings… go up the responder chain to the
+    /// application's delegate, as the gear's click does; Quit ends the app as Command-Q does.
     internal init(show: @escaping @MainActor () -> Void) {
         self.show = show
         showItem = NSMenuItem(title: "Show Hitoiki", action: nil, keyEquivalent: "")
@@ -38,6 +38,7 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
         menu.addItem(showItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "About Hitoiki", action: #selector(HitoikiApp.showAbout(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Hitoiki Help", action: #selector(HitoikiApp.showHelp(_:)), keyEquivalent: "")
         menu.addItem(
             withTitle: "Check for Updates…", action: #selector(HitoikiApp.checkForUpdates(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(HitoikiApp.showSettings(_:)), keyEquivalent: "")

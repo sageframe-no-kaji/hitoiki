@@ -170,7 +170,9 @@ The last-checked time and the newest release found stay in memory. Nothing about
 
 ## About and Open at Login
 
-**About.** `Sources/Hitoiki/AboutWindow.swift`. About Hitoiki in the settings footer, or in the menu bar item, opens it. It shows the app icon, the name, the version ("Development build" when there is none), the maker's line, three links (Website, GitHub, Support), a note on the update check, and OK. OK, Return, Escape and the close button hide the window. The next About Hitoiki shows the same window. The window sends nothing; a link opens in the browser when clicked.
+**About.** `Sources/Hitoiki/AboutWindow.swift`. About Hitoiki in the settings footer, or in the menu bar item, opens it. It shows the app icon, the name, the version ("Development build" when there is none), "by Andrew T. Marcus", a Sageframe link to `https://sageframe.net`, a line on how the app was made with a link to the Ho process, three links (Website, GitHub, Support), a note on the update check, and OK. OK, Return, Escape and the close button hide the window. The next About Hitoiki shows the same window. The window sends nothing; a link opens in the browser when clicked.
+
+**Help.** Hitoiki Help in the menu bar item, or Help in the settings footer, opens `https://hitoiki.sageframe.net/docs/` in the browser.
 
 **Open at Login.** `Sources/Hitoiki/LoginItem.swift`. The switch in settings is off by default. It registers or unregisters the app with macOS's login-item service, `SMAppService.mainApp`. macOS keeps the state, so Hitoiki writes no user-defaults key for it. Hitoiki reads the state again each time settings is shown, so a change made in System Settings › General › Login Items shows in the switch. If macOS waits for the user's approval, the switch is on and a line under it says where to approve. If macOS refuses, the line gives macOS's reason. A bare executable from `swift build` has no bundle identifier, so there the switch is off and disabled.
 
