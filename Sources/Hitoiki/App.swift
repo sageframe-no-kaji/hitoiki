@@ -181,10 +181,14 @@ internal final class HitoikiApp: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// Hitoiki Help, from the menu bar item and the settings footer: the site's documentation, in the default
-    /// browser.
+    /// Hitoiki Help, from the menu bar item: the site's documentation, in the default browser.
+    ///
+    /// The settings footer's Help opens the same page itself.
+    ///
+    /// Not `showHelp(_:)`: `NSApplication` answers that selector itself, earlier in the responder chain, with
+    /// "Help isn't available".
     @objc
-    internal func showHelp(_ sender: Any?) {
+    internal func openHelp(_ sender: Any?) {
         NSWorkspace.shared.open(UpdateCheck.docs)
     }
 

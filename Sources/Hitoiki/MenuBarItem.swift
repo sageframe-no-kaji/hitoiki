@@ -38,7 +38,7 @@ internal final class MenuBarItem: NSObject, NSMenuDelegate {
         menu.addItem(showItem)
         menu.addItem(.separator())
         menu.addItem(withTitle: "About Hitoiki", action: #selector(HitoikiApp.showAbout(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Hitoiki Help", action: #selector(HitoikiApp.showHelp(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Hitoiki Help", action: #selector(HitoikiApp.openHelp(_:)), keyEquivalent: "")
         menu.addItem(
             withTitle: "Check for Updates…", action: #selector(HitoikiApp.checkForUpdates(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(HitoikiApp.showSettings(_:)), keyEquivalent: "")

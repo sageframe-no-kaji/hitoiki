@@ -70,7 +70,7 @@ internal struct MenuBarItemTests {
             ])
         let items = menuBar.menu.items
         #expect(items[2].action == #selector(HitoikiApp.showAbout(_:)))
-        #expect(items[3].action == #selector(HitoikiApp.showHelp(_:)))
+        #expect(items[3].action == #selector(HitoikiApp.openHelp(_:)))
         #expect(items[4].action == #selector(HitoikiApp.checkForUpdates(_:)))
         #expect(items[5].action == #selector(HitoikiApp.showSettings(_:)))
         #expect(items[7].action == #selector(NSApplication.terminate(_:)))
