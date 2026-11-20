@@ -16,7 +16,7 @@ internal final class SettingsWindow: NSWindow {
     /// The application's delegate kills a running command before the app ends. A test stands a recorder in
     /// its place, so the selector is witnessed unsent.
     internal var application: NSResponder = NSApplication.shared
-    /// About Hitoiki and Check for Updates, pinned under the form.
+    /// About Hitoiki, Help and Check for Updates, pinned under the form.
     internal let footer: SettingsFooter
     /// The panel this window was opened from, shown again as it was when the window closes; nil when it was
     /// opened from the menu bar item (ho-06.1 Decision 21).
@@ -195,12 +195,14 @@ internal final class SettingsWindow: NSWindow {
     }
 }
 
-/// The settings footer: About Hitoiki and Check for Updates, one centred row with ordinary padding; the manual
-/// check's answer is in the form, under the update switch.
+/// The settings footer: About Hitoiki, Help and Check for Updates, one centred row with ordinary padding; the
+/// manual check's answer is in the form, under the update switch.
 @MainActor
 internal final class SettingsFooter: NSView {
     /// Internal, with the check button, so a test sends each one's action as a click does.
     internal let aboutButton = NSButton()
+    /// Opens the site's documentation in the default browser, as the menu's Hitoiki Help does.
+    internal let helpButton = NSButton()
     /// Runs a manual check; reads "Checking…" while one is in flight.
     internal let checkButton = NSButton()
 
@@ -212,8 +214,12 @@ internal final class SettingsFooter: NSView {
         self.check = check
         super.init(frame: .zero)
         aboutButton.title = "About Hitoiki"
+        helpButton.title = "Help"
         checkButton.title = "Check for Updates"
-        for (button, action) in [(aboutButton, #selector(aboutPressed)), (checkButton, #selector(checkPressed))] {
+        for (button, action) in [
+            (aboutButton, #selector(aboutPressed)), (helpButton, #selector(helpPressed)),
+            (checkButton, #selector(checkPressed)),
+        ] {
             button.bezelStyle = .push
             button.target = self
             button.action = action
@@ -237,6 +243,11 @@ internal final class SettingsFooter: NSView {
     }
 
     @objc
+    private func helpPressed() {
+        NSWorkspace.shared.open(UpdateCheck.docs)
+    }
+
+    @objc
     private func checkPressed() {
         check()
     }
@@ -244,7 +255,7 @@ internal final class SettingsFooter: NSView {
     private func lay() {
         let rule = NSBox()
         rule.boxType = .separator
-        let buttons = NSStackView(views: [aboutButton, checkButton])
+        let buttons = NSStackView(views: [aboutButton, helpButton, checkButton])
         buttons.spacing = 12
         buttons.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
         for view in [rule, buttons] {

@@ -36,8 +36,8 @@ internal final class AboutWindow: NSWindow {
     }
 }
 
-/// About's face, top to bottom: the icon, the name, the version, the maker's line, the three links, the note on
-/// the update check, and OK.
+/// About's face, top to bottom: the icon, the name, the version, the maker, Sageframe, the line on how it was
+/// made, the three links, the note on the update check, and OK.
 private struct AboutView: View {
     let version: String?
     let close: @MainActor () -> Void
@@ -57,12 +57,21 @@ private struct AboutView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.top, 4)
-            // A localized key, not a plain string, so the markdown links are parsed and open in the browser.
+            Text("by Andrew T. Marcus")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.inkFaint)
+                .padding(.top, 14)
+            // FORCE: a fixed, well-formed URL, which `URL(string:)` always parses.
+            // swift-format-ignore: NeverForceUnwrap
+            Link("Sageframe", destination: URL(string: "https://sageframe.net")!)
+                .font(.system(size: 13))
+                .tint(Theme.accent)
+                .padding(.top, 4)
+            // A localized key, not a plain string, so the markdown link is parsed and opens in the browser.
             Text(
                 LocalizedStringKey(
-                    "Andrew Todd Marcus — [atmarcus.net](https://atmarcus.net) · "
-                        + "[sageframe.net](https://sageframe.net). Lovingly made by hand, in collaboration with AI, "
-                        + "using the [Ho process](https://hosystem.sageframe.net/).")
+                    "Lovingly made by hand, in collaboration with AI, using the "
+                        + "[Ho process](https://hosystem.sageframe.net/).")
             )
             .font(.system(size: 12))
             .foregroundStyle(Theme.inkFaint)

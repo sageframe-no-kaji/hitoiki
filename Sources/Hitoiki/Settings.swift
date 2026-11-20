@@ -30,15 +30,17 @@ internal enum Appearance: String, Sendable, CaseIterable {
     }
 }
 
-/// The settings and the macros: ten keys in one user-defaults domain, read and written in place.
+/// The settings, the macros and the welcome window's mark: eleven keys in one user-defaults domain, read and
+/// written in place.
 ///
 /// The store holds no copy of any value; every read goes to the defaults and every write goes to them, and
-/// an absent key reads as its default, so a fresh install writes nothing until the user changes something.
+/// an absent key reads as its default, so a fresh install writes nothing until the user changes something,
+/// except the welcome window's mark, which the first launch writes.
 /// Observable, so the settings form binds to it and the live effects follow a change.
 @MainActor
 @Observable
 internal final class Settings {
-    /// The ten keys the store writes, and no other.
+    /// The eleven keys the store writes, and no other.
     internal enum Key: String, CaseIterable, Sendable {
         case shortcutKeyCode
         case shortcutModifiers
@@ -50,6 +52,7 @@ internal final class Settings {
         case menuBarEnabled
         case updateCheckEnabled
         case macros
+        case welcomeShown
     }
 
     /// Control-Command-Space.
@@ -132,11 +135,11 @@ internal final class Settings {
         set { withMutation(keyPath: \.historyEnabled) { defaults.set(newValue, forKey: Key.historyEnabled.rawValue) } }
     }
 
-    /// The menu bar item switch.
+    /// The menu bar item switch, on when its key is absent; a stored false stays off.
     internal var menuBarEnabled: Bool {
         get {
             access(keyPath: \.menuBarEnabled)
-            return bool(.menuBarEnabled, absent: false)
+            return bool(.menuBarEnabled, absent: true)
         }
         set { withMutation(keyPath: \.menuBarEnabled) { defaults.set(newValue, forKey: Key.menuBarEnabled.rawValue) } }
     }
@@ -173,6 +176,18 @@ internal final class Settings {
                 defaults.set(Array(slots), forKey: Key.macros.rawValue)
             }
         }
+    }
+
+    /// Whether the welcome window has had its one showing, false when its key is absent.
+    ///
+    /// The launch writes it true as the window shows, or as a login-item launch passes the window by; nothing
+    /// writes it false.
+    internal var welcomeShown: Bool {
+        get {
+            access(keyPath: \.welcomeShown)
+            return bool(.welcomeShown, absent: false)
+        }
+        set { withMutation(keyPath: \.welcomeShown) { defaults.set(newValue, forKey: Key.welcomeShown.rawValue) } }
     }
 
     /// Calls `apply` with what `read` returns now, and again with what it returns after each change to the

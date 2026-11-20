@@ -184,7 +184,7 @@ extension PanelTests {
             #expect(quit.senders.count == 3)
         }
 
-        @Test("History, settings, About and a manual check leave the defaults with the ten settings keys alone")
+        @Test("History, settings, About and a manual check leave the defaults with the eleven settings keys alone")
         internal func noNewKey() async throws {
             let suite = try ThrowawaySuite()
             defer { suite.remove() }
@@ -322,7 +322,7 @@ extension PanelTests {
 // The footer, Check for Updates… from the menu, and the one About window; in the settings-window suite, which
 // runs inside the Panel suite, one test at a time.
 extension PanelTests.SettingsWindowTests {
-    @Test("The footer is the two buttons alone, outside the scrolling form; About shows About; Check checks")
+    @Test("The footer is the three buttons alone, outside the scrolling form; About shows About; Check checks")
     internal func footer() async throws {
         let suite = try ThrowawaySuite()
         defer { suite.remove() }
@@ -338,10 +338,11 @@ extension PanelTests.SettingsWindowTests {
         defer { window.orderOut(nil) }
         let footer = window.footer
         #expect(footer.aboutButton.title == "About Hitoiki")
+        #expect(footer.helpButton.title == "Help")
         #expect(footer.checkButton.title == "Check for Updates")
-        // The two buttons and nothing else, no answer line.
+        // The three buttons and nothing else, no answer line.
         let buttons = descendants(of: footer).compactMap { $0 as? NSButton }
-        #expect(buttons.map(\.title) == ["About Hitoiki", "Check for Updates"])
+        #expect(buttons.map(\.title) == ["About Hitoiki", "Help", "Check for Updates"])
         #expect(!descendants(of: footer).contains { $0 is NSTextField })
         // Pinned: not inside the form's scrolling area, and at the window's foot.
         #expect(footer.enclosingScrollView == nil)

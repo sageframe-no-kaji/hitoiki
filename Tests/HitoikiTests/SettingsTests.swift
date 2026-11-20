@@ -36,10 +36,10 @@ internal func until(_ condition: () -> Bool) async throws {
     }
 }
 
-/// The ten keys the store writes, written out here rather than read from the code.
+/// The eleven keys the store writes, written out here rather than read from the code.
 internal let settingsKeys: Set<String> = [
     "shortcutKeyCode", "shortcutModifiers", "directoryMode", "directoryPath", "terminal", "appearance",
-    "historyEnabled", "menuBarEnabled", "updateCheckEnabled", "macros",
+    "historyEnabled", "menuBarEnabled", "updateCheckEnabled", "macros", "welcomeShown",
 ]
 
 /// Control-Command-Space in Carbon's numbers: `kVK_Space` is 49, `controlKey` 4096, `cmdKey` 256.
@@ -54,12 +54,13 @@ internal func writeEverything(to settings: Settings) {
     settings.terminal = "com.mitchellh.ghostty"
     settings.appearance = .dark
     settings.historyEnabled = true
-    settings.menuBarEnabled = true
+    settings.menuBarEnabled = false
     settings.updateCheckEnabled = false
     var macros = settings.macros
     macros[0] = "uptime"
     macros[8] = "ssh host-a"
     settings.macros = macros
+    settings.welcomeShown = true
 }
 
 @Suite("Settings", .serialized)
@@ -76,10 +77,29 @@ internal struct SettingsTests {
         #expect(settings.terminal == "com.apple.Terminal")
         #expect(settings.appearance == .system)
         #expect(!settings.historyEnabled)
-        #expect(!settings.menuBarEnabled)
+        #expect(settings.menuBarEnabled)
         #expect(settings.updateCheckEnabled)
         #expect(settings.macros == Array(repeating: "", count: 9))
+        #expect(!settings.welcomeShown)
         #expect(suite.keys.isEmpty)
+    }
+
+    @Test("The menu bar item: on when its key is absent, off for a stored false, on for a stored true")
+    internal func menuBarDefault() throws {
+        let suite = try ThrowawaySuite()
+        defer { suite.remove() }
+        #expect(Settings(defaults: suite.defaults).menuBarEnabled)
+        #expect(suite.keys.isEmpty)
+        suite.defaults.set(false, forKey: "menuBarEnabled")
+        #expect(!Settings(defaults: suite.defaults).menuBarEnabled)
+        suite.defaults.set(true, forKey: "menuBarEnabled")
+        #expect(Settings(defaults: suite.defaults).menuBarEnabled)
+    }
+
+    @Test("The store's keys are the eleven, welcomeShown among them")
+    internal func keyList() {
+        #expect(Set(Settings.Key.allCases.map(\.rawValue)) == settingsKeys)
+        #expect(Settings.Key.allCases.count == 11)
     }
 
     @Test("Each setting writes its own key and no other")
@@ -91,9 +111,10 @@ internal struct SettingsTests {
             (["terminal"], { $0.terminal = "org.alacritty" }),
             (["appearance"], { $0.appearance = .light }),
             (["historyEnabled"], { $0.historyEnabled = true }),
-            (["menuBarEnabled"], { $0.menuBarEnabled = true }),
+            (["menuBarEnabled"], { $0.menuBarEnabled = false }),
             (["updateCheckEnabled"], { $0.updateCheckEnabled = false }),
             (["macros"], { $0.macros = ["b"] }),
+            (["welcomeShown"], { $0.welcomeShown = true }),
         ]
         for (keys, write) in writes {
             let suite = try ThrowawaySuite()
@@ -103,7 +124,7 @@ internal struct SettingsTests {
         }
     }
 
-    @Test("Every setting round-trips through a second store over the same suite; the domain holds the ten keys")
+    @Test("Every setting round-trips through a second store over the same suite; the domain holds the eleven keys")
     internal func roundTrip() throws {
         let suite = try ThrowawaySuite()
         defer { suite.remove() }
@@ -115,10 +136,11 @@ internal struct SettingsTests {
         #expect(second.terminal == "com.mitchellh.ghostty")
         #expect(second.appearance == .dark)
         #expect(second.historyEnabled)
-        #expect(second.menuBarEnabled)
+        #expect(!second.menuBarEnabled)
         #expect(!second.updateCheckEnabled)
         #expect(second.macros[0] == "uptime")
         #expect(second.macros[8] == "ssh host-a")
+        #expect(second.welcomeShown)
         #expect(suite.keys == settingsKeys)
 
         // Back to the defaults, written as values, read back as written.
