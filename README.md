@@ -84,6 +84,8 @@ Hitoiki is Swift 6, built with Swift Package Manager, with no dependencies.
 - [`RELEASING.md`](RELEASING.md) gives the release steps.
 - [`TECHNICAL.md`](TECHNICAL.md) describes how Hitoiki works.
 
+Hitoiki was built with the [Ho process](https://hosystem.sageframe.net/). [`ho-process/`](ho-process/) holds the record: the seed, the system design, each ho's spec, and Codex's review of each one.
+
 Hitoiki is one of a set of native Mac apps, with [pālana](https://github.com/sageframe-no-kaji/palana), a file manager for the homelab, and [Sharibako](https://github.com/sageframe-no-kaji/sharibako), a vault for API keys.
 
 ## License
