@@ -1,6 +1,6 @@
 ---
 created: 2026-11-19
-status: draft
+status: complete
 type: ho-document
 project: hitoiki
 ho: "08"
@@ -117,7 +117,21 @@ On the branch: `ho-08: open — the first launch, spec`; the builder's work as `
 
 ## Results
 
-_Filled at close._
+Closed 2026-11-21.
+
+- **Built and merged.** Branch `ho-08-first-launch`: the spec (`f927f3e`), the welcome window and the menu bar default (`45c10a1`), ho-08x and its report, N2's comment (`5add59e`), Decision 6's Help and About (`b84556d`), and the Help action renamed to `openHelp` (`02eb909`) after my run showed macOS's own "Help isn't available": `NSApplication` answers `showHelp:` before the delegate. PR #3, merged as `baaf678`. Final `scripts/vm-test.sh`: six green, 229 and 71 tests, 95.76% / 98.35%.
+- **ho-08x: Pass** on run 1 (`ho-process/reviews/ho-08x-report-1.md`, `7c3f2a0`), Codex `gpt-6-astra` under `ho-antagonist-review` pinned at Ho System `552fb4a`. 0 Must-fix, 0 Should-fix. N1 (the tests call the welcome routine, not a launch) was answered by my launch of the local build; N2 (a stale comment) fixed. Decision 6 and the rename were not reviewed again, by ruling.
+- **The local build.** I opened a local 1.0.1 copy, saw the welcome window, and asked for Help and About's new maker lines (Decision 6). Settings were not exported or deleted (ruled); `welcomeShown` was cleared by hand between runs.
+- **Release.** `VERSION=1.0.1 ./scripts/build_macos.sh --dmg` from `baaf678`: both uploads Accepted, app and disk image stapled, Gatekeeper accepts both as Notarized Developer ID. Tag `v1.0.1`; GitHub release "Hitoiki 1.0.1", Latest, no disk image; the releases-latest endpoint answers `v1.0.1`.
+
+  | File | SHA-256 |
+  |---|---|
+  | `release/hitoiki-1.0.1.zip` (holds only the disk image) | `2310ccfc329166df9c90d973ef3d4f0fa315ca2103feb0732aca29d94a9058ef` |
+  | `release/hitoiki-1.0.1.dmg` | `27cc28ecb3c3cfd8e06cc799866e704f19f5ec282834c5febd867e9053987276` |
+
+- **The site.** `sageframe-dharma/hitoiki-web` `cf47a0f`, deployed: the docs page names the welcome window, the menu bar item on by default, and Hitoiki Help. My five unpushed local commits in that repository stay unpushed, replayed on top. The menu screenshot (`assets/screens/menu.webp`) predates Hitoiki Help.
+- **Payhip.** The ZIP swap is mine (run sheet step 7). Step 8, v1.0.0 showing the update line for 1.0.1, is not run.
+- **Phase 4 closed as v1.0.** The lifecycle moves to production.
 
 ### Closing this ho
 
@@ -132,4 +146,4 @@ Closing = fill Results + flip `status: complete` + write the state-summary block
 ---
 
 _Authored: 2026-11-19._
-_Commit: 3b0c944..close._
+_Commit: 3b0c944..baaf678, and the close._

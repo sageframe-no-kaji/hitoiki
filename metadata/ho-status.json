@@ -1,15 +1,15 @@
 {
   "schema": "ho-status/1",
   "project": "hitoiki",
-  "generated_at": "2026-11-19T17:49:43Z",
+  "generated_at": "2026-11-21T15:30:59Z",
   "source": {
     "overview": "ho-process/kamae-4-hitoiki-ho-overview.md",
     "hos_dir": "ho-process/hos/"
   },
   "summary": {
-    "hos": 42,
+    "hos": 44,
     "drafted": 0,
-    "complete": 42,
+    "complete": 44,
     "planned": 0,
     "ready": 0
   },
@@ -369,6 +369,22 @@
           "shape": "ri",
           "status": "complete",
           "doc": "ho-process/hos/ho-07-the-storefront.md"
+        },
+        {
+          "ho": "08",
+          "title": "The First Launch",
+          "shape": "ri",
+          "status": "complete",
+          "doc": "ho-process/hos/ho-08-the-first-launch.md"
+        },
+        {
+          "ho": "08x",
+          "title": "Review of The First Launch",
+          "shape": "x",
+          "status": "complete",
+          "reviews": "08",
+          "doc": "ho-process/hos/ho-08x-review-of-the-first-launch.md",
+          "run": 1
         }
       ]
     }

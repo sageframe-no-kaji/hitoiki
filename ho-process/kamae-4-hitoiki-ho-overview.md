@@ -425,6 +425,8 @@ Adapt `scripts/build_macos.sh` and `RELEASING.md` from palana: release build, bu
 
 *ho-07, 2026-11-17 (`ho-process/hos/ho-07-the-storefront.md`).* ho-07 was built by me outside the ho process, on 2026-11-14 and 2026-11-15: the site at `hitoiki.sageframe.net` (repository `sageframe-dharma/hitoiki-web`) and the Payhip listing at $6, which delivers a ZIP holding the disk image because Payhip refuses `.dmg` files. The ho records them, proves a purchase and the app's links to the site, and is reviewed by ho-07x. No new build: v1.0.0 is the release, and Phase 4 closes as v1.0 when ho-07x passes.
 
+*ho-08, 2026-11-19 to 2026-11-21 (`ho-process/hos/ho-08-the-first-launch.md`).* After the purchase, a first-time buyer could not tell Hitoiki had started. ho-08 built v1.0.1 as one pull request with a scoped review: a welcome window on the first launch, the menu bar item on by default, and Help in the menu and the settings footer. v1.0.1 is the release Phase 4 closes on.
+
 ### ho-06x — Review of the Ship
 
 The last review before anyone else runs the code. The antagonist reads the update checker as the privacy section of the README promises it, and reads the build script for anything that would publish what should not be published.
@@ -1092,3 +1094,27 @@ Opening hash `546b1d4`; spec `bfaee55`. The site (`sageframe-dharma/hitoiki-web`
 - **NEXT** — ho-08, v1.0.1, in a fresh session: the welcome window and the menu bar default, one PR, a scoped review, a notarised build, the new ZIP on Payhip
 - **ACTION ITEMS / BLOCKS** — none blocking; issues #1 and #2 open
 - **PROJECT LIFECYCLE** — kamae
+
+### ho-08x — run 1 — Pass — 2026-11-20
+
+Range `3b0c944..45c10a1`; x document `e867e98`, the skill named and pinned in `fb5a20b`; Codex (`gpt-6-astra`, a fresh `codex exec` session run by him, under `ho-antagonist-review` at Ho System `552fb4a`) committed `ho-process/reviews/ho-08x-report-1.md` as `7c3f2a0`. Verdict **Pass**: 0 Must-fix, 0 Should-fix, 2 Notes. Build pass through one run of `scripts/vm-test.sh`, 229 and 71 tests in both test steps, 95.76% / 98.35%. N1 (no launch witness) answered by his launch of the local build; N2 (a stale comment) fixed in `5add59e`.
+
+### ho-08 — The First Launch — closed 2026-11-21
+
+Opening hash `3b0c944`; spec `f927f3e`; merged as `baaf678` (PR #3). One Opus builder wrote the welcome window, the `welcomeShown` key and the menu bar default; a second, after he tried a local build, added Help to the menu bar item and the settings footer and changed About's maker lines (Decision 6, not reviewed again by ruling). The Help action was renamed `openHelp`, since `NSApplication` answers `showHelp:` itself. v1.0.1 built from `baaf678`, notarised and stapled; `v1.0.1` tagged and released as Latest with no disk image; `release/hitoiki-1.0.1.zip` (`2310ccfc…9058ef`) for Payhip; the site's docs page updated (`hitoiki-web` `cf47a0f`). K2 amended (§2.4, 2026-11-19).
+
+**STATE-SUMMARY**
+- **COMPLETED** — ho-08: v1.0.1 with the welcome window, the menu bar default and Help, reviewed (ho-08x Pass), merged, notarised, released on GitHub; the site updated
+- **NEXT** — Phase 4 closed; see the phase entry below
+- **ACTION ITEMS / BLOCKS** — none blocking. The Payhip ZIP swap is his. Issues #1 and #2 open.
+- **PROJECT LIFECYCLE** — production
+
+### Phase 4 — The Ship — closed as v1.0 — 2026-11-21
+
+Hos 06.1, 06.2, 06.3, 07 and 08, with their reviews and fix passes. A stranger can buy Hitoiki at `hitoiki.sageframe.net`, install the notarised app from the ZIP Payhip delivers, see on first launch that it is running and how to open it, run commands, read the documentation from Help, receive update notices, and remove it. The source is public and free under MIT. Release: v1.0.1 (GitHub Latest; v1.0.0 before it). The build sequence in this overview is complete.
+
+**STATE-SUMMARY**
+- **COMPLETED** — Phase 4, The Ship, closed as v1.0 on v1.0.1; the whole ho sequence built
+- **NEXT** — maintenance: issues #1 (`-tt` retry) and #2 (panel placement) when he chooses, each as its own ho
+- **ACTION ITEMS / BLOCKS** — none blocking. The Payhip ZIP swap is his; the site's menu screenshot predates Hitoiki Help.
+- **PROJECT LIFECYCLE** — production

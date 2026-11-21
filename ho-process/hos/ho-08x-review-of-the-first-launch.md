@@ -1,6 +1,6 @@
 ---
 created: 2026-11-19
-status: ready
+status: complete
 type: ho-document
 project: hitoiki
 ho: 08x
