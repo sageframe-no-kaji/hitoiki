@@ -12,15 +12,15 @@
       "media": [
         "software"
       ],
-      "status": "scaffolded",
+      "status": "shipped",
       "repo": "git@github-no-kaji:sageframe-no-kaji/hitoiki.git",
       "license": "MIT",
       "tech_stack": "Swift",
       "created": "2026-10-25",
-      "last_updated": "2026-11-19",
+      "last_updated": "2026-11-21",
       "availability": "shipped",
       "_keisaku": {
-        "generated_at": "2026-11-19T17:23:10",
+        "generated_at": "2026-11-24T15:19:04",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
@@ -33,7 +33,7 @@
           "media": [
             "software"
           ],
-          "status": "scaffolded",
+          "status": "shipped",
           "created": "2026-10-25",
           "tags": [
             "swift"
